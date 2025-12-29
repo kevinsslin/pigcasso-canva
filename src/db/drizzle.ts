@@ -1,6 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
+import { createLazyProxy } from "@/lib/lazy-proxy";
+
 type DrizzleDb = ReturnType<typeof drizzle>;
 
 let cachedDb: DrizzleDb | null = null;
@@ -22,10 +24,4 @@ const getDb = (): DrizzleDb => {
   return cachedDb;
 };
 
-export const db: DrizzleDb = new Proxy({} as DrizzleDb, {
-  get(_target, prop) {
-    const real = getDb() as any;
-    const value = real[prop];
-    return typeof value === "function" ? value.bind(real) : value;
-  },
-}) as DrizzleDb;
+export const db: DrizzleDb = createLazyProxy(getDb);

@@ -1,5 +1,7 @@
 import { PrivyClient } from "@privy-io/server-auth";
 
+import { createLazyProxy } from "@/lib/lazy-proxy";
+
 let cachedClient: PrivyClient | null = null;
 
 const getPrivyClient = () => {
@@ -22,10 +24,4 @@ const getPrivyClient = () => {
   return cachedClient;
 };
 
-export const privy: PrivyClient = new Proxy({} as PrivyClient, {
-  get(_target, prop) {
-    const real = getPrivyClient() as any;
-    const value = real[prop];
-    return typeof value === "function" ? value.bind(real) : value;
-  },
-}) as PrivyClient;
+export const privy: PrivyClient = createLazyProxy(getPrivyClient);

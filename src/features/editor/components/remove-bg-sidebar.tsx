@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { fabric } from "fabric";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-hea
 import { useMe } from "@/features/auth/api/use-me";
 import { useRemoveBg } from "@/features/ai/api/use-remove-bg";
 
+import { getApiErrorStatus } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,8 +33,14 @@ export const RemoveBgSidebar = ({
   const selectedObject = editor?.selectedObjects[0];
   const [provider, setProvider] = useState<"replicate" | "gemini">("replicate");
 
-  // @ts-ignore
-  const imageSrc = selectedObject?._originalElement?.currentSrc;
+  const imageSrc = useMemo(() => {
+    if (!selectedObject || selectedObject.type !== "image") {
+      return null;
+    }
+    const imageObject = selectedObject as fabric.Image;
+    const src = imageObject.getSrc();
+    return src || null;
+  }, [selectedObject]);
 
   const aiMeta = me.data?.data.ai;
   const providers = aiMeta?.providers;
@@ -63,6 +71,11 @@ export const RemoveBgSidebar = ({
   };
 
   const onClick = () => {
+    if (!imageSrc) {
+      toast.error("Select an image to remove its background.");
+      return;
+    }
+
     mutation.mutate({
       image: imageSrc,
       provider,
@@ -71,7 +84,7 @@ export const RemoveBgSidebar = ({
         editor?.addImage(data);
       },
       onError: (err) => {
-        const status = (err as any)?.status as number | undefined;
+        const status = getApiErrorStatus(err);
         if (status === 429) {
           toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
           return;

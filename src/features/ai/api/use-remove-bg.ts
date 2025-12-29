@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { InferRequestType, InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
+import { createApiError, extractBodyErrorMessage } from "@/lib/api-error";
 
 type ResponseType = InferResponseType<
   typeof client.api.ai["remove-bg"]["$post"],
@@ -17,18 +18,12 @@ export const useRemoveBg = () => {
   >({
     mutationFn: async (json) => {
       const response = await client.api.ai["remove-bg"].$post({ json });
-      const body = (await response.json()) as any;
+      const body: unknown = await response.json();
 
       if (!response.ok) {
         const message =
-          typeof (body as any)?.error === "string"
-            ? (body as any).error
-            : "Failed to remove background";
-
-        const error = new Error(message);
-        (error as any).status = response.status;
-        (error as any).body = body;
-        throw error;
+          extractBodyErrorMessage(body) ?? "Failed to remove background";
+        throw createApiError({ message, status: response.status, body });
       }
 
       return body as ResponseType;

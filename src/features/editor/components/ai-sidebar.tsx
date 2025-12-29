@@ -8,6 +8,7 @@ import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-hea
 import { useMe } from "@/features/auth/api/use-me";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 
+import { getApiErrorStatus } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,7 +66,7 @@ export const AiSidebar = ({
         setValue("");
       },
       onError: (err) => {
-        const status = (err as any)?.status as number | undefined;
+        const status = getApiErrorStatus(err);
         if (status === 429) {
           toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
           return;

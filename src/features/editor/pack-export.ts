@@ -148,7 +148,7 @@ const renderPresetPng = async (options: {
   });
 
   const workspaceFill = (workspace as fabric.Rect).fill ?? "white";
-  tempCanvas.setBackgroundColor(workspaceFill as any, () => {});
+  tempCanvas.setBackgroundColor(workspaceFill, () => {});
 
   const cloned = await Promise.all(exportObjects.map(cloneObject));
 

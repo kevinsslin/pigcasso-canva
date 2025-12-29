@@ -18,17 +18,46 @@ const getGeminiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-const extractInlineImage = (response: any) => {
-  const parts = response?.candidates?.[0]?.content?.parts;
+type GeminiInlineImage = {
+  data: string;
+  mimeType: string;
+};
+
+type GeminiInlineData = {
+  data?: unknown;
+  mimeType?: unknown;
+};
+
+type GeminiPart = {
+  inlineData?: GeminiInlineData;
+};
+
+type GeminiCandidate = {
+  content?: {
+    parts?: GeminiPart[];
+  };
+};
+
+type GeminiResponse = {
+  candidates?: GeminiCandidate[];
+};
+
+const extractInlineImage = (response: unknown): GeminiInlineImage | null => {
+  const parts = (response as GeminiResponse)?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) {
     return null;
   }
 
   for (const part of parts) {
-    if (part?.inlineData?.data) {
+    const inlineData = part?.inlineData;
+    if (!inlineData) {
+      continue;
+    }
+
+    if (typeof inlineData.data === "string" && inlineData.data.length > 0) {
       return {
-        data: part.inlineData.data as string,
-        mimeType: (part.inlineData.mimeType as string | undefined) ?? "image/png",
+        data: inlineData.data,
+        mimeType: typeof inlineData.mimeType === "string" ? inlineData.mimeType : "image/png",
       };
     }
   }
@@ -98,9 +127,11 @@ export const generateImage = async (params: {
   };
 
   const output = await replicate.run("stability-ai/stable-diffusion-3", { input });
-  const res = output as Array<string>;
+  if (!Array.isArray(output) || typeof output[0] !== "string") {
+    throw new Error("Unexpected output from Replicate");
+  }
 
-  return { imageUrl: res[0] };
+  return { imageUrl: output[0] };
 };
 
 export const removeBackground = async (params: {
@@ -144,7 +175,9 @@ export const removeBackground = async (params: {
     { input },
   );
 
-  const res = output as string;
-  return { imageUrl: res };
-};
+  if (typeof output !== "string") {
+    throw new Error("Unexpected output from Replicate");
+  }
 
+  return { imageUrl: output };
+};
