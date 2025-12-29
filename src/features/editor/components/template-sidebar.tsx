@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { AlertTriangle, Loader, Crown } from "lucide-react";
+import { toast } from "sonner";
 
-import { usePaywall } from "@/features/subscriptions/hooks/use-paywall";
+import { usePro } from "@/features/auth/hooks/use-pro";
 
 import { 
   ActiveTool, 
@@ -27,7 +28,7 @@ export const TemplateSidebar = ({
   activeTool,
   onChangeActiveTool,
 }: TemplateSidebarProps) => {
-  const { shouldBlock, triggerPaywall } = usePaywall();
+  const { isPro } = usePro();
 
   const [ConfirmDialog, confirm] = useConfirm(
     "Are you sure?",
@@ -44,8 +45,8 @@ export const TemplateSidebar = ({
   };
 
   const onClick = async (template: ResponseType["data"][0]) => {
-    if (template.isPro && shouldBlock) {
-      triggerPaywall();
+    if (template.isPro && !isPro) {
+      toast.error("Pro template locked. Hold 100,000 PIGCASSO to unlock Pro.");
       return;
     }
 

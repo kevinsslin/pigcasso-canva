@@ -1,11 +1,11 @@
 "use client";
 
-import { CreditCard, Crown, Home, MessageCircleQuestion } from "lucide-react";
+import { Crown, Home, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 
-import { usePaywall } from "@/features/subscriptions/hooks/use-paywall";
-import { useCheckout } from "@/features/subscriptions/api/use-checkout";
-import { useBilling } from "@/features/subscriptions/api/use-billing";
+import { usePro } from "@/features/auth/hooks/use-pro";
+import { useRefreshTokenGating } from "@/features/auth/api/use-refresh-token-gating";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -13,36 +13,40 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarItem } from "./sidebar-item";
 
 export const SidebarRoutes = () => {
-  const mutation = useCheckout();
-  const billingMutation = useBilling();
-  const { shouldBlock, isLoading, triggerPaywall } = usePaywall();
+  const { ready, authenticated } = usePrivy();
+  const { isLoading, isPro } = usePro({ enabled: ready && authenticated });
+  const refreshMutation = useRefreshTokenGating();
 
   const pathname = usePathname();
 
-  const onClick = () => {
-    if (shouldBlock) {
-      triggerPaywall();
-      return;
-    }
-
-    billingMutation.mutate();
-  };
-
   return (
     <div className="flex flex-col gap-y-4 flex-1">
-      {shouldBlock && !isLoading && (
+      {!isLoading && authenticated && (
         <>
           <div className="px-3">
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-              className="w-full rounded-xl border-none hover:bg-white hover:opacity-75 transition"
-              variant="outline"
-              size="lg"
-            >
-              <Crown className="mr-2 size-4 fill-yellow-500 text-yellow-500" />
-              Upgrade to Pro
-            </Button>
+            <div className="rounded-xl border bg-white p-3">
+              <div className="flex items-center gap-x-2">
+                <Crown className="size-4 text-yellow-500 fill-yellow-500" />
+                <p className="text-sm font-medium">
+                  {isPro ? "Pigcasso Pro unlocked" : "Unlock Pigcasso Pro"}
+                </p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isPro
+                  ? "Token gating is active on Mantle."
+                  : "Hold 100,000 PIGCASSO on Mantle to unlock Pro features."}
+              </p>
+              <Button
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                className="w-full mt-3 rounded-lg"
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="mr-2 size-4" />
+                Refresh status
+              </Button>
+            </div>
           </div>
           <div className="px-3">
             <Separator />
@@ -56,7 +60,6 @@ export const SidebarRoutes = () => {
         <Separator />
       </div>
       <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem href={pathname} icon={CreditCard} label="Billing" onClick={onClick} />
         <SidebarItem
           href="mailto:support@example.com"
           icon={MessageCircleQuestion}
