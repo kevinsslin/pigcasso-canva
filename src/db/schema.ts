@@ -21,6 +21,7 @@ export const users = pgTable("user", {
   externalWalletAddress: text("externalWalletAddress"),
   isPro: boolean("isPro").notNull().default(false),
   proBalanceRaw: text("proBalanceRaw"),
+  proWalletAddress: text("proWalletAddress"),
   proCheckedAt: timestamp("proCheckedAt", { mode: "date" }),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
