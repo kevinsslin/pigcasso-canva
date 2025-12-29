@@ -1,17 +1,22 @@
-import { redirect } from "next/navigation";
+"use client";
 
-import { SignInCard } from "@/features/auth/components/sign-in-card";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 
-import { auth } from "@/auth";
+import { PrivyAuthCard } from "@/features/auth/components/privy-auth-card";
 
-const SignInPage = async () => {
-  const session = await auth();
+const SignInPage = () => {
+  const router = useRouter();
+  const { ready, authenticated } = usePrivy();
 
-  if (session) {
-    redirect("/");
-  }
+  useEffect(() => {
+    if (ready && authenticated) {
+      router.replace("/");
+    }
+  }, [authenticated, ready, router]);
 
-  return <SignInCard />;
+  return <PrivyAuthCard />;
 };
 
 export default SignInPage;

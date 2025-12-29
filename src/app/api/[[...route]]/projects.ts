@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { Hono } from "hono";
 import { eq, and, desc, asc } from "drizzle-orm";
-import { verifyAuth } from "@hono/auth-js";
 import { zValidator } from "@hono/zod-validator";
 
 import { db } from "@/db/drizzle";
 import { projects, projectsInsertSchema } from "@/db/schema";
+import { requireAuth } from "@/server/hono-auth";
 
 const app = new Hono()
   .get(
     "/templates",
-    verifyAuth(),
+    requireAuth,
     zValidator(
       "query",
       z.object({
@@ -37,22 +37,18 @@ const app = new Hono()
   )
   .delete(
     "/:id",
-    verifyAuth(),
+    requireAuth,
     zValidator("param", z.object({ id: z.string() })),
     async (c) => {
       const auth = c.get("authUser");
       const { id } = c.req.valid("param");
-
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
 
       const data = await db
         .delete(projects)
         .where(
           and(
             eq(projects.id, id),
-            eq(projects.userId, auth.token.id),
+            eq(projects.userId, auth.id),
           ),
         )
         .returning();
@@ -66,15 +62,11 @@ const app = new Hono()
   )
   .post(
     "/:id/duplicate",
-    verifyAuth(),
+    requireAuth,
     zValidator("param", z.object({ id: z.string() })),
     async (c) => {
       const auth = c.get("authUser");
       const { id } = c.req.valid("param");
-
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
 
       const data = await db
         .select()
@@ -82,7 +74,7 @@ const app = new Hono()
         .where(
           and(
             eq(projects.id, id),
-            eq(projects.userId, auth.token.id),
+            eq(projects.userId, auth.id),
           ),
         );
 
@@ -99,7 +91,7 @@ const app = new Hono()
           json: project.json,
           width: project.width,
           height: project.height,
-          userId: auth.token.id,
+          userId: auth.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -110,7 +102,7 @@ const app = new Hono()
   )
   .get(
     "/",
-    verifyAuth(),
+    requireAuth,
     zValidator(
       "query",
       z.object({
@@ -122,14 +114,10 @@ const app = new Hono()
       const auth = c.get("authUser");
       const { page, limit } = c.req.valid("query");
 
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-
       const data = await db
         .select()
         .from(projects)
-        .where(eq(projects.userId, auth.token.id))
+        .where(eq(projects.userId, auth.id))
         .limit(limit)
         .offset((page - 1) * limit)
         .orderBy(desc(projects.updatedAt))
@@ -142,7 +130,7 @@ const app = new Hono()
   )
   .patch(
     "/:id",
-    verifyAuth(),
+    requireAuth,
     zValidator(
       "param",
       z.object({ id: z.string() }),
@@ -163,10 +151,6 @@ const app = new Hono()
       const { id } = c.req.valid("param");
       const values = c.req.valid("json");
 
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-
       const data = await db
         .update(projects)
         .set({
@@ -176,7 +160,7 @@ const app = new Hono()
         .where(
           and(
             eq(projects.id, id),
-            eq(projects.userId, auth.token.id),
+            eq(projects.userId, auth.id),
           ),
         )
         .returning();
@@ -190,15 +174,11 @@ const app = new Hono()
   )
   .get(
     "/:id",
-    verifyAuth(),
+    requireAuth,
     zValidator("param", z.object({ id: z.string() })),
     async (c) => {
       const auth = c.get("authUser");
       const { id } = c.req.valid("param");
-
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
 
       const data = await db
         .select()
@@ -206,7 +186,7 @@ const app = new Hono()
         .where(
           and(
             eq(projects.id, id),
-            eq(projects.userId, auth.token.id)
+            eq(projects.userId, auth.id)
           )
         );
 
@@ -219,7 +199,7 @@ const app = new Hono()
   )
   .post(
     "/",
-    verifyAuth(),
+    requireAuth,
     zValidator(
       "json",
       projectsInsertSchema.pick({
@@ -233,10 +213,6 @@ const app = new Hono()
       const auth = c.get("authUser");
       const { name, json, height, width } = c.req.valid("json");
 
-      if (!auth.token?.id) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-
       const data = await db
         .insert(projects)
         .values({
@@ -244,7 +220,7 @@ const app = new Hono()
           json,
           width,
           height,
-          userId: auth.token.id,
+          userId: auth.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         })

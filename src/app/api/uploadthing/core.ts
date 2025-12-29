@@ -1,18 +1,20 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 
-import { auth } from "@/auth";
+import { getBearerToken, getOrCreateUserFromPrivyToken } from "@/server/auth";
  
 const f = createUploadthing();
  
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "4MB" } })
     .middleware(async ({ req }) => {
-      const session = await auth();
- 
-      if (!session) throw new UploadThingError("Unauthorized");
- 
-      return { userId: session.user?.id };
+      const token = getBearerToken(req.headers.get("authorization") ?? undefined);
+      if (!token) {
+        throw new UploadThingError("Unauthorized");
+      }
+
+      const authUser = await getOrCreateUserFromPrivyToken(token);
+      return { userId: authUser.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
       return { url: file.url };

@@ -10,6 +10,7 @@ import { useGetImages } from "@/features/images/api/use-get-images";
 
 import { cn } from "@/lib/utils";
 import { UploadButton } from "@/lib/uploadthing";
+import { getAuthToken } from "@/lib/auth-token";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImageSidebarProps {
@@ -41,6 +42,10 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           }}
           content={{
             button: "Upload Image",
+          }}
+          headers={async () => {
+            const token = await getAuthToken();
+            return token ? { Authorization: `Bearer ${token}` } : {};
           }}
           endpoint="imageUploader"
           onClientUploadComplete={(res) => {

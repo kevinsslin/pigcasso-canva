@@ -1,26 +1,22 @@
 import Stripe from "stripe";
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import { verifyAuth } from "@hono/auth-js";
 
 import { checkIsActive } from "@/features/subscriptions/lib";
 
 import { stripe } from "@/lib/stripe";
 import { db } from "@/db/drizzle";
 import { subscriptions } from "@/db/schema";
+import { requireAuth } from "@/server/hono-auth";
 
 const app = new Hono()
-  .post("/billing", verifyAuth(), async (c) => {
+  .post("/billing", requireAuth, async (c) => {
     const auth = c.get("authUser");
-
-    if (!auth.token?.id) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
 
     const [subscription] = await db
       .select()
       .from(subscriptions)
-      .where(eq(subscriptions.userId, auth.token.id));
+      .where(eq(subscriptions.userId, auth.id));
 
     if (!subscription) {
       return c.json({ error: "No subscription found" }, 404);
@@ -37,17 +33,13 @@ const app = new Hono()
 
     return c.json({ data: session.url });
   })
-  .get("/current", verifyAuth(), async (c) => {
+  .get("/current", requireAuth, async (c) => {
     const auth = c.get("authUser");
-
-    if (!auth.token?.id) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
 
     const [subscription] = await db
       .select()
       .from(subscriptions)
-      .where(eq(subscriptions.userId, auth.token.id));
+      .where(eq(subscriptions.userId, auth.id));
 
     const active = checkIsActive(subscription);
 
@@ -58,12 +50,8 @@ const app = new Hono()
       },
     });
   })
-  .post("/checkout", verifyAuth(), async (c) => {
+  .post("/checkout", requireAuth, async (c) => {
     const auth = c.get("authUser");
-
-    if (!auth.token?.id) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
 
     const session = await stripe.checkout.sessions.create({
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}?success=1`,
@@ -71,7 +59,7 @@ const app = new Hono()
       payment_method_types: ["card", "paypal"],
       mode: "subscription",
       billing_address_collection: "auto",
-      customer_email: auth.token.email || "",
+      customer_email: auth.email || "",
       line_items: [
         {
           price: process.env.STRIPE_PRICE_ID,
@@ -79,7 +67,7 @@ const app = new Hono()
         },
       ],
       metadata: {
-        userId: auth.token.id,
+        userId: auth.id,
       },
     });
 
