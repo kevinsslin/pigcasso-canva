@@ -1,41 +1,67 @@
 import { eq } from "drizzle-orm";
-import { createPublicClient, erc20Abi, getContract, http, isAddress } from "viem";
+import {
+  createPublicClient,
+  erc20Abi,
+  getContract,
+  http,
+  isAddress,
+} from "viem";
 import { mantle } from "viem/chains";
 
 import { db } from "@/db/drizzle";
 import { users } from "@/db/schema";
 
-const requireEnv = (key: string) => {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing ${key}`);
-  }
-  return value;
+type TokenGatingConfig = {
+  pigcassoToken: any;
+  thresholdRaw: bigint;
 };
 
-const MANTLE_RPC_URL = requireEnv("MANTLE_RPC_URL");
-const PIGCASSO_TOKEN_ADDRESS = requireEnv(
-  "PIGCASSO_TOKEN_ADDRESS",
-) as `0x${string}`;
-const PIGCASSO_PRO_THRESHOLD_RAW = BigInt(
-  requireEnv("PIGCASSO_PRO_THRESHOLD_RAW"),
-);
+let cachedConfig: TokenGatingConfig | null = null;
+
+const getConfig = (): TokenGatingConfig => {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
+  const mantleRpcUrl = process.env.MANTLE_RPC_URL;
+  const tokenAddress = process.env.PIGCASSO_TOKEN_ADDRESS as
+    | `0x${string}`
+    | undefined;
+  const thresholdRaw = process.env.PIGCASSO_PRO_THRESHOLD_RAW;
+
+  if (!mantleRpcUrl) {
+    throw new Error("Missing MANTLE_RPC_URL");
+  }
+  if (!tokenAddress) {
+    throw new Error("Missing PIGCASSO_TOKEN_ADDRESS");
+  }
+  if (!thresholdRaw) {
+    throw new Error("Missing PIGCASSO_PRO_THRESHOLD_RAW");
+  }
+
+  const publicClient = createPublicClient({
+    chain: mantle,
+    transport: http(mantleRpcUrl),
+  });
+
+  const pigcassoToken = getContract({
+    address: tokenAddress,
+    abi: erc20Abi,
+    client: publicClient,
+  });
+
+  cachedConfig = {
+    pigcassoToken,
+    thresholdRaw: BigInt(thresholdRaw),
+  };
+
+  return cachedConfig;
+};
 
 const PRO_CACHE_TTL_SECONDS = Number(process.env.PRO_CACHE_TTL_SECONDS ?? "600");
 const PRO_CACHE_TTL_MS = Number.isFinite(PRO_CACHE_TTL_SECONDS)
   ? Math.max(0, PRO_CACHE_TTL_SECONDS) * 1000
   : 10 * 60 * 1000;
-
-const publicClient = createPublicClient({
-  chain: mantle,
-  transport: http(MANTLE_RPC_URL),
-});
-
-const pigcassoToken = getContract({
-  address: PIGCASSO_TOKEN_ADDRESS,
-  abi: erc20Abi,
-  client: publicClient,
-});
 
 type ProStatusSource = "cache" | "refresh" | "error";
 
@@ -72,8 +98,10 @@ const uniqueAddresses = (addresses: Array<string | null | undefined>) => {
 
 const getMaxPigcassoBalance = async (addresses: Array<`0x${string}`>) => {
   if (addresses.length === 0) {
-    return { maxBalance: 0n, maxWalletAddress: null as string | null };
+    return { maxBalance: BigInt(0), maxWalletAddress: null as string | null };
   }
+
+  const { pigcassoToken } = getConfig();
 
   const balances = await Promise.all(
     addresses.map(async (address) => {
@@ -142,7 +170,8 @@ export const getProStatusForUser = async (params: {
   try {
     const addresses = uniqueAddresses([embeddedWalletAddress, externalWalletAddress]);
     const { maxBalance, maxWalletAddress } = await getMaxPigcassoBalance(addresses);
-    const isPro = maxBalance >= PIGCASSO_PRO_THRESHOLD_RAW;
+    const { thresholdRaw } = getConfig();
+    const isPro = maxBalance >= thresholdRaw;
 
     const checkedAt = new Date();
 
@@ -185,4 +214,3 @@ export const getProStatusForUser = async (params: {
     };
   }
 };
-

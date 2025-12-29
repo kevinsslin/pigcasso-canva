@@ -45,7 +45,9 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           }}
           headers={async () => {
             const token = await getAuthToken();
-            return token ? { Authorization: `Bearer ${token}` } : {};
+            return token
+              ? { Authorization: `Bearer ${token}` }
+              : new Headers();
           }}
           endpoint="imageUploader"
           onClientUploadComplete={(res) => {

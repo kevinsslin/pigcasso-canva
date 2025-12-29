@@ -3,7 +3,10 @@ import { InferRequestType, InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
 
-type ResponseType = InferResponseType<typeof client.api.ai["generate-image"]["$post"]>;
+type ResponseType = InferResponseType<
+  typeof client.api.ai["generate-image"]["$post"],
+  200
+>;
 type RequestType = InferRequestType<typeof client.api.ai["generate-image"]["$post"]>["json"];
 
 export const useGenerateImage = () => {
@@ -14,7 +17,7 @@ export const useGenerateImage = () => {
   >({
     mutationFn: async (json) => {
       const response = await client.api.ai["generate-image"].$post({ json });
-      const body = await response.json();
+      const body = (await response.json()) as any;
 
       if (!response.ok) {
         const message =
@@ -28,7 +31,7 @@ export const useGenerateImage = () => {
         throw error;
       }
 
-      return body;
+      return body as ResponseType;
     },
   });
 

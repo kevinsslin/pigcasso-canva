@@ -3,7 +3,10 @@ import { InferRequestType, InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
 
-type ResponseType = InferResponseType<typeof client.api.ai["remove-bg"]["$post"]>;
+type ResponseType = InferResponseType<
+  typeof client.api.ai["remove-bg"]["$post"],
+  200
+>;
 type RequestType = InferRequestType<typeof client.api.ai["remove-bg"]["$post"]>["json"];
 
 export const useRemoveBg = () => {
@@ -14,7 +17,7 @@ export const useRemoveBg = () => {
   >({
     mutationFn: async (json) => {
       const response = await client.api.ai["remove-bg"].$post({ json });
-      const body = await response.json();
+      const body = (await response.json()) as any;
 
       if (!response.ok) {
         const message =
@@ -28,7 +31,7 @@ export const useRemoveBg = () => {
         throw error;
       }
 
-      return body;
+      return body as ResponseType;
     },
   });
 
