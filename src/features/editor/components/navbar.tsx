@@ -64,15 +64,17 @@ export const Navbar = ({
 
   const { openFilePicker } = useFilePicker({
     accept: ".json",
-    onFilesSuccessfullySelected: ({ plainFiles }: any) => {
-      if (plainFiles && plainFiles.length > 0) {
-        const file = plainFiles[0];
-        const reader = new FileReader();
-        reader.readAsText(file, "UTF-8");
-        reader.onload = () => {
-          editor?.loadJson(reader.result as string);
-        };
-      }
+    onFilesSuccessfullySelected: ({ plainFiles }: { plainFiles: File[] }) => {
+      const file = plainFiles?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.readAsText(file, "UTF-8");
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          editor?.loadJson(reader.result);
+        }
+      };
     },
   });
 

@@ -71,18 +71,25 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           <div className="grid grid-cols-2 gap-4">
             {data &&
               data.map((image) => {
+                const previewSrc = image?.urls?.small || image?.urls?.thumb;
+
                 return (
                   <button
                     onClick={() => editor?.addImage(image.urls.regular)}
                     key={image.id}
                     className="relative w-full h-[100px] group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
                   >
-                    <img
-                      src={image?.urls?.small || image?.urls?.thumb}
-                      alt={image.alt_description || "Image"}
-                      className="object-cover"
-                      loading="lazy"
-                    />
+                    {previewSrc ? (
+                      <Image
+                        fill
+                        src={previewSrc}
+                        alt={image.alt_description || "Image"}
+                        className="object-cover"
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-muted" />
+                    )}
                     <Link
                       target="_blank"
                       href={image.links.html}

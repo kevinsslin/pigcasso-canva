@@ -2,17 +2,30 @@ import { uuid } from "uuidv4";
 import { fabric } from "fabric";
 import type { RGBColor } from "react-color";
 
-export function transformText(objects: any) {
-  if (!objects) return;
+type FabricJsonNode = {
+  type?: string;
+  objects?: FabricJsonNode[];
+};
 
-  objects.forEach((item: any) => {
-    if (item.objects) {
+const isFabricJsonNode = (value: unknown): value is FabricJsonNode =>
+  typeof value === "object" && value !== null;
+
+export function transformText(objects: unknown) {
+  if (!Array.isArray(objects)) return;
+
+  objects.forEach((item) => {
+    if (!isFabricJsonNode(item)) return;
+
+    if (Array.isArray(item.objects)) {
       transformText(item.objects);
-    } else {
-      item.type === "text" && (item.type === "textbox");
+      return;
+    }
+
+    if (item.type === "text") {
+      item.type = "textbox";
     }
   });
-};
+}
 
 export function downloadFile(file: string, type: string) {
   const anchorElement = document.createElement("a");
@@ -129,14 +142,14 @@ export const createFilter = (value: string) => {
       effect = new fabric.Image.filters.Gamma({
         gamma: [1, 0.5, 2.1]
       });
+      break;
     case "saturation":
       effect = new fabric.Image.filters.Saturation({
         saturation: 0.7,
       });
       break;
     default:
-      effect = null;
-      return;
+      return null;
   };
 
   return effect;

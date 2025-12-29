@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
-import { usePrivy } from "@privy-io/react-auth";
+
+import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 
 import { Banner } from "./banner";
 import { PresetsSection } from "./presets-section";
@@ -11,14 +10,7 @@ import { ProjectsSection } from "./projects-section";
 import { TemplatesSection } from "./templates-section";
 
 export default function Home() {
-  const router = useRouter();
-  const { ready, authenticated } = usePrivy();
-
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.replace("/sign-in?redirect=/");
-    }
-  }, [authenticated, ready, router]);
+  const { ready, authenticated } = useRequireAuth("/");
 
   if (!ready || !authenticated) {
     return (

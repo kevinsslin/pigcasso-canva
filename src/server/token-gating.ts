@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import {
   createPublicClient,
   erc20Abi,
-  getContract,
   http,
   isAddress,
 } from "viem";
@@ -12,7 +11,8 @@ import { db } from "@/db/drizzle";
 import { users } from "@/db/schema";
 
 type TokenGatingConfig = {
-  pigcassoToken: any;
+  publicClient: ReturnType<typeof createPublicClient>;
+  tokenAddress: `0x${string}`;
   thresholdRaw: bigint;
 };
 
@@ -44,14 +44,9 @@ const getConfig = (): TokenGatingConfig => {
     transport: http(mantleRpcUrl),
   });
 
-  const pigcassoToken = getContract({
-    address: tokenAddress,
-    abi: erc20Abi,
-    client: publicClient,
-  });
-
   cachedConfig = {
-    pigcassoToken,
+    publicClient,
+    tokenAddress,
     thresholdRaw: BigInt(thresholdRaw),
   };
 
@@ -101,11 +96,16 @@ const getMaxPigcassoBalance = async (addresses: Array<`0x${string}`>) => {
     return { maxBalance: BigInt(0), maxWalletAddress: null as string | null };
   }
 
-  const { pigcassoToken } = getConfig();
+  const { publicClient, tokenAddress } = getConfig();
 
   const balances = await Promise.all(
     addresses.map(async (address) => {
-      const balance = await pigcassoToken.read.balanceOf([address]);
+      const balance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address],
+      });
       return { address, balance };
     }),
   );

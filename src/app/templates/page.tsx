@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
 import { Loader2 } from "lucide-react";
 
+import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { Button } from "@/components/ui/button";
@@ -12,22 +12,17 @@ import { TemplateCard } from "@/app/(dashboard)/template-card";
 
 export default function TemplatesIndexPage() {
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated } = useRequireAuth("/templates");
 
   const [page, setPage] = useState(1);
   const limit = 12;
-
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.replace(`/sign-in?redirect=/templates`);
-    }
-  }, [authenticated, ready, router]);
 
   const query = useGetTemplates(
     {
       page: String(page),
       limit: String(limit),
     },
+    { enabled: ready && authenticated },
   );
 
   const canPrev = page > 1;
@@ -112,4 +107,3 @@ export default function TemplatesIndexPage() {
     </div>
   );
 }
-

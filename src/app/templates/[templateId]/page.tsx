@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useGetTemplate } from "@/features/projects/api/use-get-template";
 import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
 
@@ -24,13 +24,7 @@ export default function TemplatePage({
   params: { templateId: string };
 }) {
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
-
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.replace(`/sign-in?redirect=/templates/${params.templateId}`);
-    }
-  }, [authenticated, params.templateId, ready, router]);
+  const { ready, authenticated } = useRequireAuth(`/templates/${params.templateId}`);
 
   const templateQuery = useGetTemplate(params.templateId, {
     enabled: ready && authenticated,

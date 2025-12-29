@@ -6,8 +6,11 @@ import { InferRequestType, InferResponseType } from "hono";
 export type ResponseType = InferResponseType<typeof client.api.templates.$get, 200>;
 type RequestType = InferRequestType<typeof client.api.templates.$get>["query"];
 
-export const useGetTemplates = (apiQuery: RequestType) => {
-  const query = useQuery({
+export const useGetTemplates = (
+  apiQuery: RequestType,
+  options?: { enabled?: boolean },
+) => {
+  const query = useQuery<ResponseType["data"], Error>({
     queryKey: [
       "templates",
       {
@@ -24,9 +27,11 @@ export const useGetTemplates = (apiQuery: RequestType) => {
         throw new Error("Failed to fetch templates");
       }
 
-      const { data } = await response.json();
-      return data;
+      const json = (await response.json()) as ResponseType;
+      return json.data;
     },
+    enabled: options?.enabled ?? true,
+    staleTime: 60_000,
   });
 
   return query;

@@ -22,7 +22,7 @@ export const TemplateCard = ({
   description,
   height,
   width,
-  isPro
+  isPro,
 }: TemplateCardProps) => {
   return (
     <button
@@ -30,24 +30,25 @@ export const TemplateCard = ({
       disabled={disabled}
       className={cn(
         "space-y-2 group text-left transition flex flex-col",
-        disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+        disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer",
       )}
     >
       <div
-      style={{ aspectRatio: `${width}/${height}` }}
-      className="relative rounded-xl h-full w-full overflow-hidden border">
+        style={{ aspectRatio: `${width}/${height}` }}
+        className="relative rounded-xl h-full w-full overflow-hidden border"
+      >
         {imageSrc ? (
           <Image
             fill
             src={imageSrc}
             alt={title}
-            className=" object-cover transition transform group-hover:scale-105"
+            className="object-cover transition transform group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#FBE9E8] via-[#F7A9B8] to-[#25D6FF]" />
         )}
         {isPro && (
-          <div className="absolute top-2 right-2 h-10 w-10 flex items-center justify-center bg-black/50 rounded-full -z[10]">
+          <div className="absolute top-2 right-2 h-10 w-10 flex items-center justify-center bg-black/50 rounded-full z-10">
             <Crown className="size-5 fill-yellow-500 text-yellow-500" />
           </div>
         )}
@@ -66,5 +67,5 @@ export const TemplateCard = ({
         </p>
       </div>
     </button>
-  )
-}
+  );
+};

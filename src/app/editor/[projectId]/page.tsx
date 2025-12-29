@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Loader, TriangleAlert } from "lucide-react";
-import { usePrivy } from "@privy-io/react-auth";
 
 import { useGetProject } from "@/features/projects/api/use-get-project";
+import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 
 import { Editor } from "@/features/editor/components/editor";
 import { Button } from "@/components/ui/button";
@@ -20,14 +18,7 @@ interface EditorProjectIdPageProps {
 const EditorProjectIdPage = ({
   params,
 }: EditorProjectIdPageProps) => {
-  const router = useRouter();
-  const { ready, authenticated } = usePrivy();
-
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.replace(`/sign-in?redirect=/editor/${params.projectId}`);
-    }
-  }, [authenticated, params.projectId, ready, router]);
+  const { ready, authenticated } = useRequireAuth(`/editor/${params.projectId}`);
 
   const { 
     data, 
