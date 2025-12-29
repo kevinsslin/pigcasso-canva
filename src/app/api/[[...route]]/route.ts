@@ -5,6 +5,7 @@ import ai from "./ai";
 import images from "./images";
 import me from "./me";
 import projects from "./projects";
+import templates from "./templates";
 import tokenGating from "./token-gating";
 
 // Revert to "edge" if planning on running on the edge
@@ -17,6 +18,7 @@ const routes = app
   .route("/images", images)
   .route("/me", me)
   .route("/projects", projects)
+  .route("/templates", templates)
   .route("/token-gating", tokenGating);
 
 export const GET = handle(app);

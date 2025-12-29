@@ -5,9 +5,9 @@ import { client } from "@/lib/hono";
 
 export type ResponseType = InferResponseType<typeof client.api.projects[":id"]["$get"], 200>;
 
-export const useGetProject = (id: string) => {
+export const useGetProject = (id: string, options?: { enabled?: boolean }) => {
   const query = useQuery({
-    enabled: !!id,
+    enabled: (options?.enabled ?? true) && !!id,
     queryKey: ["project", { id }],
     queryFn: async () => {
       const response = await client.api.projects[":id"].$get({

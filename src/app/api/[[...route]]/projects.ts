@@ -1,40 +1,14 @@
 import { z } from "zod";
 import { Hono } from "hono";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 
 import { db } from "@/db/drizzle";
 import { projects, projectsInsertSchema } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
+import { getProStatusForUser } from "@/server/token-gating";
 
 const app = new Hono()
-  .get(
-    "/templates",
-    requireAuth,
-    zValidator(
-      "query",
-      z.object({
-        page: z.coerce.number(),
-        limit: z.coerce.number(),
-      }),
-    ),
-    async (c) => {
-      const { page, limit } = c.req.valid("query");
-
-      const data = await db
-        .select()
-        .from(projects)
-        .where(eq(projects.isTemplate, true))
-        .limit(limit)
-        .offset((page -1) * limit)
-        .orderBy(
-          asc(projects.isPro),
-          desc(projects.updatedAt),
-        );
-
-      return c.json({ data });
-    },
-  )
   .delete(
     "/:id",
     requireAuth,
@@ -58,6 +32,72 @@ const app = new Hono()
       }
 
       return c.json({ data: { id } });
+    },
+  )
+  .post(
+    "/:id/publish-template",
+    requireAuth,
+    zValidator("param", z.object({ id: z.string() })),
+    zValidator(
+      "json",
+      z.object({
+        thumbnailUrl: z.string().url().optional(),
+        isPro: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+
+      const [existing] = await db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.id, id), eq(projects.userId, auth.id)));
+
+      if (!existing) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const wantsPro = body.isPro === true;
+      if (wantsPro) {
+        const pro = await getProStatusForUser({
+          userId: auth.id,
+          embeddedWalletAddress: auth.embeddedWalletAddress,
+          externalWalletAddress: auth.externalWalletAddress,
+        });
+
+        if (!pro.isPro) {
+          return c.json({ error: "Pro required" }, 403);
+        }
+      }
+
+      const now = new Date();
+      const creatorWallet =
+        auth.externalWalletAddress ?? auth.embeddedWalletAddress ?? null;
+
+      const [updated] = await db
+        .update(projects)
+        .set({
+          isTemplate: true,
+          isPublicTemplate: true,
+          isPro: body.isPro === false ? false : wantsPro ? true : existing.isPro,
+          thumbnailUrl: body.thumbnailUrl ?? existing.thumbnailUrl,
+          creatorWallet: creatorWallet ?? existing.creatorWallet,
+          publishedAt: existing.publishedAt ?? now,
+          updatedAt: now,
+        })
+        .where(and(eq(projects.id, id), eq(projects.userId, auth.id)))
+        .returning();
+
+      if (!updated) {
+        return c.json({ error: "Failed to publish" }, 400);
+      }
+
+      return c.json({
+        data: updated,
+        sharePath: `/templates/${updated.id}`,
+      });
     },
   )
   .post(

@@ -19,6 +19,7 @@ import { UserButton } from "@/features/auth/components/user-button";
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { Logo } from "@/features/editor/components/logo";
 import { ExportPackDialog } from "@/features/editor/components/export-pack-dialog";
+import { PublishTemplateDialog } from "@/features/editor/components/publish-template-dialog";
 
 import { cn } from "@/lib/utils";
 import { Hint } from "@/components/hint";
@@ -47,6 +48,7 @@ export const Navbar = ({
   onChangeActiveTool,
 }: NavbarProps) => {
   const [packOpen, setPackOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const data = useMutationState({
     filters: {
       mutationKey: ["project", { id }],
@@ -83,6 +85,13 @@ export const Navbar = ({
         editor={editor}
         projectName={projectName}
       />
+      <PublishTemplateDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        editor={editor}
+        projectId={id}
+        projectName={projectName}
+      />
       <div className="w-full flex items-center gap-x-1 h-full">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -101,6 +110,18 @@ export const Navbar = ({
                 <p>Open</p>
                 <p className="text-xs text-muted-foreground">
                   Open a JSON file
+                </p>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setPublishOpen(true)}
+              className="flex items-center gap-x-2"
+            >
+              <CiFileOn className="size-8" />
+              <div>
+                <p>Publish as template</p>
+                <p className="text-xs text-muted-foreground">
+                  Create a share link and enable remix
                 </p>
               </div>
             </DropdownMenuItem>

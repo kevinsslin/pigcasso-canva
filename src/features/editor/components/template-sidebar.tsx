@@ -14,6 +14,7 @@ import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-hea
 import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { cn } from "@/lib/utils";
+import { client } from "@/lib/hono";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -53,7 +54,26 @@ export const TemplateSidebar = ({
     const ok = await confirm();
 
     if (ok) {
-      editor?.loadJson(template.json);
+      const response = await client.api.templates[":id"].$get({
+        param: { id: template.id },
+      });
+
+      if (!response.ok) {
+        toast.error(
+          response.status === 403
+            ? "Pro template locked. Hold 100,000 PIGCASSO to unlock Pro."
+            : "Failed to load template",
+        );
+        return;
+      }
+
+      const { data } = await response.json();
+      if (!data.json) {
+        toast.error("Pro template locked. Hold 100,000 PIGCASSO to unlock Pro.");
+        return;
+      }
+
+      editor?.loadJson(data.json);
     }
   };
 
@@ -95,12 +115,16 @@ export const TemplateSidebar = ({
                   key={template.id}
                   className="relative w-full group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
                 >
-                  <Image
-                    fill
-                    src={template.thumbnailUrl || ""}
-                    alt={template.name || "Template"}
-                    className="object-cover"
-                  />
+                  {template.thumbnailUrl ? (
+                    <Image
+                      fill
+                      src={template.thumbnailUrl}
+                      alt={template.name || "Template"}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FBE9E8] via-[#F7A9B8] to-[#25D6FF]" />
+                  )}
                   {template.isPro && (
                     <div className="absolute top-2 right-2 size-8 items-center flex justify-center bg-black/50 rounded-full">
                       <Crown className="size-4 fill-yellow-500 text-yellow-500" />

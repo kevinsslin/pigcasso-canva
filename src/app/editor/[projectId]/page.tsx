@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Loader, TriangleAlert } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { useGetProject } from "@/features/projects/api/use-get-project";
 
@@ -17,13 +20,22 @@ interface EditorProjectIdPageProps {
 const EditorProjectIdPage = ({
   params,
 }: EditorProjectIdPageProps) => {
+  const router = useRouter();
+  const { ready, authenticated } = usePrivy();
+
+  useEffect(() => {
+    if (ready && !authenticated) {
+      router.replace(`/sign-in?redirect=/editor/${params.projectId}`);
+    }
+  }, [authenticated, params.projectId, ready, router]);
+
   const { 
     data, 
     isLoading, 
     isError
-  } = useGetProject(params.projectId);
+  } = useGetProject(params.projectId, { enabled: ready && authenticated });
 
-  if (isLoading || !data) {
+  if (!ready || !authenticated || isLoading || !data) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
         <Loader className="size-6 animate-spin text-muted-foreground" />

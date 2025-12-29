@@ -16,7 +16,7 @@ export default function Home() {
 
   useEffect(() => {
     if (ready && !authenticated) {
-      router.replace("/sign-in");
+      router.replace("/sign-in?redirect=/");
     }
   }, [authenticated, ready, router]);
 

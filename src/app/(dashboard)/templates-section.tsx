@@ -7,14 +7,14 @@ import { toast } from "sonner";
 import { usePro } from "@/features/auth/hooks/use-pro";
 
 import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-templates";
-import { useCreateProject } from "@/features/projects/api/use-create-project";
+import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
 
 import { TemplateCard } from "./template-card";
 
 export const TemplatesSection = () => {
   const { isPro } = usePro();
   const router = useRouter();
-  const mutation = useCreateProject();
+  const remix = useRemixTemplate();
 
   const { 
     data, 
@@ -28,13 +28,8 @@ export const TemplatesSection = () => {
       return;
     }
 
-    mutation.mutate(
-      {
-        name: `${template.name} project`,
-        json: template.json,
-        width: template.width,
-        height: template.height,
-      },
+    remix.mutate(
+      { id: template.id },
       {
         onSuccess: ({ data }) => {
           router.push(`/editor/${data.id}`);
@@ -78,9 +73,16 @@ export const TemplatesSection = () => {
 
   return (
     <div>
-      <h3 className="font-semibold text-lg">
-        Start from a template
-      </h3>
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="font-semibold text-lg">Start from a template</h3>
+        <button
+          type="button"
+          onClick={() => router.push("/templates")}
+          className="text-sm text-muted-foreground hover:underline"
+        >
+          Browse all
+        </button>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 mt-4 gap-4">
         {data?.map((template) => (
           <TemplateCard
@@ -88,7 +90,7 @@ export const TemplatesSection = () => {
             title={template.name}
             imageSrc={template.thumbnailUrl || ""}
             onClick={() => onClick(template)}
-            disabled={mutation.isPending}
+            disabled={remix.isPending}
             description={`${template.width} x ${template.height} px`}
             width={template.width}
             height={template.height}
