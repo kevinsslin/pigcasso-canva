@@ -1,0 +1,398 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { Bot, Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
+
+import type { Editor } from "@/features/editor/types";
+import {
+  alignToWorkspace,
+  applyTextHierarchy,
+  replaceWithTemplate,
+  type PigcassoTemplate,
+  type PigcassoTemplateInput,
+  type PigcassoVariant,
+} from "@/features/editor/pigcasso-actions";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useConfirm } from "@/hooks/use-confirm";
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+type PendingAction =
+  | { type: "align"; mode: "center" | "left" | "right" | "top" | "bottom" }
+  | { type: "textHierarchy" }
+  | {
+      type: "template";
+      template: PigcassoTemplate;
+      variant: PigcassoVariant;
+      content?: PigcassoTemplateInput;
+    }
+  | {
+      type: "variants";
+      template: PigcassoTemplate;
+      content?: PigcassoTemplateInput;
+    };
+
+const inferTemplateFromText = (text: string): PigcassoTemplate | null => {
+  const t = text.toLowerCase();
+  if (t.includes("ama")) return "ama";
+  if (t.includes("announcement") || text.includes("公告")) return "announcement";
+  if (t.includes("banner") || t.includes("event") || text.includes("活動"))
+    return "event-banner";
+  return null;
+};
+
+const extractField = (text: string, keys: string[]) => {
+  for (const key of keys) {
+    const re = new RegExp(`${key}\\s*[:：]\\s*(.+)`, "i");
+    const match = text.match(re);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+};
+
+const parseTemplateInput = (text: string): PigcassoTemplateInput | undefined => {
+  const title = extractField(text, ["title", "標題"]);
+  const subtitle = extractField(text, ["subtitle", "sub", "副標", "副標題"]);
+  const datetime = extractField(text, ["time", "datetime", "時間", "日期"]);
+  const cta = extractField(text, ["cta", "calltoaction", "連結", "按鈕"]);
+
+  if (!title && !subtitle && !datetime && !cta) return undefined;
+  return {
+    ...(title ? { title } : {}),
+    ...(subtitle ? { subtitle } : {}),
+    ...(datetime ? { datetime } : {}),
+    ...(cta ? { cta } : {}),
+  };
+};
+
+const inferActionFromText = (text: string): PendingAction | null => {
+  const t = text.toLowerCase();
+  const wantsVariants = t.includes("variant") || text.includes("版本") || text.includes("三個版本");
+
+  if (text.includes("置中") || t.includes("center")) {
+    return { type: "align", mode: "center" };
+  }
+  if (text.includes("置頂") || t.includes("top")) {
+    return { type: "align", mode: "top" };
+  }
+  if (text.includes("置底") || t.includes("bottom")) {
+    return { type: "align", mode: "bottom" };
+  }
+  if (text.includes("左對齊") || t.includes("align left")) {
+    return { type: "align", mode: "left" };
+  }
+  if (text.includes("右對齊") || t.includes("align right")) {
+    return { type: "align", mode: "right" };
+  }
+
+  if (text.includes("字級") || t.includes("hierarchy")) {
+    return { type: "textHierarchy" };
+  }
+
+  const template = inferTemplateFromText(text);
+  if (template) {
+    const content = parseTemplateInput(text);
+    if (wantsVariants) {
+      return { type: "variants", template, content };
+    }
+    return { type: "template", template, variant: "centered", content };
+  }
+
+  if (wantsVariants) {
+    const content = parseTemplateInput(text);
+    return { type: "variants", template: "ama", content };
+  }
+
+  return null;
+};
+
+export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) => {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      text: "Hi! I can help you layout your canvas. Try: 置中 / AMA / 產生 3 個版本",
+    },
+  ]);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+
+  const [ConfirmDialog, confirm] = useConfirm(
+    "Replace current design?",
+    "This will replace all objects on the canvas (except the workspace background).",
+  );
+
+  const quickActions = useMemo(
+    () => [
+      { label: "置中", action: { type: "align", mode: "center" } as const },
+      { label: "字級層級", action: { type: "textHierarchy" } as const },
+      {
+        label: "AMA",
+        action: {
+          type: "template",
+          template: "ama",
+          variant: "centered",
+        } as const,
+      },
+      {
+        label: "3 Variants",
+        action: { type: "variants", template: "ama" } as const,
+      },
+    ],
+    [],
+  );
+
+  const addAssistantMessage = (text: string) => {
+    setMessages((m) => [...m, { role: "assistant", text }]);
+  };
+
+  const addUserMessage = (text: string) => {
+    setMessages((m) => [...m, { role: "user", text }]);
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const text = input.trim();
+    if (!text) return;
+
+    addUserMessage(text);
+    setInput("");
+
+    const action = inferActionFromText(text);
+    if (!action) {
+      setPending(null);
+      addAssistantMessage(
+        "I couldn't map that to an action yet. Try: 置中 / AMA / 產生 3 個版本 / 字級層級",
+      );
+      return;
+    }
+
+    setPending(action);
+
+    if (action.type === "align") {
+      addAssistantMessage(`Ready: align ${action.mode}. Click Apply to run it.`);
+      return;
+    }
+
+    if (action.type === "textHierarchy") {
+      addAssistantMessage("Ready: apply text hierarchy (title/subtitle/cta).");
+      return;
+    }
+
+    if (action.type === "variants") {
+      addAssistantMessage("Pick a variant, then click Apply to replace the canvas.");
+      return;
+    }
+
+    if (action.type === "template") {
+      addAssistantMessage(
+        `Ready: create a ${action.template} layout (${action.variant}). Click Apply to replace the canvas.`,
+      );
+    }
+  };
+
+  const applyPending = async (override?: PendingAction) => {
+    if (!editor) {
+      toast.error("Editor not ready yet.");
+      return;
+    }
+
+    const action = override ?? pending;
+    if (!action) return;
+
+    try {
+      if (action.type === "align") {
+        alignToWorkspace(editor, action.mode);
+        setPending(null);
+        toast.success("Applied alignment.");
+        return;
+      }
+
+      if (action.type === "textHierarchy") {
+        applyTextHierarchy(editor);
+        setPending(null);
+        toast.success("Applied text hierarchy.");
+        return;
+      }
+
+      if (action.type === "variants") {
+        return;
+      }
+
+      if (action.type === "template") {
+        const hasObjects = editor.canvas
+          .getObjects()
+          .some((o) => o.name !== "clip");
+
+        if (hasObjects) {
+          const ok = await confirm();
+          if (!ok) return;
+        }
+
+        replaceWithTemplate(editor, {
+          template: action.template,
+          variant: action.variant,
+          content: action.content,
+        });
+        setPending(null);
+        toast.success("Applied layout.");
+        return;
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Action failed.");
+    }
+  };
+
+  const variantOptions: Array<{
+    key: PigcassoVariant;
+    label: string;
+    description: string;
+  }> = [
+    { key: "centered", label: "Centered", description: "Clean, centered card." },
+    { key: "split", label: "Split", description: "Left card with right accent." },
+    { key: "diagonal", label: "Diagonal", description: "Angled accent for energy." },
+  ];
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[60]">
+      <ConfirmDialog />
+
+      {!open ? (
+        <Button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95"
+        >
+          <Sparkles className="size-5" />
+        </Button>
+      ) : (
+        <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
+          <div className="px-3 py-2 border-b flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+              <Bot className="size-4" />
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">Pigcasso Assistant</div>
+              <div className="text-[11px] text-muted-foreground">
+                Draft → Apply to canvas
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="h-8 w-8 rounded-md hover:bg-muted flex items-center justify-center"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <div className="px-3 py-2 border-b flex flex-wrap gap-2">
+            {quickActions.map((qa) => (
+              <Button
+                key={qa.label}
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setPending(qa.action as PendingAction);
+                  addAssistantMessage(`Ready: ${qa.label}. Click Apply.`);
+                }}
+                className="h-8"
+              >
+                {qa.label}
+              </Button>
+            ))}
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-2">
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "text-sm rounded-xl px-3 py-2 max-w-[90%]",
+                    m.role === "assistant"
+                      ? "bg-muted text-foreground"
+                      : "bg-[#111827] text-white ml-auto",
+                  )}
+                >
+                  {m.text}
+                </div>
+              ))}
+
+              {pending?.type === "variants" ? (
+                <div className="mt-2 space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    Variants for <span className="font-medium">{pending.template}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {variantOptions.map((v) => (
+                      <button
+                        key={v.key}
+                        type="button"
+                        onClick={() =>
+                          setPending({
+                            type: "template",
+                            template: pending.template,
+                            variant: v.key,
+                            content: pending.content,
+                          })
+                        }
+                        className="rounded-lg border p-3 text-left hover:bg-muted transition"
+                      >
+                        <div className="font-medium text-sm">{v.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {v.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </ScrollArea>
+
+          <div className="p-3 border-t space-y-2">
+            <form onSubmit={onSubmit} className="space-y-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="例如：做一張 AMA，title: Pigcasso，時間: 2025/01/01 20:00"
+                rows={2}
+              />
+              <div className="flex items-center gap-2">
+                <Button type="submit" variant="secondary" className="flex-1">
+                  Send
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => applyPending()}
+                  disabled={!pending || pending.type === "variants"}
+                  className="flex-1"
+                >
+                  Apply
+                </Button>
+              </div>
+            </form>
+            {pending?.type === "variants" ? (
+              <div className="text-xs text-muted-foreground">
+                Select a variant above to enable Apply.
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

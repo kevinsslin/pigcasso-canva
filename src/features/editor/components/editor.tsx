@@ -30,6 +30,7 @@ import { AiSidebar } from "@/features/editor/components/ai-sidebar";
 import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
+import { PigcassoAssistant } from "@/features/editor/components/pigcasso-assistant";
 
 interface EditorProps {
   initialData: ResponseType["data"];
@@ -197,6 +198,7 @@ export const Editor = ({ initialData }: EditorProps) => {
             <canvas ref={canvasRef} />
           </div>
           <Footer editor={editor} />
+          <PigcassoAssistant editor={editor} />
         </main>
       </div>
     </div>
