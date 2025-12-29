@@ -12,6 +12,7 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
+    "@google/genai": "^1.34.0",
     "@hono/zod-validator": "^0.2.2",
     "@neondatabase/serverless": "^0.9.4",
     "@privy-io/react-auth": "^3.10.0",

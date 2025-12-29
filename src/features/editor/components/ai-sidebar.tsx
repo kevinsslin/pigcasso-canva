@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
 
+import { useMe } from "@/features/auth/api/use-me";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 
 import { cn } from "@/lib/utils";
@@ -22,18 +24,53 @@ export const AiSidebar = ({
   activeTool,
   onChangeActiveTool,
 }: AiSidebarProps) => {
+  const me = useMe();
   const mutation = useGenerateImage();
 
   const [value, setValue] = useState("");
+  const [provider, setProvider] = useState<"replicate" | "gemini">("replicate");
+
+  const aiMeta = me.data?.data.ai;
+  const providers = aiMeta?.providers;
+
+  useEffect(() => {
+    if (!aiMeta) {
+      return;
+    }
+    if (aiMeta.defaultProvider === "gemini" && providers?.gemini) {
+      setProvider("gemini");
+    }
+  }, [aiMeta, providers?.gemini]);
+
+  const remainingText = useMemo(() => {
+    const limit = aiMeta?.limits?.generate;
+    const used = aiMeta?.usage?.generateCount;
+    if (limit === undefined || used === undefined) {
+      return null;
+    }
+    if (limit === 0) {
+      return "Unlimited";
+    }
+    return `${Math.max(0, limit - used)} left today`;
+  }, [aiMeta?.limits?.generate, aiMeta?.usage?.generateCount]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
 
-    mutation.mutate({ prompt: value }, {
+    mutation.mutate({ prompt: value, provider }, {
       onSuccess: ({ data }) => {
         editor?.addImage(data);
+        setValue("");
+      },
+      onError: (err) => {
+        const status = (err as any)?.status as number | undefined;
+        if (status === 429) {
+          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
+          return;
+        }
+        toast.error(err.message || "Failed to generate image");
       }
     });
   };
@@ -55,6 +92,34 @@ export const AiSidebar = ({
       />
       <ScrollArea>
         <form onSubmit={onSubmit} className="p-4 space-y-6">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={provider === "replicate" ? "default" : "outline"}
+                onClick={() => setProvider("replicate")}
+                disabled={mutation.isPending}
+              >
+                Replicate
+              </Button>
+              <Button
+                type="button"
+                variant={provider === "gemini" ? "default" : "outline"}
+                onClick={() => setProvider("gemini")}
+                disabled={mutation.isPending || providers?.gemini === false}
+              >
+                Gemini
+              </Button>
+            </div>
+            {remainingText && (
+              <p className="text-xs text-muted-foreground">{remainingText}</p>
+            )}
+            {providers?.gemini === false && (
+              <p className="text-xs text-muted-foreground">
+                Gemini requires `GEMINI_API_KEY` on the server.
+              </p>
+            )}
+          </div>
           <Textarea
             disabled={mutation.isPending}
             placeholder="An astronaut riding a horse on mars, hd, dramatic lighting"

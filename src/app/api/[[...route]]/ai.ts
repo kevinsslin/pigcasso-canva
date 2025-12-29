@@ -2,8 +2,10 @@ import { z } from "zod";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
-import { replicate } from "@/lib/replicate";
 import { requireAuth } from "@/server/hono-auth";
+import { generateImage, removeBackground } from "@/server/ai-providers";
+import { checkAiUsage, incrementAiUsage } from "@/server/ai-usage";
+import { getProStatusForUser } from "@/server/token-gating";
 
 const app = new Hono()
   .post(
@@ -13,20 +15,42 @@ const app = new Hono()
       "json",
       z.object({
         image: z.string(),
+        provider: z.enum(["replicate", "gemini"]).optional(),
       }),
     ),
     async (c) => {
-      const { image } = c.req.valid("json");
+      const authUser = c.get("authUser");
+      const { image, provider } = c.req.valid("json");
 
-      const input = {
-        image: image
-      };
-    
-      const output: unknown = await replicate.run("cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003", { input });
+      const proStatus = await getProStatusForUser({
+        userId: authUser.id,
+        embeddedWalletAddress: authUser.embeddedWalletAddress,
+        externalWalletAddress: authUser.externalWalletAddress,
+      });
 
-      const res = output as string;
+      const decision = await checkAiUsage({
+        userId: authUser.id,
+        isPro: proStatus.isPro,
+        action: "remove-bg",
+      });
 
-      return c.json({ data: res });
+      if (!decision.allowed || !decision.usageRow) {
+        return c.json(
+          {
+            error: "Daily limit reached",
+            limit: decision.limit,
+            used: decision.used,
+            remaining: decision.remaining,
+            date: decision.date,
+          },
+          429,
+        );
+      }
+
+      const result = await removeBackground({ image, provider });
+      await incrementAiUsage({ usageRow: decision.usageRow, action: "remove-bg" });
+
+      return c.json({ data: result.imageUrl });
     },
   )
   .post(
@@ -36,27 +60,42 @@ const app = new Hono()
       "json",
       z.object({
         prompt: z.string(),
+        provider: z.enum(["replicate", "gemini"]).optional(),
       }),
     ),
     async (c) => {
-      const { prompt } = c.req.valid("json");
+      const authUser = c.get("authUser");
+      const { prompt, provider } = c.req.valid("json");
 
-      const input = {
-        cfg: 3.5,
-        steps: 28,
-        prompt: prompt,
-        aspect_ratio: "3:2",
-        output_format: "webp",
-        output_quality: 90,
-        negative_prompt: "",
-        prompt_strength: 0.85
-      };
-      
-      const output = await replicate.run("stability-ai/stable-diffusion-3", { input });
-      
-      const res = output as Array<string>;
+      const proStatus = await getProStatusForUser({
+        userId: authUser.id,
+        embeddedWalletAddress: authUser.embeddedWalletAddress,
+        externalWalletAddress: authUser.externalWalletAddress,
+      });
 
-      return c.json({ data: res[0] });
+      const decision = await checkAiUsage({
+        userId: authUser.id,
+        isPro: proStatus.isPro,
+        action: "generate",
+      });
+
+      if (!decision.allowed || !decision.usageRow) {
+        return c.json(
+          {
+            error: "Daily limit reached",
+            limit: decision.limit,
+            used: decision.used,
+            remaining: decision.remaining,
+            date: decision.date,
+          },
+          429,
+        );
+      }
+
+      const result = await generateImage({ prompt, provider });
+      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+
+      return c.json({ data: result.imageUrl });
     },
   );
 
