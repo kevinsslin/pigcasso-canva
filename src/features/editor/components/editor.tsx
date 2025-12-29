@@ -106,6 +106,7 @@ export const Editor = ({ initialData }: EditorProps) => {
     <div className="h-full flex flex-col">
       <Navbar
         id={initialData.id}
+        projectName={initialData.name || "project"}
         editor={editor}
         activeTool={activeTool}
         onChangeActiveTool={onChangeActiveTool}

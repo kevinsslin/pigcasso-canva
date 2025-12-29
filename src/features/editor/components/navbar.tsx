@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CiFileOn } from "react-icons/ci";
 import { BsCloudCheck, BsCloudSlash } from "react-icons/bs";
 import { useFilePicker } from "use-file-picker";
@@ -17,6 +18,7 @@ import { UserButton } from "@/features/auth/components/user-button";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { Logo } from "@/features/editor/components/logo";
+import { ExportPackDialog } from "@/features/editor/components/export-pack-dialog";
 
 import { cn } from "@/lib/utils";
 import { Hint } from "@/components/hint";
@@ -31,6 +33,7 @@ import {
 
 interface NavbarProps {
   id: string;
+  projectName: string;
   editor: Editor | undefined;
   activeTool: ActiveTool;
   onChangeActiveTool: (tool: ActiveTool) => void;
@@ -38,10 +41,12 @@ interface NavbarProps {
 
 export const Navbar = ({
   id,
+  projectName,
   editor,
   activeTool,
   onChangeActiveTool,
 }: NavbarProps) => {
+  const [packOpen, setPackOpen] = useState(false);
   const data = useMutationState({
     filters: {
       mutationKey: ["project", { id }],
@@ -72,6 +77,12 @@ export const Navbar = ({
   return (
     <nav className="w-full flex items-center p-4 h-[68px] gap-x-8 border-b lg:pl-[34px]">
       <Logo />
+      <ExportPackDialog
+        open={packOpen}
+        onOpenChange={setPackOpen}
+        editor={editor}
+        projectName={projectName}
+      />
       <div className="w-full flex items-center gap-x-1 h-full">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -205,6 +216,18 @@ export const Navbar = ({
                   <p>SVG</p>
                   <p className="text-xs text-muted-foreground">
                     Best for editing in vector software
+                  </p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex items-center gap-x-2"
+                onClick={() => setPackOpen(true)}
+              >
+                <CiFileOn className="size-8" />
+                <div>
+                  <p>Pack (Pro)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Multi-size export (ZIP or files)
                   </p>
                 </div>
               </DropdownMenuItem>
