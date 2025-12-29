@@ -17,10 +17,10 @@ export const Banner = () => {
     setLoading(true);
     mutation.mutate(
       {
-        name: "Untitled project",
+        name: "X Post (4:5)",
         json: "",
-        width: 900,
-        height: 1200,
+        width: 1080,
+        height: 1350,
       },
       {
         onSuccess: ({ data }) => {
@@ -31,16 +31,18 @@ export const Banner = () => {
   };
 
   return (
-    <div className="text-white aspect-[5/1] min-h-[248px] flex gap-x-6 p-6 items-center rounded-xl bg-gradient-to-r from-[#2e62cb] via-[#0073ff] to-[#3faff5]">
+    <div className="text-[#111827] aspect-[5/1] min-h-[248px] flex gap-x-6 p-6 items-center rounded-xl bg-gradient-to-r from-[#FBE9E8] via-[#F7A9B8] to-[#25D6FF]">
       <div className="rounded-full size-28 items-center justify-center bg-white/50 hidden md:flex">
         <div className="rounded-full size-20 flex items-center justify-center bg-white">
-          <Sparkles className="h-20 text-[#0073ff] fill-[#0073ff]" />
+          <Sparkles className="h-20 text-[#25D6FF] fill-[#25D6FF]" />
         </div>
       </div>
       <div className="flex flex-col gap-y-2">
-        <h1 className="text-xl md:text-3xl font-semibold">Visualize your ideas with The Canvas</h1>
+        <h1 className="text-xl md:text-3xl font-semibold">
+          Pigcasso Canvas
+        </h1>
         <p className="text-xs md:text-sm mb-2">
-          Turn inspiration into design in no time. Simply upload an image and let AI do the rest.
+          Web3-native editor with token-gated Pro packs, creator templates, and an assistant that edits your canvas.
         </p>
         <Button
           disabled={mutation.isPending}

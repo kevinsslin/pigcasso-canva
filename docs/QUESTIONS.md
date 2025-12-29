@@ -4,7 +4,9 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 
 ## Open Questions
 
-- (none yet)
+- Pack export enforcement: current implementation is client-side gated by Pro UI; do you want a server-side export endpoint for stronger enforcement?
+- `export const dynamic = "force-dynamic"` is set in `src/app/layout.tsx` to avoid build-time failures when env keys are missing; confirm if you want to keep this (recommended for auth-heavy apps).
+- Replicate model choice: currently uses `stability-ai/stable-diffusion-3`; do you want to switch the default Replicate model for better Web3-style assets?
 
 ## Notes / Decisions
 

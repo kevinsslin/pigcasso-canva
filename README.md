@@ -1,27 +1,29 @@
-# The Canvas
+# Pigcasso Canvas
 
-Canva-like editor built with Next.js: templates + projects, a Fabric.js canvas editor, AI tools, uploads, and Stripe subscriptions.
+Web3-native, Canva-like editor built on Next.js: Fabric.js canvas editor, projects/templates, AI tools, token-gated Pro, and remixable creator templates.
 
-## Pigcasso Canvas (Fork Plan)
-
-This repo is being adapted into **Pigcasso Canvas** (Mantle hackathon MVP). Product scope and technical direction live in `PRD.md` (Privy auth, Mantle token-gated Pro, assistant-driven layouts/variants, pack export, and removing Stripe/Web2 billing).
+Product scope and implementation notes:
+- `docs/PRD.md`
+- `docs/foundamental.md`
+- Open questions: `docs/QUESTIONS.md`
 
 ## Tech Stack
 
 - Next.js 14 (App Router) + TypeScript
-- Auth.js / NextAuth v5 (Drizzle adapter)
+- Privy (Auth + embedded wallet)
 - Hono API mounted at `/api/*` (`src/app/api/[[...route]]/route.ts`) + typed client (`src/lib/hono.ts`)
 - Drizzle ORM + Postgres (Neon serverless driver)
 - Tailwind CSS + shadcn/ui + Radix UI
 - TanStack React Query
 - Fabric.js editor
-- Integrations: Stripe, UploadThing, Unsplash, Replicate
+- Integrations: UploadThing, Unsplash, Replicate, Gemini
 
 ## Quickstart (Local)
 
 ```bash
 bun install
 cp .env.example .env.local
+DATABASE_URL=postgres://... bun run db:migrate
 bun dev
 ```
 
@@ -29,13 +31,15 @@ Open `http://localhost:3000`.
 
 ### Minimal `.env.local`
 
-To get the basic flow working (sign up → sign in → dashboard → editor), start with:
+To get the basic flow working (Privy login → dashboard → editor), start with:
 
 - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
-- `DATABASE_URL=postgres://...`
-- `AUTH_SECRET=...`
+- `DATABASE_URL=postgres://...` (required for Drizzle)
+- `NEXT_PUBLIC_PRIVY_APP_ID=...`
+- `PRIVY_APP_SECRET=...`
+- `MANTLE_RPC_URL=...` (Alchemy RPC on Mantle Mainnet)
 
-Other features require additional keys (see `.env.example`).
+Optional features require additional keys (see `.env.example`): UploadThing, Replicate, Gemini, Unsplash.
 
 ## Database (Drizzle)
 
@@ -53,8 +57,6 @@ bun run db:studio   # open Drizzle Studio
 - `bun run build` / `bun run start`: production build + server
 - `bun run lint`: run `next lint`
 
-## Local Architecture Notes
+## Notes
 
-See `docs/foundamental.md` for a consolidated architecture + flow overview.
-
-`docs/` is intentionally gitignored so you can keep personal learning notes while exploring the repo. Remove `/docs/` from `.gitignore` if you want to commit docs.
+- `docs/` is mostly gitignored; only the tracked MVP docs are committed (PRD/foundamental/questions).

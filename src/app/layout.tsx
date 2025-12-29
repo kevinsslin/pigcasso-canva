@@ -11,8 +11,8 @@ const inter = Inter({ subsets: ["latin"] });
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "The Canvas",
-  description: "Build Something Great!",
+  title: "Pigcasso Canvas",
+  description: "Web3-native design editor with token-gated Pro on Mantle.",
 };
 
 export default function RootLayout({
