@@ -51,6 +51,10 @@ bun run db:migrate  # apply migrations
 bun run db:studio   # open Drizzle Studio
 ```
 
+## Troubleshooting
+
+- `column "bio" does not exist` (or similar schema errors): verify `DATABASE_URL` points to the DB you expect, then run `bun run db:migrate` to apply the latest Drizzle migrations.
+
 ## Useful Commands
 
 - `bun dev`: start dev server
