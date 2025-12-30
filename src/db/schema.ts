@@ -30,6 +30,8 @@ export const users = pgTable("user", {
 
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
+  nftCollections: many(nftCollections),
+  nftAssets: many(nftAssets),
 }));
 
 export const projects = pgTable("project", {
@@ -56,14 +58,99 @@ export const projects = pgTable("project", {
   updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
 });
 
-export const projectsRelations = relations(projects, ({ one }) => ({
+export const projectsRelations = relations(projects, ({ one, many }) => ({
   user: one(users, {
     fields: [projects.userId],
     references: [users.id],
   }),
+  nftAssets: many(nftAssets),
 }));
 
 export const projectsInsertSchema = createInsertSchema(projects);
+
+export const nftCollections = pgTable(
+  "nft_collection",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chainId: integer("chainId").notNull().default(5000),
+    address: text("address"),
+    name: text("name").notNull(),
+    symbol: text("symbol").notNull(),
+    contractUri: text("contractUri"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    chainAddressUnique: uniqueIndex("nft_collection_chain_address_unique").on(
+      table.chainId,
+      table.address,
+    ),
+  }),
+);
+
+export const nftCollectionsRelations = relations(nftCollections, ({ one, many }) => ({
+  user: one(users, {
+    fields: [nftCollections.userId],
+    references: [users.id],
+  }),
+  assets: many(nftAssets),
+}));
+
+export const nftAssets = pgTable(
+  "nft_asset",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("projectId")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    chainId: integer("chainId").notNull().default(5000),
+    collectionId: text("collectionId").references(() => nftCollections.id, {
+      onDelete: "set null",
+    }),
+    collectionAddress: text("collectionAddress"),
+    tokenId: text("tokenId"),
+    txHash: text("txHash"),
+    status: text("status").notNull().default("draft"),
+    metadataUri: text("metadataUri"),
+    imageUri: text("imageUri"),
+    name: text("name"),
+    description: text("description"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    chainCollectionTokenUnique: uniqueIndex("nft_asset_chain_collection_token_unique").on(
+      table.chainId,
+      table.collectionAddress,
+      table.tokenId,
+    ),
+  }),
+);
+
+export const nftAssetsRelations = relations(nftAssets, ({ one }) => ({
+  user: one(users, {
+    fields: [nftAssets.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [nftAssets.projectId],
+    references: [projects.id],
+  }),
+  collection: one(nftCollections, {
+    fields: [nftAssets.collectionId],
+    references: [nftCollections.id],
+  }),
+}));
 
 export const aiDailyUsage = pgTable(
   "ai_daily_usage",
