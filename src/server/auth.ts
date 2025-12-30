@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { users } from "@/db/schema";
 import { privy } from "@/server/privy";
+import { HttpError, getErrorStatus } from "@/server/http-error";
 
 export type AuthUser = {
   id: string;
@@ -48,32 +49,71 @@ const getWalletAddresses = (privyUser: User) => {
 export const getOrCreateUserFromPrivyToken = async (
   token: string,
 ): Promise<AuthUser> => {
-  const claims = await privy.verifyAuthToken(token);
-  const privyUser = await privy.getUser(claims.userId);
+  let claims: { userId: string };
+  try {
+    claims = await privy.verifyAuthToken(token);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Missing ")) {
+      throw error;
+    }
+    throw new HttpError(401, "Unauthorized");
+  }
+
+  let privyUser: User;
+  try {
+    privyUser = await privy.getUser(claims.userId);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Missing ")) {
+      throw error;
+    }
+
+    const status = getErrorStatus(error);
+    if (status === 401 || status === 403 || status === 404) {
+      throw new HttpError(401, "Unauthorized");
+    }
+
+    throw new HttpError(502, "Privy request failed");
+  }
 
   const { embeddedWalletAddress, externalWalletAddress } = getWalletAddresses(privyUser);
   const email = privyUser.email?.address ?? null;
 
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.privyUserId, privyUser.id));
+  let existingUser: (typeof users.$inferSelect) | undefined;
+  try {
+    const existing = await db
+      .select()
+      .from(users)
+      .where(eq(users.privyUserId, privyUser.id));
 
-  const existingUser = existing[0];
+    existingUser = existing[0];
+  } catch (error) {
+    throw new HttpError(
+      500,
+      error instanceof Error ? error.message : "Failed to load user",
+    );
+  }
 
   if (!existingUser) {
-    const inserted = await db
-      .insert(users)
-      .values({
-        privyUserId: privyUser.id,
-        email,
-        embeddedWalletAddress,
-        externalWalletAddress,
-      })
-      .returning();
+    let inserted: Array<typeof users.$inferSelect> = [];
+    try {
+      inserted = await db
+        .insert(users)
+        .values({
+          privyUserId: privyUser.id,
+          email,
+          embeddedWalletAddress,
+          externalWalletAddress,
+        })
+        .returning();
+    } catch (error) {
+      throw new HttpError(
+        500,
+        error instanceof Error ? error.message : "Failed to create user",
+      );
+    }
 
     if (!inserted[0]) {
-      throw new Error("Failed to create user");
+      throw new HttpError(500, "Failed to create user");
     }
 
     return {
@@ -91,15 +131,22 @@ export const getOrCreateUserFromPrivyToken = async (
     existingUser.externalWalletAddress !== externalWalletAddress;
 
   if (shouldUpdate) {
-    await db
-      .update(users)
-      .set({
-        ...(email ? { email } : {}),
-        embeddedWalletAddress,
-        externalWalletAddress,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, existingUser.id));
+    try {
+      await db
+        .update(users)
+        .set({
+          ...(email ? { email } : {}),
+          embeddedWalletAddress,
+          externalWalletAddress,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existingUser.id));
+    } catch (error) {
+      throw new HttpError(
+        500,
+        error instanceof Error ? error.message : "Failed to update user",
+      );
+    }
   }
 
   return {
@@ -110,4 +157,3 @@ export const getOrCreateUserFromPrivyToken = async (
     externalWalletAddress: externalWalletAddress ?? existingUser.externalWalletAddress ?? null,
   };
 };
-

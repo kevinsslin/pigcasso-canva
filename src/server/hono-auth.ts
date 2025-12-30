@@ -1,10 +1,12 @@
 import { createMiddleware } from "hono/factory";
+import type { StatusCode } from "hono/utils/http-status";
 
 import {
   type AuthUser,
   getBearerToken,
   getOrCreateUserFromPrivyToken,
 } from "@/server/auth";
+import { getErrorStatus } from "@/server/http-error";
 import { getProStatusForUser, type ProStatus } from "@/server/token-gating";
 
 declare module "hono" {
@@ -18,7 +20,15 @@ export const requireAuth = createMiddleware(async (c, next) => {
   const token = getBearerToken(c.req.header("Authorization"));
 
   if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json(
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Unauthorized"
+            : "Missing Authorization bearer token",
+      },
+      401,
+    );
   }
 
   try {
@@ -26,15 +36,28 @@ export const requireAuth = createMiddleware(async (c, next) => {
     c.set("authUser", authUser);
     return await next();
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing ")) {
+    const status = (getErrorStatus(error) ?? 500) as StatusCode;
+    const message =
+      error instanceof Error && error.message ? error.message : "Internal Server Error";
+
+    if (status === 401 || status === 403) {
       return c.json(
-        { error: process.env.NODE_ENV === "production" ? "Server misconfigured" : error.message },
-        500,
+        { error: process.env.NODE_ENV === "production" ? "Unauthorized" : message },
+        401,
       );
     }
 
     console.error(error);
-    return c.json({ error: "Unauthorized" }, 401);
+
+    return c.json(
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Server misconfigured"
+            : message,
+      },
+      status,
+    );
   }
 });
 
@@ -42,7 +65,15 @@ export const requirePro = createMiddleware(async (c, next) => {
   const token = getBearerToken(c.req.header("Authorization"));
 
   if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json(
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Unauthorized"
+            : "Missing Authorization bearer token",
+      },
+      401,
+    );
   }
 
   try {
@@ -63,14 +94,26 @@ export const requirePro = createMiddleware(async (c, next) => {
 
     return await next();
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing ")) {
+    const status = (getErrorStatus(error) ?? 500) as StatusCode;
+    const message =
+      error instanceof Error && error.message ? error.message : "Internal Server Error";
+
+    if (status === 401 || status === 403) {
       return c.json(
-        { error: process.env.NODE_ENV === "production" ? "Server misconfigured" : error.message },
-        500,
+        { error: process.env.NODE_ENV === "production" ? "Unauthorized" : message },
+        401,
       );
     }
 
     console.error(error);
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json(
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Server misconfigured"
+            : message,
+      },
+      status,
+    );
   }
 });

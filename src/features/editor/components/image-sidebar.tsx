@@ -52,7 +52,11 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           }}
           disabled={!uploadthingConfigured}
           headers={async () => {
-            const token = await getAuthToken();
+            const token = await getAuthToken({
+              maxWaitMs: 2000,
+              retries: 4,
+              retryDelayMs: 200,
+            });
             return token
               ? { Authorization: `Bearer ${token}` }
               : new Headers();

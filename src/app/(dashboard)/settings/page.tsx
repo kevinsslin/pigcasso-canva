@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader } from "lucide-react";
+import { Loader, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
@@ -25,6 +26,7 @@ const AI_PROVIDER_STORAGE_KEY = "pigcasso:ai-provider-default";
 
 export default function SettingsPage() {
   const { ready, authenticated } = useRequireAuth("/settings");
+  const { logout } = usePrivy();
   const me = useMe({ enabled: ready && authenticated });
   const updateMe = useUpdateMe();
   const queryClient = useQueryClient();
@@ -69,6 +71,45 @@ export default function SettingsPage() {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <Loader className="size-6 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  if (me.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader className="size-6 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  if (me.isError) {
+    return (
+      <div className="max-w-screen-md mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your profile and preferences.
+          </p>
+        </div>
+
+        <div className="rounded-lg border p-4 flex items-start gap-3">
+          <TriangleAlert className="mt-0.5 size-5 text-muted-foreground" />
+          <div className="flex-1">
+            <div className="font-medium">Failed to load your account</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {me.error?.message || "Unauthorized"}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => me.refetch()}>
+                Retry
+              </Button>
+              <Button type="button" variant="outline" onClick={() => logout()}>
+                Log out
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -140,7 +181,11 @@ export default function SettingsPage() {
                 disabled={!uploadthingConfigured || updateMe.isPending}
                 endpoint="avatarUploader"
                 headers={async () => {
-                  const token = await getAuthToken();
+                  const token = await getAuthToken({
+                    maxWaitMs: 2000,
+                    retries: 4,
+                    retryDelayMs: 200,
+                  });
                   return token
                     ? { Authorization: `Bearer ${token}` }
                     : new Headers();

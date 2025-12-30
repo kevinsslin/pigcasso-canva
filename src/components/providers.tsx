@@ -1,9 +1,11 @@
 "use client";
 
-import { useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
+import { toast } from "sonner";
 
 import { QueryProvider } from "@/components/query-provider";
+import { AUTH_UNAUTHORIZED_EVENT } from "@/lib/auth-events";
 import { setAuthTokenGetter } from "@/lib/auth-token";
 
 interface ProvidersProps {
@@ -11,11 +13,39 @@ interface ProvidersProps {
 };
 
 const PrivyTokenSync = () => {
-  const { getAccessToken } = usePrivy();
+  const { getAccessToken, logout, ready, authenticated } = usePrivy();
+  const hasHandledUnauthorizedRef = useRef(false);
 
   useLayoutEffect(() => {
     setAuthTokenGetter(getAccessToken);
   }, [getAccessToken]);
+
+  useEffect(() => {
+    if (authenticated) {
+      hasHandledUnauthorizedRef.current = false;
+    }
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handler = () => {
+      if (!ready || !authenticated) {
+        return;
+      }
+      if (hasHandledUnauthorizedRef.current) {
+        return;
+      }
+      hasHandledUnauthorizedRef.current = true;
+      toast.error("Session expired. Please sign in again.");
+      logout();
+    };
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handler);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handler);
+  }, [authenticated, logout, ready]);
 
   return null;
 };
