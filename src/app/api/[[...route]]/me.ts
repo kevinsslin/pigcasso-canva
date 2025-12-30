@@ -19,7 +19,7 @@ const updateMeSchema = z
     (value) =>
       value.name !== undefined || value.image !== undefined || value.bio !== undefined,
     {
-    message: "No changes provided",
+      message: "No changes provided",
     },
   );
 
@@ -50,16 +50,16 @@ const app = new Hono()
       gemini: Boolean(process.env.GEMINI_API_KEY),
     };
 
-  const defaultProvider =
-    process.env.AI_PROVIDER_DEFAULT === "gemini" && providers.gemini
-      ? "gemini"
-      : process.env.AI_PROVIDER_DEFAULT === "replicate" && providers.replicate
-        ? "replicate"
-        : providers.gemini
-          ? "gemini"
-          : providers.replicate
-            ? "replicate"
-            : "gemini";
+    const defaultProvider =
+      process.env.AI_PROVIDER_DEFAULT === "gemini" && providers.gemini
+        ? "gemini"
+        : process.env.AI_PROVIDER_DEFAULT === "replicate" && providers.replicate
+          ? "replicate"
+          : providers.gemini
+            ? "gemini"
+            : providers.replicate
+              ? "replicate"
+              : "gemini";
 
     return c.json({
       data: {

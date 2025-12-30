@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftCollections } from "@/db/schema";
+import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
 
 const app = new Hono()
@@ -39,7 +40,10 @@ const app = new Hono()
         .limit(limit)
         .offset((page - 1) * limit);
 
-      return c.json({ data });
+      return c.json({
+        data,
+        nextPage: data.length === limit ? page + 1 : null,
+      });
     },
   )
   .post(
@@ -48,7 +52,7 @@ const app = new Hono()
     zValidator(
       "json",
       z.object({
-        chainId: z.coerce.number().int().positive().optional().default(5000),
+        chainId: z.coerce.number().int().positive().optional().default(MANTLE_CHAIN_ID),
         name: z.string().trim().min(1).max(120),
         symbol: z
           .string()
@@ -89,4 +93,3 @@ const app = new Hono()
   );
 
 export default app;
-

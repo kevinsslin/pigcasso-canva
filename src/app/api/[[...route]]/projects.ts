@@ -119,7 +119,7 @@ const app = new Hono()
         );
 
       if (data.length === 0) {
-        return c.json({ error:" Not found" }, 404);
+        return c.json({ error: "Not found" }, 404);
       }
 
       const project = data[0];
@@ -206,7 +206,7 @@ const app = new Hono()
         .returning();
 
       if (data.length === 0) {
-        return c.json({ error: "Unauthorized" }, 401);
+        return c.json({ error: "Not found" }, 404);
       }
 
       return c.json({ data: data[0] });

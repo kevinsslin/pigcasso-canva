@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftAssets, projects } from "@/db/schema";
+import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
 
 const app = new Hono()
@@ -47,7 +48,10 @@ const app = new Hono()
         .limit(limit)
         .offset((page - 1) * limit);
 
-      return c.json({ data });
+      return c.json({
+        data,
+        nextPage: data.length === limit ? page + 1 : null,
+      });
     },
   )
   .post(
@@ -79,7 +83,7 @@ const app = new Hono()
         .values({
           userId: auth.id,
           projectId,
-          chainId: 5000,
+          chainId: MANTLE_CHAIN_ID,
           status: "draft",
           name: name?.trim() || null,
           description: description?.trim() || null,
@@ -97,4 +101,3 @@ const app = new Hono()
   );
 
 export default app;
-

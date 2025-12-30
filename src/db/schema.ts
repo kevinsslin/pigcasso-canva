@@ -7,8 +7,10 @@ import {
   text,
   integer,
   uniqueIndex,
-} from "drizzle-orm/pg-core"
- 
+} from "drizzle-orm/pg-core";
+
+import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
+
 export const users = pgTable("user", {
   id: text("id")
     .primaryKey()
@@ -77,7 +79,7 @@ export const nftCollections = pgTable(
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    chainId: integer("chainId").notNull().default(5000),
+    chainId: integer("chainId").notNull().default(MANTLE_CHAIN_ID),
     address: text("address"),
     name: text("name").notNull(),
     symbol: text("symbol").notNull(),
@@ -113,7 +115,7 @@ export const nftAssets = pgTable(
     projectId: text("projectId")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    chainId: integer("chainId").notNull().default(5000),
+    chainId: integer("chainId").notNull().default(MANTLE_CHAIN_ID),
     collectionId: text("collectionId").references(() => nftCollections.id, {
       onDelete: "set null",
     }),

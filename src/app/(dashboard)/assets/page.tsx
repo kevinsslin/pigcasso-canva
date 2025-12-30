@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Loader, Sparkles } from "lucide-react";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
+import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,7 @@ export default function AssetsPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-            <li>Mantle first (chainId=5000)</li>
+            <li>Mantle first (chainId={MANTLE_CHAIN_ID})</li>
             <li>User-signed mint transactions</li>
             <li>IPFS upload for image, metadata, and source JSON</li>
             <li>Asset status tracking (draft → minted)</li>
@@ -59,4 +60,3 @@ export default function AssetsPage() {
     </div>
   );
 }
-
