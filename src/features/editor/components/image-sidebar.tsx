@@ -72,12 +72,15 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
               id: uploadToastIdRef.current ?? undefined,
             });
             uploadToastIdRef.current = null;
-            editor?.addImage(res[0].url);
+            const url = res?.[0]?.ufsUrl ?? res?.[0]?.url;
+            if (url) {
+              editor?.addImage(url);
+            }
           }}
         />
         {!uploadthingConfigured ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            Uploads are disabled: missing `UPLOADTHING_APP_ID` / `UPLOADTHING_SECRET`.
+            Uploads are disabled: missing `UPLOADTHING_TOKEN`.
           </p>
         ) : null}
       </div>

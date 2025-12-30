@@ -4,7 +4,7 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 
 ## Open Questions
 
-- UploadThing `prepareUpload` returns `400 Unsupported operation` with current keys: is this an account/plan restriction, a wrong project/appId pairing, or a deprecated key format?
+- UploadThing `prepareUpload` returns `400 Unsupported operation` with current token: is this an account/plan restriction, a wrong project pairing, or a deprecated token?
 - Unsplash integration: should `/api/images` be disabled by default unless `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY` is present (current behavior returns 501 with a clear message)?
 - Pack export enforcement: current implementation is client-side gated by Pro UI; do you want a server-side export endpoint for stronger enforcement?
 - `export const dynamic = "force-dynamic"` is set in `src/app/layout.tsx` to avoid build-time failures when env keys are missing; confirm if you want to keep this (recommended for auth-heavy apps).

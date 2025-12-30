@@ -105,7 +105,7 @@ export const PublishTemplateDialog = ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const thumbnailUrl = uploaded?.[0]?.url;
+      const thumbnailUrl = uploaded?.[0]?.ufsUrl ?? uploaded?.[0]?.url;
       if (!thumbnailUrl) {
         throw new Error("Failed to upload thumbnail");
       }
@@ -198,4 +198,3 @@ export const PublishTemplateDialog = ({
     </Dialog>
   );
 };
-

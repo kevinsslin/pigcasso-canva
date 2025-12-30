@@ -78,7 +78,7 @@ const app = new Hono()
         integrations: {
           uploadthing: {
             configured: Boolean(
-              process.env.UPLOADTHING_APP_ID && process.env.UPLOADTHING_SECRET,
+              process.env.UPLOADTHING_TOKEN,
             ),
           },
           unsplash: {

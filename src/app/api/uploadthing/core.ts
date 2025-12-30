@@ -20,7 +20,7 @@ export const ourFileRouter = {
       return { userId: authUser.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      return { url: file.url };
+      return { url: file.ufsUrl ?? file.url };
     }),
   avatarUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
     .middleware(async ({ req }) => {
@@ -33,12 +33,13 @@ export const ourFileRouter = {
       return { userId: authUser.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
+      const url = file.ufsUrl ?? file.url;
       await db
         .update(users)
-        .set({ image: file.url, updatedAt: new Date() })
+        .set({ image: url, updatedAt: new Date() })
         .where(eq(users.id, metadata.userId));
 
-      return { url: file.url };
+      return { url };
     }),
 } satisfies FileRouter;
  

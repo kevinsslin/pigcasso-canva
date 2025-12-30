@@ -39,8 +39,7 @@ bun dev
 
 要啟用 creator hub publish（縮圖上傳）：
 
-- `UPLOADTHING_APP_ID=...`
-- `UPLOADTHING_SECRET=...`
+- `UPLOADTHING_TOKEN=...`
 
 要啟用 AI（擇一或兩個都開）：
 
@@ -210,4 +209,3 @@ Share page：`src/app/templates/[templateId]/page.tsx`（顯示 attribution + Re
 
 - UI：`src/features/editor/components/pigcasso-assistant.tsx`
 - Actions：`src/features/editor/pigcasso-actions.ts`
-

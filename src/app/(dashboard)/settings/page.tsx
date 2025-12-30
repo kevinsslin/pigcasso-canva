@@ -164,7 +164,7 @@ export default function SettingsPage() {
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 {!uploadthingConfigured
-                  ? "UploadThing is not configured on the server. Set `UPLOADTHING_APP_ID` + `UPLOADTHING_SECRET`."
+                  ? "UploadThing is not configured on the server. Set `UPLOADTHING_TOKEN`."
                   : "If uploads fail (e.g. 400 Unsupported operation), rotate keys / verify UploadThing project & plan, or paste an image URL below and save."}
               </p>
             </div>
