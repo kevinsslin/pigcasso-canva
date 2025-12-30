@@ -24,10 +24,12 @@ interface ImageSidebarProps {
 
 export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSidebarProps) => {
   const me = useMe();
-  const { data, isLoading, isError, error } = useGetImages();
+  const unsplashConfigured = me.data?.data.integrations?.unsplash.configured;
+  const { data, isLoading, isError, error } = useGetImages({
+    enabled: unsplashConfigured === true,
+  });
   const uploadToastIdRef = useRef<string | number | null>(null);
-  const uploadthingConfigured =
-    me.data?.data.integrations?.uploadthing.configured === true;
+  const uploadthingConfigured = me.data?.data.integrations?.uploadthing.configured;
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -50,7 +52,7 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           content={{
             button: "Upload Image",
           }}
-          disabled={!uploadthingConfigured}
+          disabled={uploadthingConfigured !== true}
           headers={async () => {
             const token = await getAuthToken({
               maxWaitMs: 2000,
@@ -82,18 +84,23 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
             }
           }}
         />
-        {!uploadthingConfigured ? (
+        {uploadthingConfigured === false ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Uploads are disabled: missing `UPLOADTHING_TOKEN`.
           </p>
         ) : null}
+        {unsplashConfigured === false ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Stock images are disabled: missing `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY`.
+          </p>
+        ) : null}
       </div>
-      {isLoading && (
+      {unsplashConfigured === true && isLoading && (
         <div className="flex items-center justify-center flex-1">
           <Loader className="size-4 text-muted-foreground animate-spin" />
         </div>
       )}
-      {isError && (
+      {unsplashConfigured === true && isError && (
         <div className="flex flex-col gap-y-4 items-center justify-center flex-1">
           <AlertTriangle className="size-4 text-muted-foreground" />
           <p className="text-muted-foreground text-xs">
@@ -101,43 +108,55 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           </p>
         </div>
       )}
-      <ScrollArea>
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-4">
-            {data &&
-              data.map((image) => {
-                const previewSrc = image?.urls?.small || image?.urls?.thumb;
+      {unsplashConfigured === true ? (
+        <ScrollArea>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-4">
+              {data &&
+                data.map((image) => {
+                  const previewSrc = image?.urls?.small || image?.urls?.thumb;
 
-                return (
-                  <button
-                    onClick={() => editor?.addImage(image.urls.regular)}
-                    key={image.id}
-                    className="relative w-full h-[100px] group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
-                  >
-                    {previewSrc ? (
-                      <Image
-                        fill
-                        src={previewSrc}
-                        alt={image.alt_description || "Image"}
-                        className="object-cover"
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-muted" />
-                    )}
-                    <Link
-                      target="_blank"
-                      href={image.links.html}
-                      className="opacity-0 group-hover:opacity-100 absolute left-0 bottom-0 w-full text-[10px] truncate text-white hover:underline p-1 bg-black/50 text-left"
+                  return (
+                    <button
+                      onClick={() => editor?.addImage(image.urls.regular)}
+                      key={image.id}
+                      className="relative w-full h-[100px] group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
                     >
-                      {image.user.name}
-                    </Link>
-                  </button>
-                );
-              })}
+                      {previewSrc ? (
+                        <Image
+                          fill
+                          src={previewSrc}
+                          alt={image.alt_description || "Image"}
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 25vw"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-muted" />
+                      )}
+                      <Link
+                        target="_blank"
+                        href={image.links.html}
+                        className="opacity-0 group-hover:opacity-100 absolute left-0 bottom-0 w-full text-[10px] truncate text-white hover:underline p-1 bg-black/50 text-left"
+                      >
+                        {image.user.name}
+                      </Link>
+                    </button>
+                  );
+                })}
+            </div>
           </div>
+        </ScrollArea>
+      ) : unsplashConfigured === false ? (
+        <div className="flex flex-1 items-center justify-center p-4">
+          <p className="text-xs text-muted-foreground text-center">
+            Add `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY` to enable stock image browsing.
+          </p>
         </div>
-      </ScrollArea>
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-4">
+          <Loader className="size-4 text-muted-foreground animate-spin" />
+        </div>
+      )}
       <ToolSidebarClose onClick={onClose} />
     </aside>
   );

@@ -19,9 +19,12 @@ type UnsplashImage = {
   };
 };
 
-export const useGetImages = () => {
+export const useGetImages = (options?: { enabled?: boolean }) => {
+  const enabled = options?.enabled ?? true;
+
   const query = useQuery<UnsplashImage[], Error>({
     queryKey: ["images"],
+    enabled,
     queryFn: async () => {
       const response = await client.api.images.$get();
       const body = await readApiResponse<{ data: UnsplashImage[] }>(
