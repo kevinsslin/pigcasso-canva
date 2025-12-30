@@ -51,6 +51,11 @@
 ### V2（Web3-native：內容資產 / 一鍵上鏈 NFT）
 
 - [ ] Export as Asset：把 design（PNG + source JSON + metadata）打包成可上鏈資產
+- [ ] NFT 管理頁面（Creator/Collector dashboard）
+  - [ ] `/assets`：已鑄造作品列表（status、chain、contract、tokenId、tx、metadata CID、link 回 editor/source）
+  - [ ] `/assets/:id`：NFT 詳情（預覽、metadata、provenance、remix lineage、操作：view on explorer、refresh、re-mint）
+  - [ ] `/collections`（若採用 factory）：collection/series 管理（name/symbol/contractURI、mint 權限）
+  - [ ] `/settings/web3`：mint 預設設定（recipient=embedded/external、metadata 欄位、IPFS pinning provider）
 - [ ] IPFS：上傳 image + metadata + source（可選 pinning provider）
 - [ ] One-click Mint：Editor 內一鍵鑄造 NFT（預設 Mint 到 Privy embedded wallet，可選 external）
 - [ ] Provenance：creator / parent template / remix lineage 上鏈或可驗證（含 attribution）
@@ -504,6 +509,9 @@ Pro（持幣 >= 100000）
 - 在 Editor 提供「Export → Mint」流程：輸出 PNG/JPG、source JSON、metadata（含尺寸、安全區、vibe、prompt 等）
 - IPFS 上傳與 pinning 策略（自建 pinning / 第三方 pinning / 使用者自帶 pinning key）
 - Mint 合約策略（ERC-721 vs ERC-1155、metadata schema、royalties、是否允許 remix-derivative）
+- 合約架構建議：Factory + minimal proxy（EIP-1167 clones）
+  - `CollectionFactory`：建立 collection（每個 creator/brand 一個 collection 或共用一個 collection）
+  - `Collection`：ERC-721（先 1/1）+ minter role +（未來）EIP-2981 royalties
 - Gas 策略（使用者付費 vs paymaster 贊助；Privy embedded wallet 的 UX 與風險）
 - 設計資產的權利與授權（template / remix / 商用 / 署名 / 分潤）
 

@@ -16,6 +16,7 @@ import {
 } from "@/features/editor/pigcasso-actions";
 
 import { cn } from "@/lib/utils";
+import { client } from "@/lib/hono";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -120,6 +121,7 @@ const inferActionFromText = (text: string): PendingAction | null => {
 export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [aiThinking, setAiThinking] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
     pointerId: number;
@@ -303,7 +305,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     setMessages((m) => [...m, { role: "user", text }]);
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const text = input.trim();
@@ -314,10 +316,43 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
 
     const action = inferActionFromText(text);
     if (!action) {
-      setPending(null);
-      addAssistantMessage(
-        "I couldn't map that to an action yet. Try: 置中 / AMA / 產生 3 個版本 / 字級層級",
-      );
+      setAiThinking(true);
+      try {
+        const response = await client.api.assistant.action.$post({
+          json: { input: text },
+        });
+
+        const body = await response.json().catch(() => null);
+        const reply =
+          (body as { data?: { reply?: unknown } })?.data?.reply;
+        const nextAction =
+          (body as { data?: { action?: unknown } })?.data?.action;
+
+        if (!response.ok) {
+          const message =
+            typeof (body as { error?: unknown })?.error === "string"
+              ? ((body as { error?: string }).error as string)
+              : "Assistant request failed";
+          addAssistantMessage(message);
+          setPending(null);
+          return;
+        }
+
+        if (typeof reply === "string" && reply.trim()) {
+          addAssistantMessage(reply);
+        } else {
+          addAssistantMessage("OK. What would you like to change on the canvas?");
+        }
+
+        setPending(nextAction as PendingAction | null);
+      } catch (error) {
+        addAssistantMessage(
+          error instanceof Error ? error.message : "Assistant request failed",
+        );
+        setPending(null);
+      } finally {
+        setAiThinking(false);
+      }
       return;
     }
 
@@ -486,6 +521,11 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                   {m.text}
                 </div>
               ))}
+              {aiThinking ? (
+                <div className="text-xs text-muted-foreground">
+                  Thinking…
+                </div>
+              ) : null}
 
               {pending?.type === "variants" ? (
                 <div className="mt-2 space-y-2">

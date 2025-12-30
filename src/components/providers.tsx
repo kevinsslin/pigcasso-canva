@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 
 import { QueryProvider } from "@/components/query-provider";
@@ -13,7 +13,7 @@ interface ProvidersProps {
 const PrivyTokenSync = () => {
   const { getAccessToken } = usePrivy();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAuthTokenGetter(getAccessToken);
   }, [getAccessToken]);
 

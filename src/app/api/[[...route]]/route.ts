@@ -5,6 +5,7 @@ import type { StatusCode } from "hono/utils/http-status";
 import { getErrorStatus } from "@/server/http-error";
 
 import ai from "./ai";
+import assistant from "./assistant";
 import images from "./images";
 import me from "./me";
 import projects from "./projects";
@@ -31,6 +32,7 @@ const app = new Hono()
 
 const routes = app
   .route("/ai", ai)
+  .route("/assistant", assistant)
   .route("/images", images)
   .route("/me", me)
   .route("/projects", projects)

@@ -20,12 +20,12 @@ const resolveDefaultProvider = (): AiProvider => {
     return "replicate";
   }
 
-  if (hasReplicate()) {
-    return "replicate";
-  }
-
   if (hasGemini()) {
     return "gemini";
+  }
+
+  if (hasReplicate()) {
+    return "replicate";
   }
 
   return "replicate";
@@ -64,6 +64,12 @@ const getGeminiClient = () => {
   }
   return new GoogleGenAI({ apiKey });
 };
+
+const GEMINI_ASSISTANT_MODEL =
+  process.env.GEMINI_ASSISTANT_MODEL?.trim() || "gemini-2.5-pro";
+
+const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL?.trim() || "gemini-2.5-flash-image-preview";
 
 const ensureProviderConfigured = (provider: AiProvider) => {
   if (provider === "gemini" && !hasGemini()) {
@@ -253,7 +259,7 @@ export const generateImage = async (params: {
         let response: unknown;
         try {
           response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-image-preview",
+            model: GEMINI_IMAGE_MODEL,
             contents: params.prompt,
           });
         } catch (error) {
@@ -337,7 +343,7 @@ export const removeBackground = async (params: {
         let response: unknown;
         try {
           response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-image-preview",
+            model: GEMINI_IMAGE_MODEL,
             contents: [
               { text: "Remove the background and return a transparent PNG." },
               {

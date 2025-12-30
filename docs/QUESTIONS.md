@@ -20,3 +20,5 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 
 - Pro gating checks the maximum Pigcasso balance across the Privy embedded wallet and (optional) one connected external wallet.
 - AI daily limits are tracked by `privyUserId` to avoid wallet-switch bypass.
+- V2 mint (initial): Mantle first, user-signed transactions (no relayer/paymaster initially).
+- Royalties: deferred to roadmap (not required for first mint MVP).

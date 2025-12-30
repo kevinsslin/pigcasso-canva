@@ -25,7 +25,15 @@ export const requireAuth = createMiddleware(async (c, next) => {
     const authUser = await getOrCreateUserFromPrivyToken(token);
     c.set("authUser", authUser);
     return await next();
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Missing ")) {
+      return c.json(
+        { error: process.env.NODE_ENV === "production" ? "Server misconfigured" : error.message },
+        500,
+      );
+    }
+
+    console.error(error);
     return c.json({ error: "Unauthorized" }, 401);
   }
 });
@@ -54,7 +62,15 @@ export const requirePro = createMiddleware(async (c, next) => {
     }
 
     return await next();
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Missing ")) {
+      return c.json(
+        { error: process.env.NODE_ENV === "production" ? "Server misconfigured" : error.message },
+        500,
+      );
+    }
+
+    console.error(error);
     return c.json({ error: "Unauthorized" }, 401);
   }
 });
