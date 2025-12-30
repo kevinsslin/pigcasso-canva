@@ -1,10 +1,18 @@
-import { InferResponseType } from "hono";
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
 
-export type ResponseType = InferResponseType<typeof client.api.projects[":id"]["$get"], 200>;
+export type Project = {
+  id: string;
+  name: string;
+  json: string;
+  width: number;
+  height: number;
+  thumbnailUrl: string | null;
+};
+
+export type ResponseType = { data: Project };
 
 export const useGetProject = (id: string, options?: { enabled?: boolean }) => {
   const query = useQuery({

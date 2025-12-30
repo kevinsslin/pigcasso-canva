@@ -1,11 +1,11 @@
 import { toast } from "sonner";
-import { InferRequestType, InferResponseType } from "hono";
+import { InferRequestType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.projects[":id"]["$delete"], 200>;
+type ResponseType = { data: { id: string } };
 type RequestType = InferRequestType<typeof client.api.projects[":id"]["$delete"]>["param"];
 
 export const useDeleteProject = () => {

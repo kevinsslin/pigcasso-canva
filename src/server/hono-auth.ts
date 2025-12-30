@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory";
-import type { StatusCode } from "hono/utils/http-status";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import {
   type AuthUser,
@@ -36,7 +36,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
     c.set("authUser", authUser);
     return await next();
   } catch (error) {
-    const status = (getErrorStatus(error) ?? 500) as StatusCode;
+    const status = (getErrorStatus(error) ?? 500) as ContentfulStatusCode;
     const message =
       error instanceof Error && error.message ? error.message : "Internal Server Error";
 
@@ -94,7 +94,7 @@ export const requirePro = createMiddleware(async (c, next) => {
 
     return await next();
   } catch (error) {
-    const status = (getErrorStatus(error) ?? 500) as StatusCode;
+    const status = (getErrorStatus(error) ?? 500) as ContentfulStatusCode;
     const message =
       error instanceof Error && error.message ? error.message : "Internal Server Error";
 

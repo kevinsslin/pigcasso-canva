@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
-import type { StatusCode } from "hono/utils/http-status";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import { getErrorStatus } from "@/server/http-error";
 
@@ -21,7 +21,7 @@ const app = new Hono()
   .basePath("/api")
   .onError((err, c) => {
     console.error(err);
-    const status = (getErrorStatus(err) ?? 500) as StatusCode;
+    const status = (getErrorStatus(err) ?? 500) as ContentfulStatusCode;
     const message =
       err instanceof Error && err.message
         ? err.message

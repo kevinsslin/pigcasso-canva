@@ -1,13 +1,15 @@
 import { useMutation } from "@tanstack/react-query";
-import { InferRequestType, InferResponseType } from "hono";
+import { InferRequestType } from "hono";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<
-  typeof client.api.ai["remove-bg"]["$post"],
-  200
->;
+type ResponseType = {
+  data: string;
+  meta: {
+    provider: "gemini" | "replicate";
+  };
+};
 type RequestType = InferRequestType<typeof client.api.ai["remove-bg"]["$post"]>["json"];
 
 export const useRemoveBg = () => {

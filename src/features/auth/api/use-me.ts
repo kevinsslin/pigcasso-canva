@@ -1,10 +1,56 @@
 import { useQuery } from "@tanstack/react-query";
-import { InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
 
-export type ResponseType = InferResponseType<typeof client.api.me["$get"], 200>;
+export type ResponseType = {
+  data: {
+    user: {
+      id: string;
+      privyUserId: string;
+      email: string | null;
+      name: string | null;
+      image: string | null;
+      bio: string | null;
+      wallets: {
+        embedded: string | null;
+        external: string | null;
+      };
+    };
+    integrations: {
+      uploadthing: {
+        configured: boolean;
+      };
+      unsplash: {
+        configured: boolean;
+      };
+    };
+    pro: {
+      isPro: boolean;
+      balanceRaw: string | null;
+      walletAddress: string | null;
+      checkedAt: string | null;
+      source: "cache" | "refresh" | "error";
+      error?: string;
+    };
+    ai: {
+      providers: {
+        replicate: boolean;
+        gemini: boolean;
+      };
+      defaultProvider: "gemini" | "replicate";
+      limits: {
+        generate: number;
+        removeBg: number;
+      };
+      usage: {
+        date: string;
+        generateCount: number;
+        removeBgCount: number;
+      } | null;
+    };
+  };
+};
 
 export const useMe = (options?: { enabled?: boolean }) => {
   return useQuery<ResponseType, Error>({

@@ -1,10 +1,20 @@
-import { InferResponseType } from "hono";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
 
-export type ResponseType = InferResponseType<typeof client.api.projects["$get"], 200>;
+export type ProjectListItem = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  updatedAt: string;
+};
+
+export type ResponseType = {
+  data: ProjectListItem[];
+  nextPage: number | null;
+};
 
 export const useGetProjects = () => {
   const query = useInfiniteQuery<ResponseType, Error>({

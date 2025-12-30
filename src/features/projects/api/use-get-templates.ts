@@ -1,10 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
-import { InferRequestType, InferResponseType } from "hono";
+import { InferRequestType } from "hono";
 import { readApiResponse } from "@/lib/api-response";
 
-export type ResponseType = InferResponseType<typeof client.api.templates.$get, 200>;
+export type TemplateListItem = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  thumbnailUrl: string | null;
+  isPro: boolean;
+  creatorWallet: string | null;
+  parentProjectId: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+};
+
+export type ResponseType = {
+  data: TemplateListItem[];
+  nextPage: number | null;
+};
 type RequestType = InferRequestType<typeof client.api.templates.$get>["query"];
 
 export const useGetTemplates = (
