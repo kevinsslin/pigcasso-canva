@@ -4,7 +4,7 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 
 ## Open Questions
 
-- UploadThing `prepareUpload` returns `400 Unsupported operation` with current token: is this an account/plan restriction, a wrong project pairing, or a deprecated token?
+- UploadThing `prepareUpload` returns `400 Unsupported operation` even with SDK v7+ + `UPLOADTHING_TOKEN`: is this an account/plan restriction, a wrong token/app pairing, or a region setting issue?
 - Unsplash integration: should `/api/images` be disabled by default unless `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY` is present (current behavior returns 501 with a clear message)?
 - Pack export enforcement: current implementation is client-side gated by Pro UI; do you want a server-side export endpoint for stronger enforcement?
 - `export const dynamic = "force-dynamic"` is set in `src/app/layout.tsx` to avoid build-time failures when env keys are missing; confirm if you want to keep this (recommended for auth-heavy apps).
@@ -15,6 +15,7 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 - Storage/pinning: which IPFS pinning provider (or self-host), and who pays for pinning?
 - Gas strategy: user-paid vs sponsored (paymaster), and do we need a per-mint fee model?
 - Royalties/licensing: default royalty %, remix attribution rules, and whether templates are licensed via an onchain “template license NFT”.
+- Contracts repo strategy (V2): do you want a dedicated contracts repo (Foundry/Hardhat) with a factory pattern, deployed to Mantle first?
 
 ## Notes / Decisions
 
@@ -22,3 +23,4 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 - AI daily limits are tracked by `privyUserId` to avoid wallet-switch bypass.
 - V2 mint (initial): Mantle first, user-signed transactions (no relayer/paymaster initially).
 - Royalties: deferred to roadmap (not required for first mint MVP).
+- NFT scaffolding: DB tables + placeholder pages (`/assets`, `/collections`, `/settings/web3`) + basic APIs exist; awaiting contract report (addresses + ABI) to implement mint/export.

@@ -77,6 +77,8 @@ flowchart TD
 - Client provider：`src/components/providers.tsx`
 - Token getter：`src/lib/auth-token.ts`
 - API fetch wrapper：`src/lib/hono.ts`
+- API response/error helper：`src/lib/api-response.ts`、`src/lib/api-error.ts`
+- React Query default retry（401 不 retry）：`src/components/query-provider.tsx`
 - Server verify + upsert：`src/server/auth.ts`、`src/server/privy.ts`
 - Hono middleware：`src/server/hono-auth.ts`
 
@@ -147,10 +149,13 @@ sequenceDiagram
 - `user`：`privyUserId`、wallets、pro cache、timestamps
 - `project`：projects/templates + creator hub fields
 - `ai_daily_usage`：每日 AI 計數（unique: userId+date）
+- `nft_collection`：NFT collection/series（factory pattern 預留；可先為 null address）
+- `nft_asset`：作品資產（project → asset），追蹤 mint 狀態（draft → minted）與 metadata/image URI
 
 Migration：
 
 - `drizzle/0001_pigcasso_mvp.sql`（從原始 canva clone schema 過渡到 Pigcasso schema）
+- `drizzle/0003_fantastic_swordsman.sql`（新增 `nft_collection` / `nft_asset` scaffolding）
 
 ---
 
@@ -209,3 +214,18 @@ Share page：`src/app/templates/[templateId]/page.tsx`（顯示 attribution + Re
 
 - UI：`src/features/editor/components/pigcasso-assistant.tsx`
 - Actions：`src/features/editor/pigcasso-actions.ts`
+
+---
+
+## NFT（Coming soon scaffolding）
+
+目前只先做到「可接合約前」的 scaffolding（頁面會顯示 Coming soon，等合約 report/地址/ABI 到位再接）。
+
+- Pages：`/assets`、`/collections`、`/settings/web3`
+  - `src/app/(dashboard)/assets/page.tsx`
+  - `src/app/(dashboard)/collections/page.tsx`
+  - `src/app/(dashboard)/settings/web3/page.tsx`
+- API：`/api/assets`、`/api/collections`
+  - `src/app/api/[[...route]]/assets.ts`
+  - `src/app/api/[[...route]]/collections.ts`
+- DB schema：`src/db/schema.ts`（tables：`nft_collection`, `nft_asset`）
