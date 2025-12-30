@@ -38,10 +38,43 @@ export const AiSidebar = ({
     if (!aiMeta) {
       return;
     }
+
+    try {
+      const stored = localStorage.getItem("pigcasso:ai-provider-default");
+      if (
+        stored === "gemini" &&
+        providers?.gemini
+      ) {
+        setProvider("gemini");
+        return;
+      }
+      if (
+        stored === "replicate" &&
+        providers?.replicate
+      ) {
+        setProvider("replicate");
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
     if (aiMeta.defaultProvider === "gemini" && providers?.gemini) {
       setProvider("gemini");
+      return;
     }
-  }, [aiMeta, providers?.gemini]);
+    if (aiMeta.defaultProvider === "replicate" && providers?.replicate) {
+      setProvider("replicate");
+      return;
+    }
+    if (providers?.replicate) {
+      setProvider("replicate");
+      return;
+    }
+    if (providers?.gemini) {
+      setProvider("gemini");
+    }
+  }, [aiMeta, providers?.gemini, providers?.replicate]);
 
   const remainingText = useMemo(() => {
     const limit = aiMeta?.limits?.generate;
@@ -55,6 +88,11 @@ export const AiSidebar = ({
     return `${Math.max(0, limit - used)} left today`;
   }, [aiMeta?.limits?.generate, aiMeta?.usage?.generateCount]);
 
+  const providerEnabled =
+    provider === "gemini"
+      ? providers?.gemini !== false
+      : providers?.replicate !== false;
+
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>
   ) => {
@@ -67,7 +105,7 @@ export const AiSidebar = ({
       },
       onError: (err) => {
         const status = getApiErrorStatus(err);
-        if (status === 429) {
+        if (status === 429 && err.message.toLowerCase().includes("daily limit")) {
           toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
           return;
         }
@@ -99,7 +137,7 @@ export const AiSidebar = ({
                 type="button"
                 variant={provider === "replicate" ? "default" : "outline"}
                 onClick={() => setProvider("replicate")}
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || providers?.replicate === false}
               >
                 Replicate
               </Button>
@@ -114,6 +152,11 @@ export const AiSidebar = ({
             </div>
             {remainingText && (
               <p className="text-xs text-muted-foreground">{remainingText}</p>
+            )}
+            {providers?.replicate === false && (
+              <p className="text-xs text-muted-foreground">
+                Replicate requires `REPLICATE_API_TOKEN` on the server.
+              </p>
             )}
             {providers?.gemini === false && (
               <p className="text-xs text-muted-foreground">
@@ -132,7 +175,7 @@ export const AiSidebar = ({
             onChange={(e) => setValue(e.target.value)}
           />
           <Button
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !providerEnabled}
             type="submit"
             className="w-full"
           >

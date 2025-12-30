@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
-import { Crown, Loader, LogOut, RefreshCw, Wallet } from "lucide-react";
+import { Crown, Loader, LogOut, RefreshCw, Settings, Wallet } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,6 +40,9 @@ export const UserButton = () => {
   const walletAddress = user.wallet?.address;
   const label = walletAddress ? shortAddress(walletAddress) : "Account";
   const isPro = me.data?.data.pro.isPro ?? false;
+  const avatarUrl = me.data?.data.user.image ?? null;
+  const displayName = me.data?.data.user.name ?? null;
+  const displayLabel = displayName?.trim() ? displayName : label;
 
   return (
     <DropdownMenu modal={false}>
@@ -52,17 +56,26 @@ export const UserButton = () => {
                 </div>
               </div>
             )}
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={displayLabel} />
+            ) : null}
             <AvatarFallback className="bg-slate-900 font-medium text-white flex items-center justify-center">
-              {label.charAt(0).toUpperCase()}
+              {displayLabel.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <Button variant="ghost" size="sm" className="px-2">
             <Wallet className="mr-2 size-4 text-muted-foreground" />
-            {label}
+            {displayLabel}
           </Button>
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem asChild className="h-10">
+          <Link href="/settings">
+            <Settings className="size-4 mr-2" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           className="h-10"
           disabled={refreshMutation.isPending}

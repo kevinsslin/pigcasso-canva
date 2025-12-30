@@ -8,12 +8,12 @@ type ResponseType = InferResponseType<
   typeof client.api.templates[":id"]["remix"]["$post"],
   200
 >;
-type RequestType = InferRequestType<
-  typeof client.api.templates[":id"]["remix"]["$post"]
->["param"];
+type RequestType = InferRequestType<typeof client.api.templates[":id"]["remix"]["$post"]>["param"];
 
-export const useRemixTemplate = () => {
+export const useRemixTemplate = (options?: { toast?: boolean }) => {
   const queryClient = useQueryClient();
+
+  const showToast = options?.toast ?? true;
 
   const mutation = useMutation<ResponseType, Error, RequestType>({
     mutationFn: async (param) => {
@@ -30,14 +30,17 @@ export const useRemixTemplate = () => {
       return await response.json();
     },
     onSuccess: () => {
-      toast.success("Project created from template.");
+      if (showToast) {
+        toast.success("Project created from template.");
+      }
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
     onError: (error) => {
-      toast.error(error.message);
+      if (showToast) {
+        toast.error(error.message);
+      }
     },
   });
 
   return mutation;
 };
-

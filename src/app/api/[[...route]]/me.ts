@@ -1,51 +1,154 @@
+import { z } from "zod";
 import { Hono } from "hono";
+import { eq } from "drizzle-orm";
+import { zValidator } from "@hono/zod-validator";
 
+import { db } from "@/db/drizzle";
+import { users } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
 import { getAiLimitsForUser, getAiUsageRowForToday } from "@/server/ai-usage";
 import { getProStatusForUser } from "@/server/token-gating";
 
-const app = new Hono().get("/", requireAuth, async (c) => {
-  const authUser = c.get("authUser");
-
-  const pro = await getProStatusForUser({
-    userId: authUser.id,
-    embeddedWalletAddress: authUser.embeddedWalletAddress,
-    externalWalletAddress: authUser.externalWalletAddress,
+const updateMeSchema = z
+  .object({
+    name: z.string().trim().max(80).optional(),
+    image: z.string().trim().optional(),
+  })
+  .refine((value) => value.name !== undefined || value.image !== undefined, {
+    message: "No changes provided",
   });
 
-  const usage = await getAiUsageRowForToday(authUser.id);
-  const limits = getAiLimitsForUser(pro.isPro);
+const app = new Hono()
+  .get("/", requireAuth, async (c) => {
+    const authUser = c.get("authUser");
 
-  return c.json({
-    data: {
-      user: {
-        id: authUser.id,
-        privyUserId: authUser.privyUserId,
-        email: authUser.email,
-        wallets: {
-          embedded: authUser.embeddedWalletAddress,
-          external: authUser.externalWalletAddress,
+    const [dbUser] = await db
+      .select({
+        name: users.name,
+        image: users.image,
+      })
+      .from(users)
+      .where(eq(users.id, authUser.id));
+
+    const pro = await getProStatusForUser({
+      userId: authUser.id,
+      embeddedWalletAddress: authUser.embeddedWalletAddress,
+      externalWalletAddress: authUser.externalWalletAddress,
+    });
+
+    const usage = await getAiUsageRowForToday(authUser.id);
+    const limits = getAiLimitsForUser(pro.isPro);
+
+    const providers = {
+      replicate: Boolean(process.env.REPLICATE_API_TOKEN),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+    };
+
+    const defaultProvider =
+      process.env.AI_PROVIDER_DEFAULT === "gemini" && providers.gemini
+        ? "gemini"
+        : process.env.AI_PROVIDER_DEFAULT === "replicate" && providers.replicate
+          ? "replicate"
+          : providers.replicate
+            ? "replicate"
+            : providers.gemini
+              ? "gemini"
+              : "replicate";
+
+    return c.json({
+      data: {
+        user: {
+          id: authUser.id,
+          privyUserId: authUser.privyUserId,
+          email: authUser.email,
+          name: dbUser?.name ?? null,
+          image: dbUser?.image ?? null,
+          wallets: {
+            embedded: authUser.embeddedWalletAddress,
+            external: authUser.externalWalletAddress,
+          },
+        },
+        pro,
+        ai: {
+          providers,
+          defaultProvider,
+          limits,
+          usage: usage
+            ? {
+                date: usage.date,
+                generateCount: usage.generateCount,
+                removeBgCount: usage.removeBgCount,
+              }
+            : null,
         },
       },
-      pro,
-      ai: {
-        providers: {
-          replicate: true,
-          gemini: Boolean(process.env.GEMINI_API_KEY),
+    });
+  })
+  .patch(
+    "/",
+    requireAuth,
+    zValidator("json", updateMeSchema),
+    async (c) => {
+      const authUser = c.get("authUser");
+      const values = c.req.valid("json");
+
+      const next: Partial<typeof users.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+
+      if (values.name !== undefined) {
+        const trimmed = values.name.trim();
+        next.name = trimmed.length > 0 ? trimmed : null;
+      }
+
+      if (values.image !== undefined) {
+        const trimmed = values.image.trim();
+        if (!trimmed) {
+          next.image = null;
+        } else {
+          try {
+            new URL(trimmed);
+          } catch {
+            return c.json({ error: "Invalid image URL" }, 400);
+          }
+          next.image = trimmed;
+        }
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set(next)
+        .where(eq(users.id, authUser.id))
+        .returning({
+          id: users.id,
+          privyUserId: users.privyUserId,
+          email: users.email,
+          name: users.name,
+          image: users.image,
+          embeddedWalletAddress: users.embeddedWalletAddress,
+          externalWalletAddress: users.externalWalletAddress,
+        });
+
+      if (!updated) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      return c.json({
+        data: {
+          user: {
+            id: updated.id,
+            privyUserId: updated.privyUserId,
+            email: updated.email,
+            name: updated.name,
+            image: updated.image,
+            wallets: {
+              embedded: updated.embeddedWalletAddress,
+              external: updated.externalWalletAddress,
+            },
+          },
         },
-        defaultProvider:
-          process.env.AI_PROVIDER_DEFAULT === "gemini" ? "gemini" : "replicate",
-        limits,
-        usage: usage
-          ? {
-              date: usage.date,
-              generateCount: usage.generateCount,
-              removeBgCount: usage.removeBgCount,
-            }
-          : null,
-      },
+      });
     },
-  });
-});
+  );
 
 export default app;

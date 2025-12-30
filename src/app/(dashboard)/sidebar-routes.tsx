@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Home, MessageCircleQuestion, RefreshCw } from "lucide-react";
+import { Crown, Home, MessageCircleQuestion, RefreshCw, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -55,6 +55,12 @@ export const SidebarRoutes = () => {
       )}
       <ul className="flex flex-col gap-y-1 px-3">
         <SidebarItem href="/" icon={Home} label="Home" isActive={pathname === "/"} />
+        <SidebarItem
+          href="/settings"
+          icon={Settings}
+          label="Settings"
+          isActive={pathname === "/settings"}
+        />
       </ul>
       <div className="px-3">
         <Separator />

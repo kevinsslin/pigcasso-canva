@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Loader, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 
 import { usePro } from "@/features/auth/hooks/use-pro";
 
@@ -10,11 +11,17 @@ import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-t
 import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
 
 import { TemplateCard } from "./template-card";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export const TemplatesSection = () => {
   const { isPro } = usePro();
   const router = useRouter();
-  const remix = useRemixTemplate();
+  const remix = useRemixTemplate({ toast: false });
+  const [transitioning, setTransitioning] = useState<{
+    name: string;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const { 
     data, 
@@ -28,11 +35,25 @@ export const TemplatesSection = () => {
       return;
     }
 
+    const toastId = toast.loading("Creating from template…", {
+      description: `${template.name} · ${template.width}×${template.height}`,
+    });
+
     remix.mutate(
       { id: template.id },
       {
         onSuccess: ({ data }) => {
+          toast.success("Opening editor…", { id: toastId });
+          setTransitioning({
+            name: template.name,
+            width: template.width,
+            height: template.height,
+          });
           router.push(`/editor/${data.id}`);
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to create from template", { id: toastId });
+          setTransitioning(null);
         },
       },
     );
@@ -72,7 +93,17 @@ export const TemplatesSection = () => {
   }
 
   return (
-    <div>
+    <>
+      <LoadingOverlay
+        open={remix.isPending || Boolean(transitioning)}
+        title="Preparing your canvas…"
+        description={
+          transitioning
+            ? `${transitioning.name} · ${transitioning.width}×${transitioning.height}`
+            : undefined
+        }
+      />
+      <div>
       <div className="flex items-center justify-between gap-4">
         <h3 className="font-semibold text-lg">Start from a template</h3>
         <button
@@ -90,7 +121,7 @@ export const TemplatesSection = () => {
             title={template.name}
             imageSrc={template.thumbnailUrl || ""}
             onClick={() => onClick(template)}
-            disabled={remix.isPending}
+            disabled={remix.isPending || Boolean(transitioning)}
             description={`${template.width} x ${template.height} px`}
             width={template.width}
             height={template.height}
@@ -98,6 +129,7 @@ export const TemplatesSection = () => {
           />
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 };

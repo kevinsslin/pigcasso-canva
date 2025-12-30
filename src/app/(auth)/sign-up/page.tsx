@@ -13,7 +13,7 @@ const SignUpPage = () => {
 
   useEffect(() => {
     if (ready && authenticated) {
-      const redirect = searchParams.get("redirect");
+      const redirect = searchParams?.get("redirect");
       const nextPath = redirect && redirect.startsWith("/") ? redirect : "/";
       router.replace(nextPath);
     }

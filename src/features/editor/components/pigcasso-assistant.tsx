@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Bot, Sparkles, X } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GripVertical, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Editor } from "@/features/editor/types";
@@ -119,6 +120,148 @@ const inferActionFromText = (text: string): PendingAction | null => {
 export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("pigcasso-assistant:pos:v1");
+      if (!raw) {
+        return;
+      }
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "x" in parsed &&
+        "y" in parsed &&
+        typeof (parsed as { x?: unknown }).x === "number" &&
+        typeof (parsed as { y?: unknown }).y === "number"
+      ) {
+        setPosition({ x: (parsed as { x: number }).x, y: (parsed as { y: number }).y });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!position) {
+      return;
+    }
+    localStorage.setItem("pigcasso-assistant:pos:v1", JSON.stringify(position));
+  }, [position]);
+
+  const clampToViewport = (pos: { x: number; y: number }, size: { w: number; h: number }) => {
+    const margin = 12;
+    const maxX = Math.max(margin, window.innerWidth - size.w - margin);
+    const maxY = Math.max(margin, window.innerHeight - size.h - margin);
+    return {
+      x: Math.min(Math.max(pos.x, margin), maxX),
+      y: Math.min(Math.max(pos.y, margin), maxY),
+    };
+  };
+
+  useEffect(() => {
+    if (!containerRef.current || position) {
+      return;
+    }
+    const rect = containerRef.current.getBoundingClientRect();
+    setPosition({
+      x: Math.max(12, window.innerWidth - rect.width - 16),
+      y: Math.max(12, window.innerHeight - rect.height - 16),
+    });
+  }, [position]);
+
+  useEffect(() => {
+    if (!containerRef.current || !position) {
+      return;
+    }
+    const rect = containerRef.current.getBoundingClientRect();
+    setPosition((prev) => {
+      if (!prev) return prev;
+      return clampToViewport(prev, { w: rect.width, h: rect.height });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!position) {
+      return;
+    }
+
+    const onResize = () => {
+      if (!containerRef.current) {
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      setPosition((prev) => {
+        if (!prev) return prev;
+        return clampToViewport(prev, { w: rect.width, h: rect.height });
+      });
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position]);
+
+  const onDragStart = (e: React.PointerEvent) => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const origin = position ?? { x: rect.left, y: rect.top };
+
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: origin.x,
+      originY: origin.y,
+      width: rect.width,
+      height: rect.height,
+    };
+
+    containerRef.current.setPointerCapture(e.pointerId);
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId) {
+      return;
+    }
+
+    const next = clampToViewport(
+      {
+        x: state.originX + (e.clientX - state.startX),
+        y: state.originY + (e.clientY - state.startY),
+      },
+      { w: state.width, h: state.height },
+    );
+
+    setPosition(next);
+  };
+
+  const onDragEnd = (e: React.PointerEvent) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId) {
+      return;
+    }
+
+    dragStateRef.current = null;
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -265,7 +408,11 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   ];
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60]">
+    <div
+      ref={containerRef}
+      className="fixed z-[60]"
+      style={position ? { left: position.x, top: position.y } : { right: 16, bottom: 16 }}
+    >
       <ConfirmDialog />
 
       {!open ? (
@@ -274,19 +421,28 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           onClick={() => setOpen(true)}
           className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95"
         >
-          <Sparkles className="size-5" />
+          <Image src="/pigcasso-pig.svg" alt="Pigcasso Assistant" width={26} height={26} />
         </Button>
       ) : (
         <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
           <div className="px-3 py-2 border-b flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-              <Bot className="size-4" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold">Pigcasso Assistant</div>
-              <div className="text-[11px] text-muted-foreground">
-                Draft → Apply to canvas
+            <div
+              className="flex-1 flex items-center gap-2 cursor-move select-none touch-none"
+              onPointerDown={onDragStart}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
+            >
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                <Image src="/pigcasso-pig.svg" alt="Pigcasso" width={26} height={26} />
               </div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold">Pigcasso Assistant</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Draft → Apply to canvas
+                </div>
+              </div>
+              <GripVertical className="size-4 text-muted-foreground" />
             </div>
             <button
               type="button"

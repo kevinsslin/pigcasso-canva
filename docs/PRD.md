@@ -1,6 +1,8 @@
-# Pigcasso Canvas — PRD（Mantle Hackathon MVP）
+# Pigcasso Canvas — PRD
 
-這個 repo 是一個 Next.js Canva clone（含 Fabric.js 編輯器、Projects/Templates、Hono API、Drizzle/Postgres、NextAuth、Stripe 訂閱、UploadThing、Unsplash、Replicate）。本 PRD 描述「我們 fork 後真正要做的產品」：把它改造成 Pigcasso Canvas，重點是 **Privy 登入 + Mantle token gating + Web3 素材導向的 Layout/Variants + Pack 輸出 + Remix/歸因**，並 **移除所有 Stripe/Web2 billing**。
+這個 repo 是 **Pigcasso Canvas**（Next.js + Fabric.js editor + Projects/Templates + Hono API + Drizzle/Postgres + Privy auth + Mantle token gating + UploadThing + Unsplash + Replicate/Gemini）。
+
+更大的 thesis：**Canva 只是一個媒介**。我們要做的是 web3-native 的「next-generation Canva」：創作者完成創作後，內容應該能一鍵沉澱成可定價、可擁有、可交易的**內容資產**（例如：一鍵上鏈 NFT / 可追溯的 remix lineage / 可帶版權與分潤）。
 
 ---
 
@@ -21,6 +23,39 @@
 | RPC | Alchemy（RPC URL 由 env 提供） |
 | Launchpad 整合 | Printr（先放 roadmap） |
 | Bot | 不在範圍 |
+
+---
+
+## 0.1) Roadmap（V1 / V1.1 / V2）
+
+### V1（現況已完成 / 可 demo）
+
+- [x] Privy login（embedded wallet + external wallet）
+- [x] Dashboard：Presets / Templates / Projects
+- [x] Project create/open/remix UX（loading overlay + toasts）
+- [x] Project rename（Editor 內改名）
+- [x] Editor：Fabric.js（基本工具 + 自動存檔 + pack export）
+- [x] Pigcasso Assistant（小豬助手、可拖拉、quick actions → Apply 到畫布）
+- [x] Token gating：Mantle 上持倉解鎖 Pro（embedded/external 取最大值）
+- [x] AI：Generate image / Remove BG（Replicate/Gemini provider + daily limits + 更清楚的錯誤訊息）
+- [x] Settings：可更新 display name / avatar + AI 預設 provider（localStorage）
+
+### V1.1（polish / 修洞）
+
+- [ ] UploadThing：釐清 `prepareUpload 400 Unsupported operation` 的帳號/金鑰問題；UI 上加健康檢查與更明確指引
+- [ ] Profile：新增「介紹 / bio」與更多個人設定（server-side persist）
+- [ ] Onboarding：專案建立 → 進 editor 的過程更明確（progress / skeleton / stepper）
+- [ ] Assistant：從 rule-based 進化到 LLM（輸出 action JSON → human confirm → apply）
+- [ ] AI：更完整的 rate-limit/backoff 與 provider fallback（例如 402/429 時自動切換/提示）
+
+### V2（Web3-native：內容資產 / 一鍵上鏈 NFT）
+
+- [ ] Export as Asset：把 design（PNG + source JSON + metadata）打包成可上鏈資產
+- [ ] IPFS：上傳 image + metadata + source（可選 pinning provider）
+- [ ] One-click Mint：Editor 內一鍵鑄造 NFT（預設 Mint 到 Privy embedded wallet，可選 external）
+- [ ] Provenance：creator / parent template / remix lineage 上鏈或可驗證（含 attribution）
+- [ ] Royalties / licensing：版權條款、授權模式、royalty 設定（先 off-chain，再上鏈）
+- [ ] Launchpad：把「一鍵 mint」延伸成 Pigcasso NFT launchpad / creator hub
 
 ---
 
@@ -463,6 +498,14 @@ Pro（持幣 >= 100000）
 ---
 
 ## 10) Roadmap（Hackathon 後）
+
+### One-click NFT / Content Asset
+
+- 在 Editor 提供「Export → Mint」流程：輸出 PNG/JPG、source JSON、metadata（含尺寸、安全區、vibe、prompt 等）
+- IPFS 上傳與 pinning 策略（自建 pinning / 第三方 pinning / 使用者自帶 pinning key）
+- Mint 合約策略（ERC-721 vs ERC-1155、metadata schema、royalties、是否允許 remix-derivative）
+- Gas 策略（使用者付費 vs paymaster 贊助；Privy embedded wallet 的 UX 與風險）
+- 設計資產的權利與授權（template / remix / 商用 / 署名 / 分潤）
 
 ### Web3 付款
 

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AlertTriangle, Loader, Upload } from "lucide-react";
+import { AlertTriangle, Loader } from "lucide-react";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
@@ -20,7 +22,8 @@ interface ImageSidebarProps {
 }
 
 export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSidebarProps) => {
-  const { data, isLoading, isError } = useGetImages();
+  const { data, isLoading, isError, error } = useGetImages();
+  const uploadToastIdRef = useRef<string | number | null>(null);
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -50,7 +53,20 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
               : new Headers();
           }}
           endpoint="imageUploader"
+          onUploadBegin={() => {
+            uploadToastIdRef.current = toast.loading("Uploading image…");
+          }}
+          onUploadError={(err) => {
+            toast.error(err.message || "Upload failed", {
+              id: uploadToastIdRef.current ?? undefined,
+            });
+            uploadToastIdRef.current = null;
+          }}
           onClientUploadComplete={(res) => {
+            toast.success("Upload complete.", {
+              id: uploadToastIdRef.current ?? undefined,
+            });
+            uploadToastIdRef.current = null;
             editor?.addImage(res[0].url);
           }}
         />
@@ -63,7 +79,9 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
       {isError && (
         <div className="flex flex-col gap-y-4 items-center justify-center flex-1">
           <AlertTriangle className="size-4 text-muted-foreground" />
-          <p className="text-muted-foreground text-xs">Failed to fetch images</p>
+          <p className="text-muted-foreground text-xs">
+            {error?.message || "Failed to fetch images"}
+          </p>
         </div>
       )}
       <ScrollArea>

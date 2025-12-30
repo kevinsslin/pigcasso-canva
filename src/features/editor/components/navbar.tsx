@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CiFileOn } from "react-icons/ci";
 import { BsCloudCheck, BsCloudSlash } from "react-icons/bs";
 import { useFilePicker } from "use-file-picker";
@@ -10,11 +10,13 @@ import {
   Download, 
   Loader, 
   MousePointerClick, 
+  Pencil,
   Redo2, 
   Undo2
 } from "lucide-react";
 
 import { UserButton } from "@/features/auth/components/user-button";
+import { useUpdateProject } from "@/features/projects/api/use-update-project";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { Logo } from "@/features/editor/components/logo";
@@ -24,6 +26,7 @@ import { PublishTemplateDialog } from "@/features/editor/components/publish-temp
 import { cn } from "@/lib/utils";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -31,6 +34,13 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface NavbarProps {
   id: string;
@@ -47,8 +57,43 @@ export const Navbar = ({
   activeTool,
   onChangeActiveTool,
 }: NavbarProps) => {
+  const updateProjectMutation = useUpdateProject(id);
   const [packOpen, setPackOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [name, setName] = useState(projectName);
+  const [draftName, setDraftName] = useState(projectName);
+
+  useEffect(() => {
+    if (renameOpen) {
+      return;
+    }
+    setName(projectName);
+    setDraftName(projectName);
+  }, [projectName, renameOpen]);
+
+  const onOpenRename = () => {
+    setDraftName(name);
+    setRenameOpen(true);
+  };
+
+  const onRename = (nextName: string) => {
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    updateProjectMutation.mutate(
+      { name: trimmed },
+      {
+        onSuccess: () => {
+          setName(trimmed);
+          setRenameOpen(false);
+        },
+      },
+    );
+  };
+
   const data = useMutationState({
     filters: {
       mutationKey: ["project", { id }],
@@ -81,20 +126,70 @@ export const Navbar = ({
   return (
     <nav className="w-full flex items-center p-4 h-[68px] gap-x-8 border-b lg:pl-[34px]">
       <Logo />
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onRename(draftName);
+            }}
+            className="space-y-4"
+          >
+            <Input
+              autoFocus
+              value={draftName}
+              minLength={1}
+              maxLength={80}
+              onChange={(e) => setDraftName(e.target.value)}
+              disabled={updateProjectMutation.isPending}
+              placeholder="Project name"
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setRenameOpen(false)}
+                disabled={updateProjectMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateProjectMutation.isPending || !draftName.trim()}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <ExportPackDialog
         open={packOpen}
         onOpenChange={setPackOpen}
         editor={editor}
-        projectName={projectName}
+        projectName={name}
       />
       <PublishTemplateDialog
         open={publishOpen}
         onOpenChange={setPublishOpen}
         editor={editor}
         projectId={id}
-        projectName={projectName}
+        projectName={name}
       />
       <div className="w-full flex items-center gap-x-1 h-full">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onOpenRename}
+          className="max-w-[220px] justify-start gap-x-2 px-2"
+        >
+          <span className="truncate font-medium">{name}</span>
+          <Pencil className="size-3 text-muted-foreground shrink-0" />
+        </Button>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="ghost">

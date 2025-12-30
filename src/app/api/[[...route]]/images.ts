@@ -8,13 +8,23 @@ const DEFAULT_COLLECTION_IDS = ["317099"];
 
 const app = new Hono()
   .get("/", requireAuth, async (c) => {
+    if (!process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY) {
+      return c.json(
+        { error: "NEXT_PUBLIC_UNSPLASH_ACCESS_KEY is not configured" },
+        501,
+      );
+    }
+
     const images = await unsplash.photos.getRandom({
       collectionIds: DEFAULT_COLLECTION_IDS,
       count: DEFAULT_COUNT,
     });
 
     if (images.errors) {
-      return c.json({ error: "Something went wrong" }, 400);
+      return c.json(
+        { error: images.errors.join(", ") || "Unsplash error" },
+        502,
+      );
     }
 
     let response = images.response;

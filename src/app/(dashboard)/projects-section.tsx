@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/hooks/use-confirm";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export const ProjectsSection = () => {
   const [ConfirmDialog, confirm] = useConfirm(
@@ -40,6 +41,7 @@ export const ProjectsSection = () => {
   const duplicateMutation = useDuplicateProject();
   const removeMutation = useDeleteProject();
   const router = useRouter();
+  const [opening, setOpening] = React.useState<{ id: string; name: string } | null>(null);
 
   const onCopy = (id: string) => {
     duplicateMutation.mutate({ id });
@@ -51,6 +53,11 @@ export const ProjectsSection = () => {
     if (ok) {
       removeMutation.mutate({ id });
     }
+  };
+
+  const onOpen = (project: { id: string; name: string }) => {
+    setOpening({ id: project.id, name: project.name });
+    router.push(`/editor/${project.id}`);
   };
 
   const {
@@ -112,6 +119,11 @@ export const ProjectsSection = () => {
   return (
     <div className="space-y-4"> 
       <ConfirmDialog />
+      <LoadingOverlay
+        open={Boolean(opening)}
+        title="Opening project…"
+        description={opening ? opening.name : undefined}
+      />
       <h3 className="font-semibold text-lg">
         Recent projects
       </h3>
@@ -122,20 +134,20 @@ export const ProjectsSection = () => {
               {group.data.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell
-                    onClick={() => router.push(`/editor/${project.id}`)}
+                    onClick={() => onOpen(project)}
                     className="font-medium flex items-center gap-x-2 cursor-pointer"
                   >
                     <FileIcon className="size-6" />
                     {project.name}
                   </TableCell>
                   <TableCell
-                    onClick={() => router.push(`/editor/${project.id}`)}
+                    onClick={() => onOpen(project)}
                     className="hidden md:table-cell cursor-pointer"
                   >
                     {project.width} x {project.height} px
                   </TableCell>
                   <TableCell
-                    onClick={() => router.push(`/editor/${project.id}`)}
+                    onClick={() => onOpen(project)}
                     className="hidden md:table-cell cursor-pointer"
                   >
                     {formatDistanceToNow(project.updatedAt, {

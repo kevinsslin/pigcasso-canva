@@ -18,7 +18,12 @@ export const useRemoveBg = () => {
   >({
     mutationFn: async (json) => {
       const response = await client.api.ai["remove-bg"].$post({ json });
-      const body: unknown = await response.json();
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
 
       if (!response.ok) {
         const message =

@@ -7,8 +7,9 @@ import { client } from "@/lib/hono";
 type ResponseType = InferResponseType<(typeof client.api.projects)["$post"], 200>;
 type RequestType = InferRequestType<(typeof client.api.projects)["$post"]>["json"];
 
-export const useCreateProject = () => {
+export const useCreateProject = (options?: { toast?: boolean }) => {
   const queryClient = useQueryClient();
+  const showToast = options?.toast ?? true;
 
   const mutation = useMutation<ResponseType, Error, RequestType>({
     mutationFn: async (json) => {
@@ -21,14 +22,18 @@ export const useCreateProject = () => {
       return await response.json();
     },
     onSuccess: () => {
-      toast.success("Project created.");
+      if (showToast) {
+        toast.success("Project created.");
+      }
 
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
     onError: () => {
-      toast.error(
-        "Failed to create project. The session token may have expired, logout and login again, and everything will work fine."
-      );
+      if (showToast) {
+        toast.error(
+          "Failed to create project. The session token may have expired, logout and login again, and everything will work fine."
+        );
+      }
     },
   });
 
