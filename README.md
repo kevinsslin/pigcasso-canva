@@ -60,6 +60,8 @@ bun run db:studio   # open Drizzle Studio
 - `bun dev`: start dev server
 - `bun run build` / `bun run start`: production build + server
 - `bun run lint`: run `next lint`
+- `bun test`: run unit tests (fast)
+- `bun run check`: lint + typecheck + unit tests
 
 ## Notes
 
