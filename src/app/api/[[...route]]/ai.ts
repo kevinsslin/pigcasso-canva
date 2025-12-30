@@ -15,7 +15,7 @@ const app = new Hono()
       "json",
       z.object({
         image: z.string(),
-        provider: z.enum(["replicate", "gemini"]).optional(),
+        provider: z.enum(["replicate", "gemini", "auto"]).optional(),
       }),
     ),
     async (c) => {
@@ -50,7 +50,7 @@ const app = new Hono()
       const result = await removeBackground({ image, provider });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "remove-bg" });
 
-      return c.json({ data: result.imageUrl });
+      return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
     },
   )
   .post(
@@ -60,7 +60,7 @@ const app = new Hono()
       "json",
       z.object({
         prompt: z.string(),
-        provider: z.enum(["replicate", "gemini"]).optional(),
+        provider: z.enum(["replicate", "gemini", "auto"]).optional(),
       }),
     ),
     async (c) => {
@@ -95,7 +95,7 @@ const app = new Hono()
       const result = await generateImage({ prompt, provider });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
 
-      return c.json({ data: result.imageUrl });
+      return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
     },
   );
 

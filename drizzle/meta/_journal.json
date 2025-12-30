@@ -15,6 +15,13 @@
       "when": 1767000010777,
       "tag": "0001_pigcasso_mvp",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767076057286,
+      "tag": "0002_tiny_pepper_potts",
+      "breakpoints": true
     }
   ]
 }

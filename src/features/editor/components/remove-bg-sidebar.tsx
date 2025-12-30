@@ -31,7 +31,9 @@ export const RemoveBgSidebar = ({
   const mutation = useRemoveBg();
 
   const selectedObject = editor?.selectedObjects[0];
-  const [provider, setProvider] = useState<"replicate" | "gemini">("replicate");
+  const [provider, setProvider] = useState<"auto" | "replicate" | "gemini">(
+    "auto",
+  );
 
   const imageSrc = useMemo(() => {
     if (!selectedObject || selectedObject.type !== "image") {
@@ -70,21 +72,7 @@ export const RemoveBgSidebar = ({
       // ignore
     }
 
-    if (aiMeta.defaultProvider === "gemini" && providers?.gemini) {
-      setProvider("gemini");
-      return;
-    }
-    if (aiMeta.defaultProvider === "replicate" && providers?.replicate) {
-      setProvider("replicate");
-      return;
-    }
-    if (providers?.replicate) {
-      setProvider("replicate");
-      return;
-    }
-    if (providers?.gemini) {
-      setProvider("gemini");
-    }
+    setProvider("auto");
   }, [aiMeta, providers?.gemini, providers?.replicate]);
 
   const remainingText = useMemo(() => {
@@ -99,10 +87,15 @@ export const RemoveBgSidebar = ({
     return `${Math.max(0, limit - used)} left today`;
   }, [aiMeta?.limits?.removeBg, aiMeta?.usage?.removeBgCount]);
 
+  const autoEnabled =
+    providers?.gemini !== false || providers?.replicate !== false;
+
   const providerEnabled =
-    provider === "gemini"
-      ? providers?.gemini !== false
-      : providers?.replicate !== false;
+    provider === "auto"
+      ? autoEnabled
+      : provider === "gemini"
+        ? providers?.gemini !== false
+        : providers?.replicate !== false;
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -155,7 +148,15 @@ export const RemoveBgSidebar = ({
         <ScrollArea>
           <div className="p-4 space-y-4">
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={provider === "auto" ? "default" : "outline"}
+                  onClick={() => setProvider("auto")}
+                  disabled={mutation.isPending || !autoEnabled}
+                >
+                  Auto
+                </Button>
                 <Button
                   type="button"
                   variant={provider === "replicate" ? "default" : "outline"}
@@ -173,6 +174,12 @@ export const RemoveBgSidebar = ({
                   Gemini
                 </Button>
               </div>
+              {provider === "auto" ? (
+                <p className="text-xs text-muted-foreground">
+                  Auto uses <span className="font-medium">{aiMeta?.defaultProvider}</span>{" "}
+                  and falls back if the provider is unavailable.
+                </p>
+              ) : null}
               {remainingText && (
                 <p className="text-xs text-muted-foreground">{remainingText}</p>
               )}

@@ -17,6 +17,7 @@ export const users = pgTable("user", {
   name: text("name"),
   email: text("email"),
   image: text("image"),
+  bio: text("bio"),
   embeddedWalletAddress: text("embeddedWalletAddress"),
   externalWalletAddress: text("externalWalletAddress"),
   isPro: boolean("isPro").notNull().default(false),

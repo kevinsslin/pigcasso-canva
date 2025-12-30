@@ -4,6 +4,7 @@ import { getReplicateClient } from "@/lib/replicate";
 import { HttpError } from "@/server/http-error";
 
 export type AiProvider = "replicate" | "gemini";
+export type AiProviderPreference = AiProvider | "auto";
 
 const hasGemini = () => Boolean(process.env.GEMINI_API_KEY);
 const hasReplicate = () => Boolean(process.env.REPLICATE_API_TOKEN);
@@ -32,8 +33,29 @@ const resolveDefaultProvider = (): AiProvider => {
 
 const DEFAULT_PROVIDER: AiProvider = resolveDefaultProvider();
 
-const getProvider = (provider: AiProvider | undefined): AiProvider =>
-  provider ?? DEFAULT_PROVIDER;
+const getOtherProvider = (provider: AiProvider): AiProvider =>
+  provider === "replicate" ? "gemini" : "replicate";
+
+const getProviderOrder = (
+  preference: AiProviderPreference | undefined,
+): AiProvider[] => {
+  if (preference && preference !== "auto") {
+    return [preference];
+  }
+
+  const primary = DEFAULT_PROVIDER;
+  const secondary = getOtherProvider(primary);
+
+  const order: AiProvider[] = [];
+  if (primary === "replicate" ? hasReplicate() : hasGemini()) {
+    order.push(primary);
+  }
+  if (secondary === "replicate" ? hasReplicate() : hasGemini()) {
+    order.push(secondary);
+  }
+
+  return order;
+};
 
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -69,6 +91,23 @@ const getErrorStatus = (error: unknown): number | undefined => {
   }
 
   return undefined;
+};
+
+const isProviderUnavailable = (error: unknown) => {
+  const status =
+    error instanceof HttpError ? error.status : getErrorStatus(error);
+
+  if (typeof status !== "number") {
+    return false;
+  }
+
+  return (
+    status === 401 ||
+    status === 402 ||
+    status === 403 ||
+    status === 429 ||
+    status >= 500
+  );
 };
 
 const normalizeReplicateError = (error: unknown) => {
@@ -193,112 +232,168 @@ const toDataUrl = (mimeType: string, base64: string) =>
 
 export const generateImage = async (params: {
   prompt: string;
-  provider?: AiProvider;
+  provider?: AiProviderPreference;
 }) => {
-  const provider = getProvider(params.provider);
-  ensureProviderConfigured(provider);
+  const providerOrder = getProviderOrder(params.provider);
+  if (providerOrder.length === 0) {
+    throw new HttpError(
+      501,
+      "No AI provider is configured. Set `REPLICATE_API_TOKEN` and/or `GEMINI_API_KEY`.",
+    );
+  }
 
-  if (provider === "gemini") {
-    const ai = getGeminiClient();
-    let response: unknown;
+  let lastError: unknown = null;
+
+  for (const provider of providerOrder) {
     try {
-      response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
-        contents: params.prompt,
-      });
+      ensureProviderConfigured(provider);
+
+      if (provider === "gemini") {
+        const ai = getGeminiClient();
+        let response: unknown;
+        try {
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image-preview",
+            contents: params.prompt,
+          });
+        } catch (error) {
+          throw normalizeGeminiError(error);
+        }
+
+        const image = extractInlineImage(response);
+        if (!image) {
+          throw new Error("No image generated");
+        }
+
+        return { imageUrl: toDataUrl(image.mimeType, image.data), provider };
+      }
+
+      const input = {
+        cfg: 3.5,
+        steps: 28,
+        prompt: params.prompt,
+        aspect_ratio: "3:2",
+        output_format: "webp",
+        output_quality: 90,
+        negative_prompt: "",
+        prompt_strength: 0.85,
+      };
+
+      const replicate = getReplicateClient();
+      let output: unknown;
+      try {
+        output = await replicate.run("stability-ai/stable-diffusion-3", { input });
+      } catch (error) {
+        throw normalizeReplicateError(error);
+      }
+
+      if (!Array.isArray(output) || typeof output[0] !== "string") {
+        throw new Error("Unexpected output from Replicate");
+      }
+
+      return { imageUrl: output[0], provider };
     } catch (error) {
-      throw normalizeGeminiError(error);
+      lastError = error;
+
+      if (params.provider && params.provider !== "auto") {
+        throw error;
+      }
+
+      if (!isProviderUnavailable(error)) {
+        throw error;
+      }
     }
-
-    const image = extractInlineImage(response);
-    if (!image) {
-      throw new Error("No image generated");
-    }
-
-    return { imageUrl: toDataUrl(image.mimeType, image.data) };
   }
 
-  const input = {
-    cfg: 3.5,
-    steps: 28,
-    prompt: params.prompt,
-    aspect_ratio: "3:2",
-    output_format: "webp",
-    output_quality: 90,
-    negative_prompt: "",
-    prompt_strength: 0.85,
-  };
-
-  const replicate = getReplicateClient();
-  let output: unknown;
-  try {
-    output = await replicate.run("stability-ai/stable-diffusion-3", { input });
-  } catch (error) {
-    throw normalizeReplicateError(error);
-  }
-  if (!Array.isArray(output) || typeof output[0] !== "string") {
-    throw new Error("Unexpected output from Replicate");
-  }
-
-  return { imageUrl: output[0] };
+  throw lastError instanceof Error
+    ? lastError
+    : new HttpError(502, "AI request failed.");
 };
 
 export const removeBackground = async (params: {
   image: string;
-  provider?: AiProvider;
+  provider?: AiProviderPreference;
 }) => {
-  const provider = getProvider(params.provider);
-  ensureProviderConfigured(provider);
-
-  if (provider === "gemini") {
-    const ai = getGeminiClient();
-
-    const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
-
-    let response: unknown;
-    try {
-      response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
-        contents: [
-          { text: "Remove the background and return a transparent PNG." },
-          {
-            inlineData: {
-              mimeType: inline.mimeType,
-              data: inline.base64,
-            },
-          },
-        ],
-      });
-    } catch (error) {
-      throw normalizeGeminiError(error);
-    }
-
-    const image = extractInlineImage(response);
-    if (!image) {
-      throw new Error("No image generated");
-    }
-
-    return { imageUrl: toDataUrl(image.mimeType, image.data) };
-  }
-
-  const input = {
-    image: params.image,
-  };
-
-  const replicate = getReplicateClient();
-  let output: unknown;
-  try {
-    output = await replicate.run(
-      "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-      { input },
+  const providerOrder = getProviderOrder(params.provider);
+  if (providerOrder.length === 0) {
+    throw new HttpError(
+      501,
+      "No AI provider is configured. Set `REPLICATE_API_TOKEN` and/or `GEMINI_API_KEY`.",
     );
-  } catch (error) {
-    throw normalizeReplicateError(error);
   }
 
-  if (typeof output !== "string") {
-    throw new Error("Unexpected output from Replicate");
+  let lastError: unknown = null;
+
+  for (const provider of providerOrder) {
+    try {
+      ensureProviderConfigured(provider);
+
+      if (provider === "gemini") {
+        const ai = getGeminiClient();
+
+        const inline =
+          parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
+
+        let response: unknown;
+        try {
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image-preview",
+            contents: [
+              { text: "Remove the background and return a transparent PNG." },
+              {
+                inlineData: {
+                  mimeType: inline.mimeType,
+                  data: inline.base64,
+                },
+              },
+            ],
+          });
+        } catch (error) {
+          throw normalizeGeminiError(error);
+        }
+
+        const image = extractInlineImage(response);
+        if (!image) {
+          throw new Error("No image generated");
+        }
+
+        return { imageUrl: toDataUrl(image.mimeType, image.data), provider };
+      }
+
+      const input = {
+        image: params.image,
+      };
+
+      const replicate = getReplicateClient();
+      let output: unknown;
+      try {
+        output = await replicate.run(
+          "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+          { input },
+        );
+      } catch (error) {
+        throw normalizeReplicateError(error);
+      }
+
+      if (typeof output !== "string") {
+        throw new Error("Unexpected output from Replicate");
+      }
+
+      return { imageUrl: output, provider };
+    } catch (error) {
+      lastError = error;
+
+      if (params.provider && params.provider !== "auto") {
+        throw error;
+      }
+
+      if (!isProviderUnavailable(error)) {
+        throw error;
+      }
+    }
   }
 
-  return { imageUrl: output };
+  throw lastError instanceof Error
+    ? lastError
+    : new HttpError(502, "AI request failed.");
 };

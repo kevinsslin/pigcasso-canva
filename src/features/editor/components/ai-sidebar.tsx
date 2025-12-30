@@ -29,7 +29,9 @@ export const AiSidebar = ({
   const mutation = useGenerateImage();
 
   const [value, setValue] = useState("");
-  const [provider, setProvider] = useState<"replicate" | "gemini">("replicate");
+  const [provider, setProvider] = useState<"auto" | "replicate" | "gemini">(
+    "auto",
+  );
 
   const aiMeta = me.data?.data.ai;
   const providers = aiMeta?.providers;
@@ -59,21 +61,7 @@ export const AiSidebar = ({
       // ignore
     }
 
-    if (aiMeta.defaultProvider === "gemini" && providers?.gemini) {
-      setProvider("gemini");
-      return;
-    }
-    if (aiMeta.defaultProvider === "replicate" && providers?.replicate) {
-      setProvider("replicate");
-      return;
-    }
-    if (providers?.replicate) {
-      setProvider("replicate");
-      return;
-    }
-    if (providers?.gemini) {
-      setProvider("gemini");
-    }
+    setProvider("auto");
   }, [aiMeta, providers?.gemini, providers?.replicate]);
 
   const remainingText = useMemo(() => {
@@ -88,10 +76,15 @@ export const AiSidebar = ({
     return `${Math.max(0, limit - used)} left today`;
   }, [aiMeta?.limits?.generate, aiMeta?.usage?.generateCount]);
 
+  const autoEnabled =
+    providers?.gemini !== false || providers?.replicate !== false;
+
   const providerEnabled =
-    provider === "gemini"
-      ? providers?.gemini !== false
-      : providers?.replicate !== false;
+    provider === "auto"
+      ? autoEnabled
+      : provider === "gemini"
+        ? providers?.gemini !== false
+        : providers?.replicate !== false;
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>
@@ -132,7 +125,15 @@ export const AiSidebar = ({
       <ScrollArea>
         <form onSubmit={onSubmit} className="p-4 space-y-6">
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={provider === "auto" ? "default" : "outline"}
+                onClick={() => setProvider("auto")}
+                disabled={mutation.isPending || !autoEnabled}
+              >
+                Auto
+              </Button>
               <Button
                 type="button"
                 variant={provider === "replicate" ? "default" : "outline"}
@@ -150,6 +151,12 @@ export const AiSidebar = ({
                 Gemini
               </Button>
             </div>
+            {provider === "auto" ? (
+              <p className="text-xs text-muted-foreground">
+                Auto uses <span className="font-medium">{aiMeta?.defaultProvider}</span>{" "}
+                and falls back if the provider is unavailable.
+              </p>
+            ) : null}
             {remainingText && (
               <p className="text-xs text-muted-foreground">{remainingText}</p>
             )}

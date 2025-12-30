@@ -13,10 +13,15 @@ const updateMeSchema = z
   .object({
     name: z.string().trim().max(80).optional(),
     image: z.string().trim().optional(),
+    bio: z.string().trim().max(280).optional(),
   })
-  .refine((value) => value.name !== undefined || value.image !== undefined, {
+  .refine(
+    (value) =>
+      value.name !== undefined || value.image !== undefined || value.bio !== undefined,
+    {
     message: "No changes provided",
-  });
+    },
+  );
 
 const app = new Hono()
   .get("/", requireAuth, async (c) => {
@@ -26,6 +31,7 @@ const app = new Hono()
       .select({
         name: users.name,
         image: users.image,
+        bio: users.bio,
       })
       .from(users)
       .where(eq(users.id, authUser.id));
@@ -63,9 +69,20 @@ const app = new Hono()
           email: authUser.email,
           name: dbUser?.name ?? null,
           image: dbUser?.image ?? null,
+          bio: dbUser?.bio ?? null,
           wallets: {
             embedded: authUser.embeddedWalletAddress,
             external: authUser.externalWalletAddress,
+          },
+        },
+        integrations: {
+          uploadthing: {
+            configured: Boolean(
+              process.env.UPLOADTHING_APP_ID && process.env.UPLOADTHING_SECRET,
+            ),
+          },
+          unsplash: {
+            configured: Boolean(process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY),
           },
         },
         pro,
@@ -115,6 +132,11 @@ const app = new Hono()
         }
       }
 
+      if (values.bio !== undefined) {
+        const trimmed = values.bio.trim();
+        next.bio = trimmed.length > 0 ? trimmed : null;
+      }
+
       const [updated] = await db
         .update(users)
         .set(next)
@@ -125,6 +147,7 @@ const app = new Hono()
           email: users.email,
           name: users.name,
           image: users.image,
+          bio: users.bio,
           embeddedWalletAddress: users.embeddedWalletAddress,
           externalWalletAddress: users.externalWalletAddress,
         });
@@ -141,6 +164,7 @@ const app = new Hono()
             email: updated.email,
             name: updated.name,
             image: updated.image,
+            bio: updated.bio,
             wallets: {
               embedded: updated.embeddedWalletAddress,
               external: updated.externalWalletAddress,

@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 const AI_PROVIDER_STORAGE_KEY = "pigcasso:ai-provider-default";
 
@@ -30,10 +31,12 @@ export default function SettingsPage() {
 
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
+  const [bio, setBio] = useState("");
   const [aiProvider, setAiProvider] = useState<"replicate" | "gemini" | "auto">("auto");
   const uploadToastIdRef = useRef<string | number | null>(null);
 
   const meUser = me.data?.data.user;
+  const integrations = me.data?.data.integrations;
   const aiMeta = me.data?.data.ai;
   const providers = aiMeta?.providers;
 
@@ -48,6 +51,7 @@ export default function SettingsPage() {
     }
     setName(meUser.name ?? "");
     setImage(meUser.image ?? "");
+    setBio(meUser.bio ?? "");
   }, [meUser]);
 
   useEffect(() => {
@@ -71,7 +75,7 @@ export default function SettingsPage() {
 
   const onSaveProfile = () => {
     updateMe.mutate(
-      { name, image },
+      { name, image, bio },
       {
         onSuccess: () => {
           toast.success("Profile updated.");
@@ -99,6 +103,8 @@ export default function SettingsPage() {
 
   const canSelectGemini = providers?.gemini !== false;
   const canSelectReplicate = providers?.replicate !== false;
+  const uploadthingConfigured = integrations?.uploadthing.configured === true;
+  const unsplashConfigured = integrations?.unsplash.configured === true;
 
   return (
     <div className="max-w-screen-md mx-auto space-y-6">
@@ -131,6 +137,7 @@ export default function SettingsPage() {
                   allowedContent: "hidden",
                 }}
                 content={{ button: "Upload avatar" }}
+                disabled={!uploadthingConfigured || updateMe.isPending}
                 endpoint="avatarUploader"
                 headers={async () => {
                   const token = await getAuthToken();
@@ -156,7 +163,9 @@ export default function SettingsPage() {
                 }}
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                If uploads fail, you can paste an image URL below and save.
+                {!uploadthingConfigured
+                  ? "UploadThing is not configured on the server. Set `UPLOADTHING_APP_ID` + `UPLOADTHING_SECRET`."
+                  : "If uploads fail (e.g. 400 Unsupported operation), rotate keys / verify UploadThing project & plan, or paste an image URL below and save."}
               </p>
             </div>
           </div>
@@ -183,6 +192,22 @@ export default function SettingsPage() {
               disabled={updateMe.isPending}
             />
           </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="profile-bio">Bio</Label>
+            <Textarea
+              id="profile-bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={280}
+              rows={4}
+              placeholder="A short introduction…"
+              disabled={updateMe.isPending}
+            />
+            <div className="text-xs text-muted-foreground">
+              {bio.trim().length}/280
+            </div>
+          </div>
         </CardContent>
         <CardFooter className="justify-end gap-2">
           <Button
@@ -191,6 +216,7 @@ export default function SettingsPage() {
             onClick={() => {
               setName(meUser?.name ?? "");
               setImage(meUser?.image ?? "");
+              setBio(meUser?.bio ?? "");
             }}
             disabled={updateMe.isPending}
           >
@@ -200,6 +226,47 @@ export default function SettingsPage() {
             Save
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integrations</CardTitle>
+          <CardDescription>Check external services configuration.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium">UploadThing</div>
+              <div className="text-xs text-muted-foreground">
+                Used for image uploads.
+              </div>
+            </div>
+            <div className={cn(
+              "text-xs px-2 py-1 rounded-full border",
+              uploadthingConfigured
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-yellow-50 text-yellow-700 border-yellow-200",
+            )}>
+              {uploadthingConfigured ? "Configured" : "Missing env"}
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium">Unsplash</div>
+              <div className="text-xs text-muted-foreground">
+                Used for the image search sidebar.
+              </div>
+            </div>
+            <div className={cn(
+              "text-xs px-2 py-1 rounded-full border",
+              unsplashConfigured
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-yellow-50 text-yellow-700 border-yellow-200",
+            )}>
+              {unsplashConfigured ? "Configured" : "Missing env"}
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
       <Card>

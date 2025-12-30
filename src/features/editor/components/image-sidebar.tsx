@@ -8,6 +8,7 @@ import { ActiveTool, Editor } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
 
+import { useMe } from "@/features/auth/api/use-me";
 import { useGetImages } from "@/features/images/api/use-get-images";
 
 import { cn } from "@/lib/utils";
@@ -22,8 +23,11 @@ interface ImageSidebarProps {
 }
 
 export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSidebarProps) => {
+  const me = useMe();
   const { data, isLoading, isError, error } = useGetImages();
   const uploadToastIdRef = useRef<string | number | null>(null);
+  const uploadthingConfigured =
+    me.data?.data.integrations?.uploadthing.configured === true;
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -46,6 +50,7 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           content={{
             button: "Upload Image",
           }}
+          disabled={!uploadthingConfigured}
           headers={async () => {
             const token = await getAuthToken();
             return token
@@ -70,6 +75,11 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
             editor?.addImage(res[0].url);
           }}
         />
+        {!uploadthingConfigured ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Uploads are disabled: missing `UPLOADTHING_APP_ID` / `UPLOADTHING_SECRET`.
+          </p>
+        ) : null}
       </div>
       {isLoading && (
         <div className="flex items-center justify-center flex-1">
