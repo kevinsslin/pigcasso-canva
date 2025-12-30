@@ -3,7 +3,7 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
-import { createApiError, extractBodyErrorMessage } from "@/lib/api-error";
+import { readApiResponse } from "@/lib/api-response";
 
 type ResponseType = InferResponseType<typeof client.api.projects[":id"]["$patch"], 200>;
 type RequestType = InferRequestType<typeof client.api.projects[":id"]["$patch"]>["json"];
@@ -22,21 +22,7 @@ export const useUpdateProject = (id: string) => {
         json,
         param: { id },
       });
-
-      let body: unknown = null;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-
-      if (!response.ok) {
-        const message =
-          extractBodyErrorMessage(body) ?? "Failed to update project";
-        throw createApiError({ message, status: response.status, body });
-      }
-
-      return body as ResponseType;
+      return readApiResponse<ResponseType>(response, "Failed to update project");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });

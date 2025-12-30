@@ -17,6 +17,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/hono";
+import { readApiResponse } from "@/lib/api-response";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -322,21 +323,12 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           json: { input: text },
         });
 
-        const body = await response.json().catch(() => null);
-        const reply =
-          (body as { data?: { reply?: unknown } })?.data?.reply;
-        const nextAction =
-          (body as { data?: { action?: unknown } })?.data?.action;
+        const body = await readApiResponse<{
+          data?: { reply?: unknown; action?: unknown };
+        }>(response, "Assistant request failed");
 
-        if (!response.ok) {
-          const message =
-            typeof (body as { error?: unknown })?.error === "string"
-              ? ((body as { error?: string }).error as string)
-              : "Assistant request failed";
-          addAssistantMessage(message);
-          setPending(null);
-          return;
-        }
+        const reply = body?.data?.reply;
+        const nextAction = body?.data?.action;
 
         if (typeof reply === "string" && reply.trim()) {
           addAssistantMessage(reply);

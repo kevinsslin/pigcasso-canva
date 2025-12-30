@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
 import { InferRequestType, InferResponseType } from "hono";
-import { createApiError, extractBodyErrorMessage, getApiErrorStatus } from "@/lib/api-error";
+import { readApiResponse } from "@/lib/api-response";
 
 export type ResponseType = InferResponseType<typeof client.api.templates.$get, 200>;
 type RequestType = InferRequestType<typeof client.api.templates.$get>["query"];
@@ -24,30 +24,12 @@ export const useGetTemplates = (
         query: apiQuery,
       });
 
-      let body: unknown = null;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-
-      if (!response.ok) {
-        const message =
-          extractBodyErrorMessage(body) ?? "Failed to fetch templates";
-        throw createApiError({ message, status: response.status, body });
-      }
-
-      const json = body as ResponseType;
-      return json.data;
+      const body = await readApiResponse<ResponseType>(response, "Failed to fetch templates");
+      return body.data;
     },
     enabled: options?.enabled ?? true,
     staleTime: 60_000,
-    retry: (failureCount, error) => {
-      const status = getApiErrorStatus(error);
-      if (status === 401) return false;
-      return failureCount < 2;
-    },
   });
-
+ 
   return query;
 };

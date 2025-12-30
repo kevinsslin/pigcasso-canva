@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
-import { createApiError, extractBodyErrorMessage } from "@/lib/api-error";
+import { readApiResponse } from "@/lib/api-response";
 
 type UnsplashImage = {
   id: string;
@@ -24,20 +24,11 @@ export const useGetImages = () => {
     queryKey: ["images"],
     queryFn: async () => {
       const response = await client.api.images.$get();
-      let body: unknown = null;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-
-      if (!response.ok) {
-        const message =
-          extractBodyErrorMessage(body) ?? "Failed to fetch images";
-        throw createApiError({ message, status: response.status, body });
-      }
-
-      return (body as { data: UnsplashImage[] }).data;
+      const body = await readApiResponse<{ data: UnsplashImage[] }>(
+        response,
+        "Failed to fetch images",
+      );
+      return body.data;
     },
   });
 

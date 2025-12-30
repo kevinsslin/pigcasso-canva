@@ -9,6 +9,7 @@ import { fabric } from "fabric";
 import { client } from "@/lib/hono";
 import { getAuthToken } from "@/lib/auth-token";
 import { uploadFiles } from "@/lib/uploadthing";
+import { readApiResponse } from "@/lib/api-response";
 import { usePro } from "@/features/auth/hooks/use-pro";
 import type { Editor } from "@/features/editor/types";
 
@@ -118,15 +119,13 @@ export const PublishTemplateDialog = ({
         },
       });
 
-      if (!response.ok) {
-        const message =
-          response.status === 403
+      const json = await readApiResponse<{ sharePath?: string }>(
+        response,
+        ({ status }) =>
+          status === 403
             ? "Pro required to publish a Pro-only template."
-            : "Failed to publish template.";
-        throw new Error(message);
-      }
-
-      const json = await response.json();
+            : "Failed to publish template.",
+      );
       const url = buildShareUrl(json.sharePath ?? sharePath);
 
       try {

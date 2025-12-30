@@ -15,6 +15,7 @@ import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-t
 
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/hono";
+import { readApiResponse } from "@/lib/api-response";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -36,7 +37,7 @@ export const TemplateSidebar = ({
     "You are about to replace the current project with this template."
   )
 
-  const { data, isLoading, isError } = useGetTemplates({
+  const { data, isLoading, isError, error } = useGetTemplates({
     limit: "20",
     page: "1",
   });
@@ -58,16 +59,19 @@ export const TemplateSidebar = ({
         param: { id: template.id },
       });
 
-      if (!response.ok) {
-        toast.error(
-          response.status === 403
+      let body: { data: { json?: string | null } };
+      try {
+        body = await readApiResponse(response, ({ status }) =>
+          status === 403
             ? "Pro template locked. Hold 100,000 PIGCASSO to unlock Pro."
             : "Failed to load template",
         );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to load template");
         return;
       }
 
-      const { data } = await response.json();
+      const { data } = body;
       if (!data.json) {
         toast.error("Pro template locked. Hold 100,000 PIGCASSO to unlock Pro.");
         return;
@@ -98,7 +102,7 @@ export const TemplateSidebar = ({
         <div className="flex flex-col gap-y-4 items-center justify-center flex-1">
           <AlertTriangle className="size-4 text-muted-foreground" />
           <p className="text-muted-foreground text-xs">
-            Failed to fetch templates
+            {error?.message || "Failed to fetch templates"}
           </p>
         </div>
       )}
