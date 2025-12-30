@@ -41,7 +41,10 @@ const app = new Hono()
         .limit(limit)
         .offset((page - 1) * limit);
 
-      return c.json({ data });
+      return c.json({
+        data,
+        nextPage: data.length === limit ? page + 1 : null,
+      });
     },
   )
   .get(

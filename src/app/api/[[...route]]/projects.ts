@@ -8,6 +8,23 @@ import { projects, projectsInsertSchema } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
 import { getProStatusForUser } from "@/server/token-gating";
 
+const listProjectsSchema = z.object({
+  page: z.coerce.number().min(1),
+  limit: z.coerce.number().min(1).max(50),
+});
+
+const updateProjectSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    json: z.string().optional(),
+    width: z.coerce.number().int().min(1).optional(),
+    height: z.coerce.number().int().min(1).optional(),
+    thumbnailUrl: z.string().trim().url().nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "No changes provided",
+  });
+
 const app = new Hono()
   .delete(
     "/:id",
@@ -143,13 +160,7 @@ const app = new Hono()
   .get(
     "/",
     requireAuth,
-    zValidator(
-      "query",
-      z.object({
-        page: z.coerce.number(),
-        limit: z.coerce.number(),
-      }),
-    ),
+    zValidator("query", listProjectsSchema),
     async (c) => {
       const auth = c.get("authUser");
       const { page, limit } = c.req.valid("query");
@@ -160,7 +171,7 @@ const app = new Hono()
         .where(eq(projects.userId, auth.id))
         .limit(limit)
         .offset((page - 1) * limit)
-        .orderBy(desc(projects.updatedAt))
+        .orderBy(desc(projects.updatedAt));
 
       return c.json({
         data,
@@ -175,17 +186,7 @@ const app = new Hono()
       "param",
       z.object({ id: z.string() }),
     ),
-    zValidator(
-      "json",
-      projectsInsertSchema
-        .omit({
-          id: true,
-          userId: true,
-          createdAt: true,
-          updatedAt: true,
-        })
-        .partial()
-    ),
+    zValidator("json", updateProjectSchema),
     async (c) => {
       const auth = c.get("authUser");
       const { id } = c.req.valid("param");

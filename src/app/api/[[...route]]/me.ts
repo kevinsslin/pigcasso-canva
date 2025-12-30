@@ -50,16 +50,22 @@ const app = new Hono()
       gemini: Boolean(process.env.GEMINI_API_KEY),
     };
 
-    const defaultProvider =
-      process.env.AI_PROVIDER_DEFAULT === "gemini" && providers.gemini
-        ? "gemini"
-        : process.env.AI_PROVIDER_DEFAULT === "replicate" && providers.replicate
-          ? "replicate"
-          : providers.gemini
-            ? "gemini"
-            : providers.replicate
-              ? "replicate"
-              : "gemini";
+    const defaultProvider = (() => {
+      const preferred = process.env.AI_PROVIDER_DEFAULT;
+      if (preferred === "gemini" && providers.gemini) {
+        return "gemini";
+      }
+      if (preferred === "replicate" && providers.replicate) {
+        return "replicate";
+      }
+      if (providers.gemini) {
+        return "gemini";
+      }
+      if (providers.replicate) {
+        return "replicate";
+      }
+      return "gemini";
+    })();
 
     return c.json({
       data: {
@@ -77,9 +83,7 @@ const app = new Hono()
         },
         integrations: {
           uploadthing: {
-            configured: Boolean(
-              process.env.UPLOADTHING_TOKEN,
-            ),
+            configured: Boolean(process.env.UPLOADTHING_TOKEN),
           },
           unsplash: {
             configured: Boolean(process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY),
