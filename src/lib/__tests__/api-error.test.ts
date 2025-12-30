@@ -49,4 +49,3 @@ describe("getApiErrorStatus", () => {
     expect(getApiErrorStatus("oops")).toBeUndefined();
   });
 });
-

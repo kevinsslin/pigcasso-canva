@@ -23,4 +23,3 @@ describe("getErrorStatus", () => {
     expect(getErrorStatus({})).toBeUndefined();
   });
 });
-

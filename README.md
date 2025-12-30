@@ -63,6 +63,10 @@ bun run db:studio   # open Drizzle Studio
 - `bun test`: run unit tests (fast)
 - `bun run check`: lint + typecheck + unit tests
 
+### Tests
+
+- Unit tests live in `src/**/__tests__/*.test.ts` and should stay fast (no DB / no network).
+
 ## Notes
 
 - `docs/` is mostly gitignored; only the tracked MVP docs are committed (PRD/foundamental/questions).

@@ -27,4 +27,3 @@ describe("ai error normalization", () => {
     expect(err.message).toContain("GEMINI_API_KEY");
   });
 });
-
