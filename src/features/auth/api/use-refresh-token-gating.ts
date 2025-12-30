@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
+import { createApiError, extractBodyErrorMessage } from "@/lib/api-error";
 
 type ResponseType = InferResponseType<
   typeof client.api["token-gating"]["refresh"]["$post"],
@@ -15,15 +16,23 @@ export const useRefreshTokenGating = () => {
     mutationFn: async () => {
       const response = await client.api["token-gating"].refresh.$post();
 
-      if (!response.ok) {
-        throw new Error("Failed to refresh token gating");
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
       }
 
-      return response.json();
+      if (!response.ok) {
+        const message =
+          extractBodyErrorMessage(body) ?? "Failed to refresh token gating";
+        throw createApiError({ message, status: response.status, body });
+      }
+
+      return body as ResponseType;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
 };
-

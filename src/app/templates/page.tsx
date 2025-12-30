@@ -65,7 +65,7 @@ export default function TemplatesIndexPage() {
 
       {query.isError ? (
         <div className="rounded-lg border p-4 text-sm">
-          Failed to load templates.
+          {query.error?.message || "Failed to load templates."}
         </div>
       ) : null}
 

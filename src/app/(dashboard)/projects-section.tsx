@@ -63,6 +63,7 @@ export const ProjectsSection = () => {
   const {
     data,
     status,
+    error,
     fetchNextPage,
     isFetchingNextPage,
     hasNextPage,
@@ -90,7 +91,7 @@ export const ProjectsSection = () => {
         <div className="flex flex-col gap-y-4 items-center justify-center h-32">
           <AlertTriangle className="size-6 text-muted-foreground" />
           <p className="text-muted-foreground text-sm">
-            Failed to load projects
+            {error?.message || "Failed to load projects"}
           </p>
         </div>
       </div>

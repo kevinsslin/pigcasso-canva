@@ -8,6 +8,8 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 
+import { getApiErrorStatus } from '@/lib/api-error'
+
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -15,6 +17,11 @@ function makeQueryClient() {
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 60 * 1000,
+        retry: (failureCount, error) => {
+          const status = getApiErrorStatus(error)
+          if (status === 401) return false
+          return failureCount < 2
+        },
       },
     },
   })
@@ -51,4 +58,3 @@ export function QueryProvider({ children }: QueryProviderProps) {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };
-

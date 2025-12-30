@@ -26,7 +26,8 @@ export const TemplatesSection = () => {
   const { 
     data, 
     isLoading, 
-    isError
+    isError,
+    error,
   } = useGetTemplates({ page: "1", limit: "4" });
 
   const onClick = (template: ResponseType["data"][0]) => {
@@ -81,7 +82,7 @@ export const TemplatesSection = () => {
         <div className="flex flex-col gap-y-4 items-center justify-center h-32">
           <TriangleAlert className="size-6 text-muted-foreground" />
           <p>
-            Failed to load templates
+            {error?.message || "Failed to load templates"}
           </p>
         </div>
       </div>

@@ -23,7 +23,8 @@ const EditorProjectIdPage = ({
   const { 
     data, 
     isLoading, 
-    isError
+    isError,
+    error,
   } = useGetProject(params.projectId, { enabled: ready && authenticated });
 
   if (!ready || !authenticated || isLoading || !data) {
@@ -39,7 +40,7 @@ const EditorProjectIdPage = ({
       <div className="h-full flex flex-col gap-y-5 items-center justify-center">
         <TriangleAlert className="size-6 text-muted-foreground" />
         <p className="text-muted-foreground text-sm">
-          Failed to fetch project
+          {error?.message || "Failed to fetch project"}
         </p>
         <Button asChild variant="secondary">
           <Link href="/">

@@ -3,6 +3,7 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { createApiError, extractBodyErrorMessage } from "@/lib/api-error";
 
 type ResponseType = InferResponseType<
   typeof client.api.templates[":id"]["remix"]["$post"],
@@ -19,15 +20,23 @@ export const useRemixTemplate = (options?: { toast?: boolean }) => {
     mutationFn: async (param) => {
       const response = await client.api.templates[":id"].remix.$post({ param });
 
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+
       if (!response.ok) {
-        const message =
+        const fallback =
           response.status === 403
             ? "Pro required to remix this template."
             : "Failed to remix template";
-        throw new Error(message);
+        const message = extractBodyErrorMessage(body) ?? fallback;
+        throw createApiError({ message, status: response.status, body });
       }
 
-      return await response.json();
+      return body as ResponseType;
     },
     onSuccess: () => {
       if (showToast) {
