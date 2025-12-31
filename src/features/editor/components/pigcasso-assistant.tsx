@@ -514,7 +514,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           onPointerCancel={onDragEnd}
           className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95 cursor-grab active:cursor-grabbing select-none touch-none"
         >
-          <Image src="/pigcasso-pig.svg" alt="Pigcasso Assistant" width={26} height={26} />
+          <Image src="/logo-pig.png" alt="Pigcasso Assistant" width={26} height={26} />
         </Button>
       ) : (
         <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
@@ -527,7 +527,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
               onPointerCancel={onDragEnd}
             >
               <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                <Image src="/pigcasso-pig.svg" alt="Pigcasso" width={26} height={26} />
+                <Image src="/logo-pig.png" alt="Pigcasso" width={26} height={26} />
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold">Pigcasso Assistant</div>
