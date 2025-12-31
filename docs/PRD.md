@@ -52,6 +52,7 @@
 - [x] Mobile RWD：Dashboard/Editor/Settings 在手機上有可用的導航與工具操作
 - [x] UploadThing：SDK v7+ token auth（`UPLOADTHING_TOKEN`）+ Avatar 上傳 UX（較大檔案上限 + 友善錯誤訊息）
 - [x] Dashboard IA：新增 Creator Hub（Home 下方入口 + Sidebar 導航），整理主要工作流
+- [x] Creator Hub：My Templates 內一鍵 launch template token（不再需要獨立 Launchpad page）
 - [ ] UploadThing：釐清 `prepareUpload 400 Unsupported operation`（可能是 token/appId 配對、plan/region 限制或專案設定）
 
 ### V2（Web3-native：內容資產 / 一鍵上鏈 NFT）
@@ -82,7 +83,7 @@
 - [ ] Stake-to-Use / Pay-to-Use：用戶要使用 template 需 stake token（解鎖/折抵/credits）或直接付費（roadmap）
 - [x] Usage events：記錄 template 使用事件（Phase 1 先記 `remix`）
 - [ ] Usage → Cashflow：把 usage events 轉成可定價/可分潤的現金流敘事（roadmap）
-- [x] Creator Launch Flow：Creator Hub 內發起 launch（連接 Printr API）
+- [x] Creator Launch Flow：Creator Hub → My Templates 一鍵 launch template token（Printr API + wallet sign）
 - [x] Template Directory：模板列表/詳情顯示 token 資訊（token id + deployments；價格/持有人待 Printr API）
 
 ---

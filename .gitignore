@@ -23,6 +23,8 @@ docs/*
 !docs/PRD.md
 !docs/foundamental.md
 !docs/QUESTIONS.md
+!docs/integrations/
+!docs/integrations/**
 
 # debug
 npm-debug.log*

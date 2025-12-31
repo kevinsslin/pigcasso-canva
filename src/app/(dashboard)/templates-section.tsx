@@ -63,9 +63,7 @@ export const TemplatesSection = () => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg">
-          Start from a template
-        </h3>
+        <h3 className="font-semibold text-lg">Community Templates</h3>
         <div className="flex items-center justify-center h-32">
           <Loader className="size-6 text-muted-foreground animate-spin" />
         </div>
@@ -76,9 +74,7 @@ export const TemplatesSection = () => {
   if (isError) {
     return (
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg">
-          Start from a template
-        </h3>
+        <h3 className="font-semibold text-lg">Community Templates</h3>
         <div className="flex flex-col gap-y-4 items-center justify-center h-32">
           <TriangleAlert className="size-6 text-muted-foreground" />
           <p>
@@ -106,7 +102,7 @@ export const TemplatesSection = () => {
       />
       <div>
       <div className="flex items-center justify-between gap-4">
-        <h3 className="font-semibold text-lg">Start from a template</h3>
+        <h3 className="font-semibold text-lg">Community Templates</h3>
         <button
           type="button"
           onClick={() => router.push("/templates")}
