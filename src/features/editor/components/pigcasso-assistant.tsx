@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, Mic, MicOff, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { fabric } from "fabric";
 
@@ -55,86 +55,15 @@ type CanvasEditsAction = {
 
 type PendingActionWithDraft = PendingAction | CanvasEditsAction;
 
-const inferTemplateFromText = (text: string): PigcassoTemplate | null => {
-  const t = text.toLowerCase();
-  if (t.includes("ama")) return "ama";
-  if (t.includes("announcement") || text.includes("公告")) return "announcement";
-  if (t.includes("banner") || t.includes("event") || text.includes("活動"))
-    return "event-banner";
-  return null;
-};
-
-const extractField = (text: string, keys: string[]) => {
-  for (const key of keys) {
-    const re = new RegExp(`${key}\\s*[:：]\\s*(.+)`, "i");
-    const match = text.match(re);
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-  }
-  return null;
-};
-
-const parseTemplateInput = (text: string): PigcassoTemplateInput | undefined => {
-  const title = extractField(text, ["title", "標題"]);
-  const subtitle = extractField(text, ["subtitle", "sub", "副標", "副標題"]);
-  const datetime = extractField(text, ["time", "datetime", "時間", "日期"]);
-  const cta = extractField(text, ["cta", "calltoaction", "連結", "按鈕"]);
-
-  if (!title && !subtitle && !datetime && !cta) return undefined;
-  return {
-    ...(title ? { title } : {}),
-    ...(subtitle ? { subtitle } : {}),
-    ...(datetime ? { datetime } : {}),
-    ...(cta ? { cta } : {}),
-  };
-};
-
-const inferActionFromText = (text: string): PendingAction | null => {
-  const t = text.toLowerCase();
-  const wantsVariants = t.includes("variant") || text.includes("版本") || text.includes("三個版本");
-
-  if (text.includes("置中") || t.includes("center")) {
-    return { type: "align", mode: "center" };
-  }
-  if (text.includes("置頂") || t.includes("top")) {
-    return { type: "align", mode: "top" };
-  }
-  if (text.includes("置底") || t.includes("bottom")) {
-    return { type: "align", mode: "bottom" };
-  }
-  if (text.includes("左對齊") || t.includes("align left")) {
-    return { type: "align", mode: "left" };
-  }
-  if (text.includes("右對齊") || t.includes("align right")) {
-    return { type: "align", mode: "right" };
-  }
-
-  if (text.includes("字級") || t.includes("hierarchy")) {
-    return { type: "textHierarchy" };
-  }
-
-  const template = inferTemplateFromText(text);
-  if (template) {
-    const content = parseTemplateInput(text);
-    if (wantsVariants) {
-      return { type: "variants", template, content };
-    }
-    return { type: "template", template, variant: "centered", content };
-  }
-
-  if (wantsVariants) {
-    const content = parseTemplateInput(text);
-    return { type: "variants", template: "ama", content };
-  }
-
-  return null;
-};
-
 export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const pendingVoiceTranscriptRef = useRef("");
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
   const containerRef = useRef<HTMLDivElement | null>(null);
   const suppressBubbleClickRef = useRef(false);
   const dragStateRef = useRef<{
@@ -151,6 +80,55 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     captureEl: HTMLElement;
   } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const AnyWindow = window as unknown as {
+      SpeechRecognition?: unknown;
+      webkitSpeechRecognition?: unknown;
+    };
+    const SpeechRecognitionCtor =
+      (AnyWindow.SpeechRecognition as any) ?? (AnyWindow.webkitSpeechRecognition as any);
+
+    if (!SpeechRecognitionCtor) {
+      recognitionRef.current = null;
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = navigator.language || "en-US";
+
+    recognition.onresult = (event: any) => {
+      let nextTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        nextTranscript += event.results[i][0]?.transcript ?? "";
+      }
+      pendingVoiceTranscriptRef.current = nextTranscript.trim();
+      setInput(nextTranscript.trim());
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      const transcript = pendingVoiceTranscriptRef.current.trim();
+      pendingVoiceTranscriptRef.current = "";
+      if (transcript) {
+        setInput("");
+        sendMessageRef.current(transcript);
+      }
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
 
   useEffect(() => {
     try {
@@ -245,7 +223,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position]);
 
-  const DRAG_THRESHOLD_PX = 2;
+  const DRAG_THRESHOLD_PX = 6;
 
   const startDrag = (e: React.PointerEvent<HTMLElement>, kind: "bubble" | "header") => {
     e.preventDefault();
@@ -337,7 +315,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      text: "Hi! I can help you edit your canvas. Try: Center / Text hierarchy / AMA / 3 variants",
+      text: "Hi! I'm Pigcasso. Ask me to improve what’s on the canvas (or create a template). Try: “Make it more readable”, “Create 3 variants”, “Write a stronger headline”, “Make it more cyberpunk”.",
     },
   ]);
   const [pending, setPending] = useState<PendingActionWithDraft | null>(null);
@@ -349,127 +327,113 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     "This will replace all objects on the canvas (except the workspace background).",
   );
 
-  const quickActions = useMemo(
+  const quickPrompts = useMemo(
     () => [
-      { label: "Center", action: { type: "align", mode: "center" } as const },
-      { label: "Text hierarchy", action: { type: "textHierarchy" } as const },
-      {
-        label: "AMA",
-        action: {
-          type: "template",
-          template: "ama",
-          variant: "centered",
-        } as const,
-      },
-      {
-        label: "3 Variants",
-        action: { type: "variants", template: "ama" } as const,
-      },
+      { label: "Make it readable", prompt: "Make this design more readable and well-aligned." },
+      { label: "3 variants", prompt: "Create 3 layout variants for this design." },
+      { label: "Stronger headline", prompt: "Rewrite the headline to be punchier and clearer." },
+      { label: "Cyberpunk vibe", prompt: "Make the style more cyberpunk (colors + typography) while keeping it readable." },
     ],
     [],
   );
 
   const addAssistantMessage = (text: string) => {
     setMessages((m) => [...m, { role: "assistant", text }]);
+    if (!voiceEnabled) {
+      return;
+    }
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = navigator.language || "en-US";
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // ignore
+    }
   };
 
   const addUserMessage = (text: string) => {
     setMessages((m) => [...m, { role: "user", text }]);
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || aiThinking) {
+      return;
+    }
+
+    addUserMessage(trimmed);
+    setPending(null);
+    setDraftPreviewUrl(null);
+    setAiThinking(true);
+
+    try {
+      const snapshot = editor ? buildCanvasSnapshot(editor) : null;
+      const baseJson = editor ? JSON.stringify(editor.canvas.toJSON(JSON_KEYS)) : null;
+
+      const response = await client.api.assistant.action.$post({
+        json: {
+          input: trimmed,
+          ...(snapshot ? { canvas: snapshot } : {}),
+        },
+      });
+
+      const body = await readApiResponse<{
+        data?: { reply?: unknown; action?: unknown };
+      }>(response, "Assistant request failed");
+
+      const reply = body?.data?.reply;
+      const nextAction = body?.data?.action;
+
+      if (typeof reply === "string" && reply.trim()) {
+        addAssistantMessage(reply);
+      } else {
+        addAssistantMessage("OK — what would you like to change on the canvas?");
+      }
+
+      if (
+        nextAction &&
+        typeof nextAction === "object" &&
+        "type" in nextAction &&
+        (nextAction as { type?: unknown }).type === "canvasEdits" &&
+        Array.isArray((nextAction as { ops?: unknown }).ops) &&
+        snapshot &&
+        baseJson
+      ) {
+        const ops = (nextAction as unknown as { ops: unknown[] }).ops as CanvasOp[];
+        setPending({
+          type: "canvasEdits",
+          ops,
+          snapshot,
+          baseJson,
+        });
+      } else {
+        setPending(nextAction as PendingAction | null);
+      }
+    } catch (error) {
+      addAssistantMessage(error instanceof Error ? error.message : "Assistant request failed");
+      setPending(null);
+      setDraftPreviewUrl(null);
+    } finally {
+      setAiThinking(false);
+    }
+  };
+
+  sendMessageRef.current = (text: string) => void sendMessage(text);
+
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const text = input.trim();
     if (!text) return;
 
-    addUserMessage(text);
     setInput("");
-
-    const action = inferActionFromText(text);
-    if (!action) {
-      setAiThinking(true);
-      try {
-        const snapshot = editor ? buildCanvasSnapshot(editor) : null;
-        const baseJson = editor
-          ? JSON.stringify(editor.canvas.toJSON(JSON_KEYS))
-          : null;
-
-        const response = await client.api.assistant.action.$post({
-          json: {
-            input: text,
-            ...(snapshot ? { canvas: snapshot } : {}),
-          },
-        });
-
-        const body = await readApiResponse<{
-          data?: { reply?: unknown; action?: unknown };
-        }>(response, "Assistant request failed");
-
-        const reply = body?.data?.reply;
-        const nextAction = body?.data?.action;
-
-        if (typeof reply === "string" && reply.trim()) {
-          addAssistantMessage(reply);
-        } else {
-          addAssistantMessage("OK. What would you like to change on the canvas?");
-        }
-
-        setDraftPreviewUrl(null);
-        if (
-          nextAction &&
-          typeof nextAction === "object" &&
-          "type" in nextAction &&
-          (nextAction as { type?: unknown }).type === "canvasEdits" &&
-          Array.isArray((nextAction as { ops?: unknown }).ops) &&
-          snapshot &&
-          baseJson
-        ) {
-          const ops = (nextAction as unknown as { ops: unknown[] }).ops as CanvasOp[];
-          setPending({
-            type: "canvasEdits",
-            ops,
-            snapshot,
-            baseJson,
-          });
-        } else {
-          setPending(nextAction as PendingAction | null);
-        }
-      } catch (error) {
-        addAssistantMessage(
-          error instanceof Error ? error.message : "Assistant request failed",
-        );
-        setPending(null);
-        setDraftPreviewUrl(null);
-      } finally {
-        setAiThinking(false);
-      }
-      return;
-    }
-
-    setPending(action);
-    setDraftPreviewUrl(null);
-
-    if (action.type === "align") {
-      addAssistantMessage(`Ready: align ${action.mode}. Click Apply to run it.`);
-      return;
-    }
-
-    if (action.type === "textHierarchy") {
-      addAssistantMessage("Ready: apply text hierarchy (title/subtitle/cta).");
-      return;
-    }
-
-    if (action.type === "variants") {
-      addAssistantMessage("Pick a variant, then click Apply to replace the canvas.");
-      return;
-    }
-
-    if (action.type === "template") {
-      addAssistantMessage(
-        `Ready: create a ${action.template} layout (${action.variant}). Click Apply to replace the canvas.`,
-      );
-    }
+    void sendMessage(text);
   };
 
   const createDraftPreview = async (draft: CanvasEditsAction) => {
@@ -624,32 +588,8 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     >
       <ConfirmDialog />
 
-      {!open ? (
-        <Button
-          type="button"
-          onClick={() => {
-            if (suppressBubbleClickRef.current) {
-              suppressBubbleClickRef.current = false;
-              return;
-            }
-            setOpen(true);
-          }}
-          onPointerDown={(e) => startDrag(e, "bubble")}
-          onPointerMove={onDragMove}
-          onPointerUp={onDragEnd}
-          onPointerCancel={onDragEnd}
-          className="rounded-full h-14 w-14 p-0 shadow-lg bg-white border border-border hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none touch-none"
-        >
-          <Image
-            src="/logo-pig.png"
-            alt="Pigcasso Assistant"
-            width={44}
-            height={44}
-            className="rounded-full"
-          />
-        </Button>
-      ) : (
-        <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
+      {open ? (
+        <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col mb-3">
           <div className="px-3 py-2 border-b flex items-center gap-2">
             <div
               className="flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none touch-none"
@@ -659,36 +599,41 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
               onPointerCancel={onDragEnd}
             >
               <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                <Image src="/logo-pig.png" alt="Pigcasso" width={26} height={26} />
+                <Image src="/logo-pig.png" alt="Pigcasso" width={28} height={28} />
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold">Pigcasso Assistant</div>
-                <div className="text-[11px] text-muted-foreground">
-                  Draft → Apply to canvas
-                </div>
+                <div className="text-[11px] text-muted-foreground">Draft → Preview → Apply</div>
               </div>
               <GripVertical className="size-4 text-muted-foreground" />
             </div>
             <button
               type="button"
+              onClick={() => setVoiceEnabled((prev) => !prev)}
+              className="h-8 w-8 rounded-md hover:bg-muted flex items-center justify-center"
+              aria-label={voiceEnabled ? "Disable voice" : "Enable voice"}
+            >
+              {voiceEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+            </button>
+            <button
+              type="button"
               onClick={() => setOpen(false)}
               className="h-8 w-8 rounded-md hover:bg-muted flex items-center justify-center"
+              aria-label="Close"
             >
               <X className="size-4" />
             </button>
           </div>
 
           <div className="px-3 py-2 border-b flex flex-wrap gap-2">
-            {quickActions.map((qa) => (
+            {quickPrompts.map((qa) => (
               <Button
                 key={qa.label}
                 type="button"
                 size="sm"
                 variant="secondary"
-                onClick={() => {
-                  setPending(qa.action as PendingAction);
-                  addAssistantMessage(`Ready: ${qa.label}. Click Apply.`);
-                }}
+                disabled={aiThinking}
+                onClick={() => void sendMessage(qa.prompt)}
                 className="h-8"
               >
                 {qa.label}
@@ -712,9 +657,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                 </div>
               ))}
               {aiThinking ? (
-                <div className="text-xs text-muted-foreground">
-                  Thinking…
-                </div>
+                <div className="text-xs text-muted-foreground">Thinking…</div>
               ) : null}
 
               {pending?.type === "variants" ? (
@@ -738,9 +681,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                         className="rounded-lg border p-3 text-left hover:bg-muted transition"
                       >
                         <div className="font-medium text-sm">{v.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {v.description}
-                        </div>
+                        <div className="text-xs text-muted-foreground">{v.description}</div>
                       </button>
                     ))}
                   </div>
@@ -772,9 +713,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                           const url = await createDraftPreview(pending);
                           setDraftPreviewUrl(url);
                         } catch (err) {
-                          toast.error(
-                            err instanceof Error ? err.message : "Failed to generate preview",
-                          );
+                          toast.error(err instanceof Error ? err.message : "Failed to generate preview");
                         } finally {
                           setPreviewingDraft(false);
                         }
@@ -797,6 +736,26 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                     </Button>
                   </div>
                 </div>
+              ) : pending && pending.type !== "variants" ? (
+                <div className="mt-2 space-y-2">
+                  <div className="text-xs text-muted-foreground">Action ready.</div>
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={() => applyPending()} disabled={!editor} className="flex-1">
+                      Apply
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPending(null);
+                        setDraftPreviewUrl(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
               ) : null}
             </div>
           </ScrollArea>
@@ -806,33 +765,77 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Example: Make this an AMA post. Title: Pigcasso. Time: Jan 1, 2025 8pm. CTA: Join us."
+                placeholder="Ask anything… (e.g. “Make this an AMA post. Title: Pigcasso. Time: Jan 1, 2025 8pm. CTA: Join us.”)"
                 rows={2}
+                disabled={aiThinking}
               />
               <div className="flex items-center gap-2">
-                <Button type="submit" variant="secondary" className="flex-1">
-                  Send
-                </Button>
                 <Button
                   type="button"
-                  onClick={() => applyPending()}
-                  disabled={
-                    !pending || pending.type === "variants" || pending.type === "canvasEdits"
-                  }
-                  className="flex-1"
+                  variant="secondary"
+                  onClick={() => {
+                    const recognition = recognitionRef.current;
+                    if (!recognition) {
+                      toast.error("Voice input is not supported in this browser.");
+                      return;
+                    }
+                    if (listening) {
+                      recognition.stop();
+                      return;
+                    }
+                    pendingVoiceTranscriptRef.current = "";
+                    setInput("");
+                    try {
+                      setListening(true);
+                      recognition.lang = navigator.language || "en-US";
+                      recognition.start();
+                    } catch {
+                      setListening(false);
+                    }
+                  }}
+                  disabled={aiThinking}
+                  className="shrink-0"
+                  aria-label={listening ? "Stop recording" : "Start recording"}
                 >
-                  Apply
+                  {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                </Button>
+                <Button type="submit" variant="secondary" className="flex-1" disabled={aiThinking}>
+                  Send
                 </Button>
               </div>
             </form>
-            {pending?.type === "variants" ? (
-              <div className="text-xs text-muted-foreground">
-                Select a variant above to enable Apply.
-              </div>
-            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
+
+      <Button
+        type="button"
+        onClick={() => {
+          if (suppressBubbleClickRef.current) {
+            suppressBubbleClickRef.current = false;
+            return;
+          }
+          setOpen((prev) => !prev);
+        }}
+        onPointerDown={(e) => {
+          if (open) {
+            return;
+          }
+          startDrag(e, "bubble");
+        }}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+        className="rounded-full h-16 w-16 p-0 shadow-xl bg-white border border-border hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none touch-none"
+      >
+        <Image
+          src="/logo-pig.png"
+          alt="Pigcasso Assistant"
+          width={52}
+          height={52}
+          className="rounded-full"
+        />
+      </Button>
     </div>
   );
 };

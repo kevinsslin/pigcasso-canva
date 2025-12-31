@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { getErrorStatus } from "@/server/http-error";
+import { HttpError, getErrorStatus } from "@/server/http-error";
 
 import ai from "./ai";
 import assistant from "./assistant";
@@ -28,7 +28,10 @@ const app = new Hono()
         : "Internal Server Error";
 
     const isProd = process.env.NODE_ENV === "production";
-    const safeMessage = isProd && status >= 500 ? "Internal Server Error" : message;
+    const safeMessage =
+      isProd && status >= 500 && !(err instanceof HttpError)
+        ? "Internal Server Error"
+        : message;
 
     return c.json({ error: safeMessage }, status);
   })

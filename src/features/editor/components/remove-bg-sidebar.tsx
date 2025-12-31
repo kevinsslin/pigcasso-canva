@@ -71,19 +71,23 @@ export const RemoveBgSidebar = ({
       return;
     }
 
+    const toastId = "pigcasso:ai-remove-bg";
+    toast.loading("Removing background…", { id: toastId, duration: Infinity });
+
     mutation.mutate({
       image: imageSrc,
     }, {
       onSuccess: ({ data }) => {
         editor?.addImage(data);
+        toast.success("Background removed.", { id: toastId, duration: 2000 });
       },
       onError: (err) => {
         const status = getApiErrorStatus(err);
         if (status === 429 && err.message.toLowerCase().includes("daily limit")) {
-          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
+          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.", { id: toastId, duration: 4000 });
           return;
         }
-        toast.error(err.message || "Failed to remove background");
+        toast.error(err.message || "Failed to remove background", { id: toastId, duration: 4000 });
       },
     });
   };

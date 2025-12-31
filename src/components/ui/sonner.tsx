@@ -12,6 +12,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
+      closeButton
       className="toaster group"
       icons={{
         loading: <Loader2 className="size-4 animate-spin" />,

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
@@ -15,8 +16,10 @@ export type Project = {
 export type ResponseType = { data: Project };
 
 export const useGetProject = (id: string, options?: { enabled?: boolean }) => {
+  const { ready, authenticated } = usePrivy();
+
   const query = useQuery({
-    enabled: (options?.enabled ?? true) && !!id,
+    enabled: (options?.enabled ?? true) && ready && authenticated && !!id,
     queryKey: ["project", { id }],
     queryFn: async () => {
       const response = await client.api.projects[":id"].$get({

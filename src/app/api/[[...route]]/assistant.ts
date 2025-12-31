@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "@/server/hono-auth";
 import { normalizeGeminiError } from "@/server/ai-errors";
 import { HttpError } from "@/server/http-error";
+import { getAssistantModel } from "@/server/ai-providers";
 import { canvasOpSchema, canvasSnapshotSchema } from "@/lib/pigcasso-assistant-protocol";
 
 const inputSchema = z.object({
@@ -82,8 +83,7 @@ const app = new Hono().post(
       throw new HttpError(501, "Assistant is currently unavailable.");
     }
 
-    const model =
-      process.env.GEMINI_ASSISTANT_MODEL?.trim() || "gemini-3-pro";
+    const model = getAssistantModel();
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -144,7 +144,10 @@ Rules:
         },
       });
     } catch (error) {
-      throw normalizeGeminiError(error);
+      throw normalizeGeminiError(error, {
+        model,
+        operation: "assistantAction",
+      });
     }
 
     const text =

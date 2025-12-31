@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { client } from "@/lib/hono";
 import { InferRequestType } from "hono";
@@ -27,6 +28,8 @@ export const useGetTemplates = (
   apiQuery: RequestType,
   options?: { enabled?: boolean },
 ) => {
+  const { ready, authenticated } = usePrivy();
+
   const query = useQuery<ResponseType["data"], Error>({
     queryKey: [
       "templates",
@@ -43,7 +46,7 @@ export const useGetTemplates = (
       const body = await readApiResponse<ResponseType>(response, "Failed to fetch templates");
       return body.data;
     },
-    enabled: options?.enabled ?? true,
+    enabled: (options?.enabled ?? true) && ready && authenticated,
     staleTime: 60_000,
   });
  

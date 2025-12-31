@@ -54,18 +54,22 @@ export const AiSidebar = ({
       return;
     }
 
+    const toastId = "pigcasso:ai-generate-image";
+    toast.loading("Generating image…", { id: toastId, duration: Infinity });
+
     mutation.mutate({ prompt: value }, {
       onSuccess: ({ data }) => {
         editor?.addImage(data);
         setValue("");
+        toast.success("Image added to canvas.", { id: toastId, duration: 2000 });
       },
       onError: (err) => {
         const status = getApiErrorStatus(err);
         if (status === 429 && err.message.toLowerCase().includes("daily limit")) {
-          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.");
+          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.", { id: toastId, duration: 4000 });
           return;
         }
-        toast.error(err.message || "Failed to generate image");
+        toast.error(err.message || "Failed to generate image", { id: toastId, duration: 4000 });
       }
     });
   };

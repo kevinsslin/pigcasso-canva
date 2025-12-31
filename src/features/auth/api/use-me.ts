@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
@@ -51,6 +52,8 @@ export type ResponseType = {
 };
 
 export const useMe = (options?: { enabled?: boolean }) => {
+  const { ready, authenticated } = usePrivy();
+
   return useQuery<ResponseType, Error>({
     queryKey: ["me"],
     queryFn: async () => {
@@ -58,6 +61,6 @@ export const useMe = (options?: { enabled?: boolean }) => {
       return readApiResponse<ResponseType>(response, "Failed to fetch current user");
     },
     staleTime: 60_000,
-    enabled: options?.enabled ?? true,
+    enabled: (options?.enabled ?? true) && ready && authenticated,
   });
 };

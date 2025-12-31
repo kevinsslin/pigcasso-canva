@@ -5,6 +5,8 @@ import { normalizeGeminiError } from "@/server/ai-errors";
 
 export type AiProvider = "gemini";
 
+const normalizeModelName = (model: string) => model.trim();
+
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -14,10 +16,12 @@ const getGeminiClient = () => {
 };
 
 const GEMINI_ASSISTANT_MODEL =
-  process.env.GEMINI_ASSISTANT_MODEL?.trim() || "gemini-3-pro";
+  normalizeModelName(process.env.GEMINI_ASSISTANT_MODEL ?? "") ||
+  "gemini-3-pro-preview";
 
 const GEMINI_IMAGE_MODEL =
-  process.env.GEMINI_IMAGE_MODEL?.trim() || "gemini-nano-banana";
+  normalizeModelName(process.env.GEMINI_IMAGE_MODEL ?? "") ||
+  "gemini-2.5-flash-image-preview";
 
 type GeminiInlineImage = {
   data: string;
@@ -104,9 +108,15 @@ export const generateImage = async (params: { prompt: string }) => {
     response = await ai.models.generateContent({
       model: GEMINI_IMAGE_MODEL,
       contents: params.prompt,
+      config: {
+        responseModalities: ["IMAGE"],
+      },
     });
   } catch (error) {
-    throw normalizeGeminiError(error);
+    throw normalizeGeminiError(error, {
+      model: GEMINI_IMAGE_MODEL,
+      operation: "generateImage",
+    });
   }
 
   const image = extractInlineImage(response);
@@ -135,9 +145,15 @@ export const removeBackground = async (params: { image: string }) => {
           },
         },
       ],
+      config: {
+        responseModalities: ["IMAGE"],
+      },
     });
   } catch (error) {
-    throw normalizeGeminiError(error);
+    throw normalizeGeminiError(error, {
+      model: GEMINI_IMAGE_MODEL,
+      operation: "removeBackground",
+    });
   }
 
   const image = extractInlineImage(response);
@@ -149,4 +165,3 @@ export const removeBackground = async (params: { image: string }) => {
 };
 
 export const getAssistantModel = () => GEMINI_ASSISTANT_MODEL;
-

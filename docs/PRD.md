@@ -45,8 +45,10 @@
 - [x] Profile：新增「介紹 / bio」與更多個人設定（server-side persist）
 - [x] Onboarding：專案建立 / remix / open editor 的過程更明確（loading overlay + toasts）
 - [x] Assistant：LLM fallback（Gemini Pro，輸出 action JSON → human confirm → apply）
-- [x] Assistant UX：小豬聊天球可拖曳（收合可拖 / 展開僅標題列可拖 / 避免誤觸拖曳 / 拖曳更順）
+- [x] Assistant UX：小豬聊天球可拖曳 + 點擊收合/展開（收合可拖 / 展開僅標題列可拖 / 避免誤觸拖曳）
+- [x] Assistant UX：語音輸入（speech-to-text）+ 可選語音回覆（TTS）
 - [x] AI：Gemini-only + 更清楚的 429/5xx 錯誤訊息
+- [x] Toast UX：長任務（AI 產圖/去背/上傳）有 loading spinner + 可關閉（close button）
 - [x] UploadThing：SDK v7+ token auth（`UPLOADTHING_TOKEN`）+ Avatar 上傳 UX（較大檔案上限 + 友善錯誤訊息）
 - [x] Dashboard IA：新增 Creator Hub（Home 下方入口 + Sidebar 導航），整理主要工作流
 - [ ] UploadThing：釐清 `prepareUpload 400 Unsupported operation`（可能是 token/appId 配對、plan/region 限制或專案設定）
