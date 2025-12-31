@@ -6,6 +6,21 @@ import type { CanvasOp, CanvasSnapshot } from "@/lib/pigcasso-assistant-protocol
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
+const normalizeRatioInput = (value: number, dimension: number) => {
+  if (!Number.isFinite(value) || !Number.isFinite(dimension) || dimension <= 0) {
+    return 0;
+  }
+
+  if (value >= 0 && value <= 1) {
+    return value;
+  }
+
+  return value / dimension;
+};
+
+const clampWorkspaceRatio = (value: number, dimension: number) =>
+  clamp(normalizeRatioInput(value, dimension), 0, 1);
+
 const isTextObject = (obj: fabric.Object) =>
   ["text", "textbox", "i-text"].includes(obj.type ?? "");
 
@@ -239,9 +254,13 @@ const setObjectPosition = (
   const center = object.getCenterPoint();
 
   const targetX =
-    params.x === undefined ? center.x : rect.left + rect.width * params.x;
+    params.x === undefined
+      ? center.x
+      : rect.left + rect.width * clampWorkspaceRatio(params.x, rect.width);
   const targetY =
-    params.y === undefined ? center.y : rect.top + rect.height * params.y;
+    params.y === undefined
+      ? center.y
+      : rect.top + rect.height * clampWorkspaceRatio(params.y, rect.height);
 
   if (anchor === "topLeft") {
     object.setPositionByOrigin(new fabric.Point(targetX, targetY), "left", "top");
@@ -259,7 +278,11 @@ const addTextbox = (
   const { rect } = getWorkspaceRect(canvas);
 
   const widthPct = params.widthPct ?? 0.8;
-  const maxWidth = clamp(widthPct, 0.1, 1) * rect.width;
+  const maxWidth =
+    clamp(normalizeRatioInput(widthPct, rect.width), 0.1, 1) * rect.width;
+
+  const x = clampWorkspaceRatio(params.x, rect.width);
+  const y = clampWorkspaceRatio(params.y, rect.height);
 
   const baseFontSize = clamp(Math.round(rect.width * 0.06), 18, 110);
   const role = params.role ?? "body";
@@ -286,14 +309,14 @@ const addTextbox = (
   };
 
   const textbox = new fabric.Textbox(params.text, {
-    left: rect.left + rect.width * params.x,
-    top: rect.top + rect.height * params.y,
+    left: rect.left + rect.width * x,
+    top: rect.top + rect.height * y,
     width: maxWidth,
     ...style,
   });
 
   textbox.setPositionByOrigin(
-    new fabric.Point(rect.left + rect.width * params.x, rect.top + rect.height * params.y),
+    new fabric.Point(rect.left + rect.width * x, rect.top + rect.height * y),
     "center",
     "center",
   );

@@ -109,12 +109,86 @@ const extractJson = (text: string) => {
   }
 };
 
+const parseJsonObject = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return extractJson(trimmed);
+  }
+};
+
+const normalizeReply = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.length > 800 ? trimmed.slice(0, 800) : trimmed;
+};
+
+const parseAction = (value: unknown) => {
+  const direct = pendingActionSchema.safeParse(value);
+  if (direct.success) {
+    return direct.data;
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    "type" in value &&
+    (value as { type?: unknown }).type === "canvasEdits" &&
+    Array.isArray((value as { ops?: unknown }).ops)
+  ) {
+    const opsRaw = (value as { ops?: unknown }).ops;
+    if (!Array.isArray(opsRaw)) {
+      return null;
+    }
+
+    const ops = (opsRaw as unknown[])
+      .map((op) => canvasOpSchema.safeParse(op))
+      .filter(
+        (result): result is z.SafeParseSuccess<z.infer<typeof canvasOpSchema>> =>
+          result.success,
+      )
+      .map((result) => result.data)
+      .slice(0, 30);
+
+    return ops.length ? { type: "canvasEdits" as const, ops } : null;
+  }
+
+  return null;
+};
+
+const normalizeSuggestionsInput = (raw: unknown) => {
+  if (!Array.isArray(raw)) return undefined;
+
+  return raw
+    .filter(
+      (item): item is { label: string; prompt: string } =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        "label" in item &&
+        "prompt" in item &&
+        typeof (item as { label?: unknown }).label === "string" &&
+        typeof (item as { prompt?: unknown }).prompt === "string",
+    )
+    .map((item) => ({
+      label: item.label.trim(),
+      prompt: item.prompt.trim(),
+    }))
+    .filter((item) => item.label && item.prompt)
+    .slice(0, 8);
+};
+
 const app = new Hono().post(
   "/action",
   requireAuth,
   zValidator("json", inputSchema),
   async (c) => {
     const { input, canvas } = c.req.valid("json");
+    const fallbackReply = /[\u4e00-\u9fff]/.test(input)
+      ? "我想幫你，但需要更明確一點：你要改文字、顏色、排版，還是加上 CTA？"
+      : "Tell me what you want to change (text, colors, layout, CTA).";
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -172,20 +246,24 @@ Rules:
     try {
       response = await ai.models.generateContent({
         model,
-        contents: [
-          { text: system },
-          {
-            text: [
-              input,
-              canvas
-                ? `\n\nCanvas snapshot (for reference):\n${JSON.stringify(canvas)}`
-                : "",
-            ].join(""),
-          },
-        ],
+        contents: {
+          role: "user",
+          parts: [
+            {
+              text: [
+                input,
+                canvas
+                  ? `\n\nCanvas snapshot (for reference):\n${JSON.stringify(canvas)}`
+                  : "",
+              ].join(""),
+            },
+          ],
+        },
         config: {
+          systemInstruction: system,
           maxOutputTokens: 800,
           responseMimeType: "application/json",
+          temperature: 0.3,
         },
       });
     } catch (error) {
@@ -200,7 +278,7 @@ Rules:
         ? ((response as { text?: string }).text ?? "").trim()
         : "";
 
-    const parsed = text ? extractJson(text) : null;
+    const parsed = text ? parseJsonObject(text) : null;
     const validated = parsed ? responseSchema.safeParse(parsed) : null;
 
     if (validated?.success) {
@@ -213,9 +291,25 @@ Rules:
       });
     }
 
+    if (parsed && typeof parsed === "object") {
+      const reply = normalizeReply((parsed as { reply?: unknown }).reply) ?? text;
+      const action = parseAction((parsed as { action?: unknown }).action);
+      const suggestions = normalizeSuggestions(
+        normalizeSuggestionsInput((parsed as { suggestions?: unknown }).suggestions),
+      );
+
+      return c.json({
+        data: {
+          reply: reply || fallbackReply,
+          action,
+          suggestions,
+        },
+      });
+    }
+
     return c.json({
       data: {
-        reply: text || "我還不太確定要怎麼做，你可以再說清楚一點嗎？",
+        reply: text || fallbackReply,
         action: null,
         suggestions: normalizeSuggestions(undefined),
       },

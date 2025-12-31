@@ -500,9 +500,18 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const [suggestions, setSuggestions] =
     useState<Array<{ label: string; prompt: string }>>(DEFAULT_SUGGESTIONS);
 
-  const addAssistantMessage = (text: string) => {
+  const toSpeechText = (value: string) => {
+    const withoutCode = value.replace(/```[\s\S]*?```/g, "");
+    const flattened = withoutCode.replace(/\s+/g, " ").trim();
+    if (!flattened) return null;
+    if (flattened.length <= 240) return flattened;
+    return `${flattened.slice(0, 240)}…`;
+  };
+
+  const addAssistantMessage = (text: string, options?: { speak?: boolean }) => {
     setMessages((m) => [...m, { role: "assistant", text }]);
-    if (!voiceEnabled) {
+    const shouldSpeak = options?.speak ?? true;
+    if (!shouldSpeak || !voiceEnabled) {
       return;
     }
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -510,7 +519,11 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     }
     try {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const speechText = toSpeechText(text);
+      if (!speechText) {
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(speechText);
       utterance.lang = navigator.language || "en-US";
       utterance.rate = 1;
       utterance.pitch = 1;
@@ -603,7 +616,10 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
         }
       }
     } catch (error) {
-      addAssistantMessage(error instanceof Error ? error.message : "Assistant request failed");
+      addAssistantMessage(
+        error instanceof Error ? error.message : "Assistant request failed",
+        { speak: false },
+      );
       setPending(null);
       setDraftPreviewUrl(null);
     } finally {
@@ -833,7 +849,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                 <div
                   key={idx}
                   className={cn(
-                    "text-sm rounded-xl px-3 py-2 max-w-[90%]",
+                    "text-sm rounded-xl px-3 py-2 max-w-[90%] whitespace-pre-wrap break-words leading-relaxed",
                     m.role === "assistant"
                       ? "bg-muted text-foreground"
                       : "bg-[#111827] text-white ml-auto",
