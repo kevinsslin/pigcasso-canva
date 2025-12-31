@@ -31,6 +31,7 @@ import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
 import { PigcassoAssistant } from "@/features/editor/components/pigcasso-assistant";
+import { MobileToolDock } from "@/features/editor/components/mobile-tool-dock";
 
 interface EditorProps {
   initialData: ResponseType["data"];
@@ -104,7 +105,7 @@ export const Editor = ({ initialData }: EditorProps) => {
   }, [init]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-[100dvh] flex flex-col">
       <Navbar
         id={initialData.id}
         projectName={initialData.name || "project"}
@@ -112,7 +113,7 @@ export const Editor = ({ initialData }: EditorProps) => {
         activeTool={activeTool}
         onChangeActiveTool={onChangeActiveTool}
       />
-      <div className="absolute h-[calc(100%-68px)] w-full top-[68px] flex">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar
           activeTool={activeTool}
           onChangeActiveTool={onChangeActiveTool}
@@ -187,20 +188,21 @@ export const Editor = ({ initialData }: EditorProps) => {
           activeTool={activeTool}
           onChangeActiveTool={onChangeActiveTool}
         />
-        <main className="bg-muted flex-1 overflow-auto relative flex flex-col">
+        <main className="bg-muted flex-1 overflow-hidden relative flex flex-col">
           <Toolbar
             editor={editor}
             activeTool={activeTool}
             onChangeActiveTool={onChangeActiveTool}
             key={JSON.stringify(editor?.canvas.getActiveObject())}
           />
-          <div className="flex-1 h-[calc(100%-124px)] bg-muted" ref={containerRef}>
+          <div className="flex-1 bg-muted relative overflow-hidden" ref={containerRef}>
             <canvas ref={canvasRef} />
           </div>
           <Footer editor={editor} />
           <PigcassoAssistant editor={editor} />
         </main>
       </div>
+      <MobileToolDock activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
     </div>
   );
 };

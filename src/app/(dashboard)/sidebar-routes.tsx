@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 import { SidebarItem } from "./sidebar-item";
 
-export const SidebarRoutes = () => {
+export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { ready, authenticated } = usePrivy();
   const { isLoading, isPro } = usePro({ enabled: ready && authenticated });
   const refreshMutation = useRefreshTokenGating();
@@ -62,24 +62,27 @@ export const SidebarRoutes = () => {
         </>
       )}
       <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} />
+        <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} onClick={onNavigate} />
         <SidebarItem
           href="/creator-hub"
           icon={LayoutGrid}
           label="Creator Hub"
           isActive={isCreatorHubActive}
+          onClick={onNavigate}
         />
         <SidebarItem
           href="/nfts"
           icon={Wallet}
           label="NFTs"
           isActive={isNftsActive}
+          onClick={onNavigate}
         />
         <SidebarItem
           href="/settings"
           icon={Settings}
           label="Settings"
           isActive={pathname === "/settings"}
+          onClick={onNavigate}
         />
       </ul>
     </div>

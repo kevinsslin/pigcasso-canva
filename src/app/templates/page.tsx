@@ -42,7 +42,7 @@ export default function TemplatesIndexPage() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 max-w-screen-xl mx-auto pb-10 px-6">
+    <div className="flex flex-col space-y-6 max-w-screen-xl mx-auto pb-10 px-4 sm:px-6">
       <div className="flex items-start justify-between gap-6 flex-col md:flex-row">
         <div>
           <h1 className="text-2xl font-semibold">{title}</h1>

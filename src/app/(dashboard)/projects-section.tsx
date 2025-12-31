@@ -140,9 +140,9 @@ export const ProjectsSection = () => {
       />
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-lg">Recent projects</CardTitle>
-            <div className="relative w-[240px] hidden sm:block">
+            <div className="relative w-full sm:w-[240px]">
               <Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 value={filter}

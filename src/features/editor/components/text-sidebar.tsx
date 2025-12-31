@@ -27,15 +27,15 @@ export const TextSidebar = ({
   return (
     <aside
       className={cn(
-        "bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
-        activeTool === "text" ? "visible" : "hidden",
+        "bg-white border-border flex flex-col fixed inset-x-0 bottom-0 z-[70] h-[75vh] max-h-[75vh] rounded-t-2xl border-t shadow-2xl lg:relative lg:inset-auto lg:z-[40] lg:w-[360px] lg:h-full lg:rounded-none lg:border-t-0 lg:border-r lg:shadow-none",
+        activeTool === "text" ? "flex" : "hidden",
       )}
     >
       <ToolSidebarHeader
         title="Text"
         description="Add text to your canvas"
       />
-      <ScrollArea>
+      <ScrollArea className="flex-1">
         <div className="p-4 space-y-4 border-b">
           <Button
             className="w-full"

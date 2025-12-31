@@ -9,6 +9,7 @@ import {
   ChevronDown, 
   Download, 
   Loader, 
+  MoreHorizontal,
   MousePointerClick, 
   Pencil,
   Redo2, 
@@ -124,7 +125,7 @@ export const Navbar = ({
   });
 
   return (
-    <nav className="w-full flex items-center p-4 h-[68px] gap-x-8 border-b lg:pl-[34px]">
+    <nav className="w-full flex items-center p-3 sm:p-4 h-[68px] gap-x-3 sm:gap-x-6 border-b lg:pl-[34px]">
       <Logo />
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
@@ -185,16 +186,17 @@ export const Navbar = ({
           size="sm"
           variant="ghost"
           onClick={onOpenRename}
-          className="max-w-[220px] justify-start gap-x-2 px-2"
+          className="max-w-[140px] sm:max-w-[220px] justify-start gap-x-2 px-2"
         >
           <span className="truncate font-medium">{name}</span>
           <Pencil className="size-3 text-muted-foreground shrink-0" />
         </Button>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost">
-              File
-              <ChevronDown className="size-4 ml-2" />
+            <Button size="sm" variant="ghost" className="px-2">
+              <span className="hidden sm:inline">File</span>
+              <MoreHorizontal className="size-4 sm:hidden" />
+              <ChevronDown className="size-4 ml-2 hidden sm:inline" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-60">
@@ -259,7 +261,7 @@ export const Navbar = ({
         {isPending && ( 
           <div className="flex items-center gap-x-2">
             <Loader className="size-4 animate-spin text-muted-foreground" />
-            <div className="text-xs text-muted-foreground">
+            <div className="hidden sm:block text-xs text-muted-foreground">
               Saving...
             </div>
           </div>
@@ -267,7 +269,7 @@ export const Navbar = ({
         {!isPending && isError && ( 
           <div className="flex items-center gap-x-2">
             <BsCloudSlash className="size-[20px] text-muted-foreground" />
-            <div className="text-xs text-muted-foreground">
+            <div className="hidden sm:block text-xs text-muted-foreground">
               Failed to save
             </div>
           </div>
@@ -275,7 +277,7 @@ export const Navbar = ({
         {!isPending && !isError && ( 
           <div className="flex items-center gap-x-2">
             <BsCloudCheck className="size-[20px] text-muted-foreground" />
-            <div className="text-xs text-muted-foreground">
+            <div className="hidden sm:block text-xs text-muted-foreground">
               Saved
             </div>
           </div>
@@ -284,8 +286,8 @@ export const Navbar = ({
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="ghost">
-                Export
-                <Download className="size-4 ml-4" />
+                <span className="hidden sm:inline">Export</span>
+                <Download className="size-4 sm:ml-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-60">

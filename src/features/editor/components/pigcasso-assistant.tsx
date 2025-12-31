@@ -169,13 +169,24 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     containerRef.current.style.bottom = "auto";
   };
 
-  const clampToViewport = (pos: { x: number; y: number }, size: { w: number; h: number }) => {
+  const getViewportMargins = () => {
     const margin = 12;
-    const maxX = Math.max(margin, window.innerWidth - size.w - margin);
-    const maxY = Math.max(margin, window.innerHeight - size.h - margin);
+    const isMobile = window.innerWidth < 1024;
     return {
-      x: Math.min(Math.max(pos.x, margin), maxX),
-      y: Math.min(Math.max(pos.y, margin), maxY),
+      left: margin,
+      top: margin,
+      right: margin,
+      bottom: isMobile ? 88 : margin,
+    };
+  };
+
+  const clampToViewport = (pos: { x: number; y: number }, size: { w: number; h: number }) => {
+    const margins = getViewportMargins();
+    const maxX = Math.max(margins.left, window.innerWidth - size.w - margins.right);
+    const maxY = Math.max(margins.top, window.innerHeight - size.h - margins.bottom);
+    return {
+      x: Math.min(Math.max(pos.x, margins.left), maxX),
+      y: Math.min(Math.max(pos.y, margins.top), maxY),
     };
   };
 
@@ -184,9 +195,10 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       return;
     }
     const rect = containerRef.current.getBoundingClientRect();
+    const margins = getViewportMargins();
     setPosition({
-      x: Math.max(12, window.innerWidth - rect.width - 16),
-      y: Math.max(12, window.innerHeight - rect.height - 16),
+      x: Math.max(margins.left, window.innerWidth - rect.width - margins.right),
+      y: Math.max(margins.top, window.innerHeight - rect.height - margins.bottom),
     });
   }, [position]);
 
@@ -589,7 +601,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       <ConfirmDialog />
 
       {open ? (
-        <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col mb-3">
+        <div className="w-[min(340px,calc(100vw-24px))] h-[min(460px,calc(100dvh-220px))] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col mb-3">
           <div className="px-3 py-2 border-b flex items-center gap-2">
             <div
               className="flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none touch-none"

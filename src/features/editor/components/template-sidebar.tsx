@@ -84,8 +84,8 @@ export const TemplateSidebar = ({
   return (
     <aside
       className={cn(
-        "bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
-        activeTool === "templates" ? "visible" : "hidden",
+        "bg-white border-border flex flex-col fixed inset-x-0 bottom-0 z-[70] h-[75vh] max-h-[75vh] rounded-t-2xl border-t shadow-2xl lg:relative lg:inset-auto lg:z-[40] lg:w-[360px] lg:h-full lg:rounded-none lg:border-t-0 lg:border-r lg:shadow-none",
+        activeTool === "templates" ? "flex" : "hidden",
       )}
     >
       <ConfirmDialog />
@@ -106,7 +106,7 @@ export const TemplateSidebar = ({
           </p>
         </div>
       )}
-      <ScrollArea>
+      <ScrollArea className="flex-1">
         <div className="p-4">
           <div className="grid grid-cols-2 gap-4">
             {data && data.map((template) => {

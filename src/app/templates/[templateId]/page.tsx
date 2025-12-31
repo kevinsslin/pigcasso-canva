@@ -54,7 +54,7 @@ export default function TemplatePage({
 
   if (templateQuery.isError || !templateQuery.data?.data) {
     return (
-      <div className="max-w-3xl mx-auto p-6">
+      <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <h1 className="text-xl font-semibold">Template not found</h1>
         <p className="text-sm text-muted-foreground mt-2">
           This template may have been unpublished or the link is invalid.
@@ -93,7 +93,7 @@ export default function TemplatePage({
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-start justify-between gap-6 flex-col md:flex-row">
         <div>
           <h1 className="text-2xl font-semibold">{data.name}</h1>
@@ -120,7 +120,7 @@ export default function TemplatePage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="secondary" onClick={onCopyLink} disabled={!shareUrl}>
             Copy link
           </Button>

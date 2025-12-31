@@ -61,7 +61,7 @@ export const UserButton = () => {
               {getAvatarFallbackText(displayLabel)}
             </AvatarFallback>
           </Avatar>
-          <Button variant="ghost" size="sm" className="px-2 max-w-[220px] min-w-0">
+          <Button variant="ghost" size="sm" className="hidden sm:inline-flex px-2 max-w-[220px] min-w-0">
             <Wallet className="mr-2 size-4 text-muted-foreground" />
             <span className="truncate">{displayLabel}</span>
           </Button>
