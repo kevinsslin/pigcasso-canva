@@ -27,6 +27,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Tilt } from "@/components/tilt";
 
 import { cn } from "@/lib/utils";
 
@@ -42,24 +43,26 @@ const FeatureCard = ({
   className?: string;
 }) => {
   return (
-    <Card
-      className={cn(
-        "bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft",
-        className,
-      )}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
-            {icon}
+    <Tilt className="h-full">
+      <Card
+        className={cn(
+          "h-full bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft transition-shadow duration-300 hover:shadow-glow",
+          className,
+        )}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
+              {icon}
+            </div>
+            <CardTitle className="text-lg">{title}</CardTitle>
           </div>
-          <CardTitle className="text-lg">{title}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0 text-sm text-muted-foreground leading-relaxed">
-        {description}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="pt-0 text-sm text-muted-foreground leading-relaxed">
+          {description}
+        </CardContent>
+      </Card>
+    </Tilt>
   );
 };
 
@@ -100,15 +103,19 @@ const StatChip = ({
   description: string;
 }) => {
   return (
-    <div className="flex items-start gap-3 rounded-2xl bg-white/60 dark:bg-card/60 backdrop-blur border border-white/40 dark:border-border px-4 py-3 shadow-soft">
-      <div className="mt-0.5 size-9 rounded-xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
-        {icon}
+    <Tilt>
+      <div className="flex items-start gap-3 rounded-2xl bg-white/60 dark:bg-card/60 backdrop-blur border border-white/40 dark:border-border px-4 py-3 shadow-soft transition-shadow duration-300 hover:shadow-glow">
+        <div className="mt-0.5 size-9 rounded-xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
+          {icon}
+        </div>
+        <div>
+          <div className="text-sm font-bold">{title}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {description}
+          </div>
+        </div>
       </div>
-      <div>
-        <div className="text-sm font-bold">{title}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
-      </div>
-    </div>
+    </Tilt>
   );
 };
 
@@ -250,8 +257,8 @@ export default function LandingPage() {
       <main className="pt-20">
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.18),_transparent_60%)]" />
-          <div className="absolute -top-40 -right-40 w-[780px] h-[780px] bg-primary/10 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-overlay" />
-          <div className="absolute top-1/2 -left-40 w-[640px] h-[640px] bg-cyan-400/10 blur-[110px] rounded-full mix-blend-multiply dark:mix-blend-overlay" />
+          <div className="absolute -top-40 -right-40 w-[780px] h-[780px] bg-primary/10 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-overlay motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
+          <div className="absolute top-1/2 -left-40 w-[640px] h-[640px] bg-cyan-400/10 blur-[110px] rounded-full mix-blend-multiply dark:mix-blend-overlay motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16 lg:py-20">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
@@ -311,50 +318,52 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="lg:col-span-6 relative">
-                <div className="relative rounded-[2.75rem] overflow-hidden border border-white/40 dark:border-border bg-white/60 dark:bg-card/60 backdrop-blur shadow-2xl">
-                  <Image
-                    src="/pig-banner.png"
-                    alt="Pigcasso hero"
-                    width={1500}
-                    height={500}
-                    priority
-                    className="w-full h-auto"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent pointer-events-none" />
-                </div>
+              <div className="lg:col-span-6">
+                <Tilt className="relative" max={6} scale={1.01}>
+                  <div className="relative rounded-[2.75rem] overflow-hidden border border-white/40 dark:border-border bg-white/60 dark:bg-card/60 backdrop-blur shadow-2xl">
+                    <Image
+                      src="/pig-banner.png"
+                      alt="Pigcasso hero"
+                      width={1500}
+                      height={500}
+                      priority
+                      className="w-full h-auto"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent pointer-events-none" />
+                  </div>
 
-                <div className="hidden sm:block absolute -left-4 bottom-6">
-                  <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
-                        <Sparkles className="size-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold">Gemini-native</div>
-                        <div className="text-xs text-muted-foreground">
-                          Fast image generation + assistant edits.
+                  <div className="hidden sm:block absolute left-6 bottom-6">
+                    <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
+                          <Sparkles className="size-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">Gemini-native</div>
+                          <div className="text-xs text-muted-foreground">
+                            Fast image generation + assistant edits.
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="hidden sm:block absolute -right-2 top-6">
-                  <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
-                        <LayoutTemplate className="size-5 text-cyan-500" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold">Creator presets</div>
-                        <div className="text-xs text-muted-foreground">
-                          X · Discord · Telegram
+                  <div className="hidden sm:block absolute left-6 top-6">
+                    <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
+                          <LayoutTemplate className="size-5 text-cyan-500" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">Creator presets</div>
+                          <div className="text-xs text-muted-foreground">
+                            X · Discord · Telegram
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Tilt>
               </div>
             </div>
           </div>
@@ -372,7 +381,7 @@ export default function LandingPage() {
               ].map((item) => (
                 <span
                   key={item.label}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-card/60 border border-white/40 dark:border-border text-sm font-semibold text-muted-foreground shadow-soft"
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-card/60 border border-white/40 dark:border-border text-sm font-semibold text-muted-foreground shadow-soft hover:text-foreground hover:shadow-glow motion-safe:transition-transform motion-safe:duration-150 hover:-translate-y-0.5"
                 >
                   {item.icon}
                   {item.label}
@@ -473,39 +482,45 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="size-4 text-primary" />
-                    Draft
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                  The assistant proposes edits as structured actions, not guessy “magic”.
-                </CardContent>
-              </Card>
-              <Card className="bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Wand2 className="size-4 text-cyan-500" />
-                    Preview
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                  You can preview changes before committing — iterate without fear.
-                </CardContent>
-              </Card>
-              <Card className="bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-yellow-500" />
-                    Apply
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                  Apply instantly to your existing canvas — or clear the draft and try again.
-                </CardContent>
-              </Card>
+              <Tilt className="h-full">
+                <Card className="h-full bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft transition-shadow duration-300 hover:shadow-glow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Sparkles className="size-4 text-primary" />
+                      Draft
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                    The assistant proposes edits as structured actions, not guessy “magic”.
+                  </CardContent>
+                </Card>
+              </Tilt>
+              <Tilt className="h-full">
+                <Card className="h-full bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft transition-shadow duration-300 hover:shadow-glow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Wand2 className="size-4 text-cyan-500" />
+                      Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                    You can preview changes before committing — iterate without fear.
+                  </CardContent>
+                </Card>
+              </Tilt>
+              <Tilt className="h-full">
+                <Card className="h-full bg-white/60 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft transition-shadow duration-300 hover:shadow-glow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-yellow-500" />
+                      Apply
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                    Apply instantly to your existing canvas — or clear the draft and try again.
+                  </CardContent>
+                </Card>
+              </Tilt>
             </div>
           </div>
         </section>
@@ -519,79 +534,85 @@ export default function LandingPage() {
             />
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              <Card className="bg-white/70 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between gap-4">
-                    <span>Free</span>
-                    <span className="text-sm font-semibold text-muted-foreground">0 USD</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-primary" />
-                    Core editor + presets
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-primary" />
-                    Gemini AI (limits apply)
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-primary" />
-                    Uploads + stock search
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={onOpenApp}
-                    disabled={!ready || opening}
-                    className="w-full rounded-2xl mt-3"
-                  >
-                    Get started
-                    <ArrowRight className="ml-2 size-4" />
-                  </Button>
-                </CardContent>
-              </Card>
+              <Tilt className="h-full">
+                <Card className="h-full bg-white/70 dark:bg-card/60 backdrop-blur border-white/40 dark:border-border shadow-soft transition-shadow duration-300 hover:shadow-glow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center justify-between gap-4">
+                      <span>Free</span>
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        0 USD
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-primary" />
+                      Core editor + presets
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-primary" />
+                      Gemini AI (limits apply)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-primary" />
+                      Uploads + stock search
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={onOpenApp}
+                      disabled={!ready || opening}
+                      className="w-full rounded-2xl mt-3"
+                    >
+                      Get started
+                      <ArrowRight className="ml-2 size-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Tilt>
 
-              <Card className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl">
-                <div className="absolute inset-0 opacity-35">
-                  <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
-                  <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
-                </div>
-                <CardHeader className="relative pb-2">
-                  <CardTitle className="flex items-center justify-between gap-4">
-                    <span>Pro</span>
-                    <span className="text-sm font-semibold text-white/80">
-                      Token-gated
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative space-y-3 text-sm text-white/80">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-white" />
-                    Higher AI limits
+              <Tilt className="h-full">
+                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
+                  <div className="absolute inset-0 opacity-35">
+                    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
+                    <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-white" />
-                    Premium templates
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="size-4 text-white" />
-                    Priority features (roadmap)
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Wallet className="size-4 text-white" />
-                    Unlock via wallet on Mantle
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={onOpenApp}
-                    disabled={!ready || opening}
-                    className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
-                  >
-                    Open app
-                    <ArrowRight className="ml-2 size-4 text-primary" />
-                  </Button>
-                </CardContent>
-              </Card>
+                  <CardHeader className="relative pb-2">
+                    <CardTitle className="flex items-center justify-between gap-4">
+                      <span>Pro</span>
+                      <span className="text-sm font-semibold text-white/80">
+                        Token-gated
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative space-y-3 text-sm text-white/80">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Higher AI limits
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Premium templates
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Priority features (roadmap)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Wallet className="size-4 text-white" />
+                      Unlock via wallet on Mantle
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={onOpenApp}
+                      disabled={!ready || opening}
+                      className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
+                    >
+                      Open app
+                      <ArrowRight className="ml-2 size-4 text-primary" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Tilt>
             </div>
           </div>
         </section>
@@ -630,44 +651,47 @@ export default function LandingPage() {
 
         <section className="pb-20">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="relative rounded-[2.75rem] overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl">
-              <div className="absolute inset-0 opacity-40">
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
-                <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
-              </div>
+            <Tilt max={4} scale={1.01}>
+              <div className="relative rounded-[2.75rem] overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
+                <div className="absolute inset-0 opacity-40">
+                  <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
+                  <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
+                </div>
 
-              <div className="relative p-10 md:p-14 text-center">
-                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-                  Ready to paint the future?
-                </h2>
-                <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
-                  Open the app, connect your wallet, and ship creator-grade designs.
-                </p>
-                <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
-                  <Button
-                    type="button"
-                    onClick={onOpenApp}
-                    disabled={!ready || opening}
-                    className="rounded-full px-10 py-6 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
-                  >
-                    Open app
-                    <ArrowRight className="ml-2 size-4 text-primary" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="rounded-full px-10 py-6 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }
-                    }}
-                  >
-                    Back to top
-                  </Button>
+                <div className="relative p-10 md:p-14 text-center">
+                  <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
+                    Ready to paint the future?
+                  </h2>
+                  <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
+                    Open the app, connect your wallet, and ship creator-grade
+                    designs.
+                  </p>
+                  <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+                    <Button
+                      type="button"
+                      onClick={onOpenApp}
+                      disabled={!ready || opening}
+                      className="rounded-full px-10 py-6 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
+                    >
+                      Open app
+                      <ArrowRight className="ml-2 size-4 text-primary" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-full px-10 py-6 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                    >
+                      Back to top
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Tilt>
           </div>
         </section>
 

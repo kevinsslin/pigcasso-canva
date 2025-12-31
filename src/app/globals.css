@@ -92,3 +92,25 @@ body {
   border-radius: 0.5rem !important;
   overflow: hidden !important;
 }
+
+@layer utilities {
+  @keyframes pigcasso-float {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -14px, 0);
+    }
+  }
+
+  @keyframes pigcasso-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(14px, -10px, 0) scale(1.03);
+    }
+  }
+}
