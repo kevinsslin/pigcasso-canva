@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import {
+  ArrowLeftRight,
   ArrowRight,
   BadgeCheck,
   Blocks,
   Brush,
+  Coins,
   CreditCard,
   Flame,
   LayoutDashboard,
@@ -405,7 +407,7 @@ export default function LandingPage() {
               <FeatureCard
                 icon={<Wallet className="size-5 text-yellow-500" />}
                 title="Web3 ready"
-                description="Connect wallets, unlock Pro with token-gating on Mantle, and prepare NFT export flows (coming soon)."
+                description="Connect wallets, unlock Pro with token-gating on Mantle, and turn templates into on-chain-native assets (coming soon)."
               />
             </div>
 
@@ -420,6 +422,20 @@ export default function LandingPage() {
                 icon={<CreditCard className="size-5 text-cyan-500" />}
                 title="Token-gated Pro"
                 description="Unlock pro packs and higher limits via token-gating — without changing your workflow."
+              />
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <FeatureCard
+                className="lg:col-span-2"
+                icon={<Coins className="size-5 text-primary" />}
+                title="Template token launchpad (coming soon)"
+                description="Creators will be able to launch a token per template on Printr for price discovery (meme + usage cashflow narrative) and distribution."
+              />
+              <FeatureCard
+                icon={<ArrowLeftRight className="size-5 text-cyan-500" />}
+                title="Stake-to-use (coming soon)"
+                description="Unlock templates by staking the template token (discounts/credits), or pay per use (roadmap)."
               />
             </div>
           </div>
@@ -599,6 +615,10 @@ export default function LandingPage() {
               <FAQItem
                 question="Can I export as NFT?"
                 answer="NFT export is on the roadmap. We’ll support one-click IPFS metadata + mint flows (coming soon)."
+              />
+              <FAQItem
+                question="What are template tokens?"
+                answer="Template tokens let creators launch a tradable token for a template on Printr. Users can stake tokens to unlock usage/credits (coming soon)."
               />
               <FAQItem
                 question="Can I connect multiple external wallets?"

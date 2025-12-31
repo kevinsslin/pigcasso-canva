@@ -21,7 +21,7 @@
 | Pro 門檻 | `100000 * 10^18`（raw units） |
 | 付款 | MVP 不做 pay-per-use；先做 token gating |
 | RPC | Alchemy（RPC URL 由 env 提供） |
-| Launchpad 整合 | Printr（先放 roadmap） |
+| Launchpad 整合 | Printr（Template Token Launchpad + Launch Kit） |
 | Bot | 不在範圍 |
 
 ---
@@ -67,6 +67,19 @@
 - [ ] Provenance：creator / parent template / remix lineage 上鏈或可驗證（含 attribution）
 - [ ] Royalties / licensing：版權條款、授權模式、royalty 設定（先 off-chain，再上鏈）
 - [ ] Launchpad：把「一鍵 mint」延伸成 Pigcasso NFT launchpad / creator hub
+
+### V2.5（Template Tokens：交易元素 + 內容資產化）
+
+核心敘事：**Canva ship file → Pigcasso ship asset**。Template 不只是「Canva template」，也可以是任何可重用的 creator 資產（例如 landing page / frontend component / meme kit / launch kit）。
+
+我們把 template 變成可交易的 asset，並透過 Printr 作為 launchpad/市場，提供「內外盤」與 meme/現金流敘事：
+
+- [ ] Template Token：每個 template/creator 可 launch 一個 fungible token（在 Printr）
+- [ ] 交易市場（Printr）：提供價格發現（內外盤、volume、holders、chart）+ 基礎交易/資訊呈現
+- [ ] Stake-to-Use / Pay-to-Use：用戶要使用 template 需 stake token（解鎖/折抵/credits）或直接付費（roadmap）
+- [ ] Usage → Cashflow：記錄 template 使用事件與現金流（off-chain 先做），回饋給 creator 與 token 敘事（roadmap）
+- [ ] Creator Launch Flow：Creator Hub 內發起 launch（連接 Printr API；UI 先做 Coming soon）
+- [ ] Template Directory：模板列表顯示 token 資訊（價格/持有人/使用量等；UI 先做 Coming soon）
 
 ---
 
@@ -359,7 +372,20 @@ MVP 不做付費與分潤，只做：
 
 ### 7.7 Launchpad 整合（Printr）（Roadmap）
 
-Hackathon MVP 先不做 Printr；只在 roadmap 保留「Launch Kit/Pack manifest」的概念與命名規則，避免後續重構。
+Hackathon MVP 先不做 Printr 的「實際交易/launch」；但 PRD 需要先把概念與 user flow 設計清楚，避免後續重構。
+
+Printr 在本產品中的定位（兩條線）：
+
+1. **Launch Kit（Design Pack）**：把設計輸出成可以直接給 Launchpad 專案使用的「Launch Kit Pack」（尺寸、檔名、欄位結構），並可對接 Printr 專案資料（ticker、時間、連結）。
+2. **Template Token Launchpad**：Creator 可把 template 資產 launch 成 token，讓市場用「meme + 使用現金流」去 price discovery；用戶使用 template 時可 stake token 或付費。
+
+MVP 實作策略（best practice）：
+
+- UI 可以先出「Coming soon」入口，避免把「缺少環境」曝露給 user。
+- 任何交易/launch 都必須透過 Printr（我們不自建 AMM）；本 repo 只做：
+  - template 資產化的資料模型（metadata、usage events）
+  - Printr API 的安全 server-side proxy（避免把 key 放在 client）
+  - gating/credits UX（stake-to-use 先做 stub）
 
 ---
 
@@ -529,6 +555,27 @@ Phase 2（上鏈）可選方向（擇一）：
 - 定義 launch kit 的 pack manifest（尺寸、檔名、用途、文案欄位）
 - 與 Printr 的「專案資料」對接（例如自動帶入 ticker、時間、連結）
 
+### Printr Template Token Launchpad（新增敘事）
+
+產品目標：
+
+- 讓 creator 把 template 當成「可交易資產」發行 token
+- 讓使用者用 stake 或付費方式解鎖 template（同時形成現金流/敘事）
+- 讓市場可以基於「使用量、現金流、meme」去交易 template token（內外盤由 Printr 提供）
+
+最小落地（Phase 1 / Phase 2）：
+
+- Phase 1（先做）：UI + 資料管線（usage events）+ Printr integration stub（Coming soon）
+- Phase 2（再做）：stake-to-use + credits + 付費/分潤（需對齊 Printr API / 合約）
+
+需要跟產品/Printr 對齊的關鍵問題（待定）：
+
+- template token 的標準/鏈（ERC20 on Mantle？還是 Printr 自帶？）
+- stake 的語意：是 lock 一段時間、還是持有即解鎖？是否可換 credits？
+- pay-to-use 的支付 token：PIGCASSO？template token？stablecoin？
+- usage/cashflow 如何計價與分配（creator vs token holders vs protocol fee）
+- template 的範圍：只做 Canva template，還是 web template / components 也算？
+
 ---
 
 ## 11) Hackathon Demo Script（建議）
@@ -578,3 +625,4 @@ Phase 2（上鏈）可選方向（擇一）：
 - AI provider：Gemini-only（不讓 user 選 provider）
 - Template hub：所有互動都要求 Privy login（free mode 也一樣）
 - Printr：放 roadmap（MVP UI 不出現）
+- Printr（Template Token Launchpad）：MVP 先出入口與敘事（Coming soon），實際 launch/交易待 Printr API 與合約規格對齊後上線
