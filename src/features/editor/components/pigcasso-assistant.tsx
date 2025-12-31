@@ -4,8 +4,10 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, X } from "lucide-react";
 import { toast } from "sonner";
+import { fabric } from "fabric";
 
 import type { Editor } from "@/features/editor/types";
+import { JSON_KEYS } from "@/features/editor/types";
 import {
   alignToWorkspace,
   applyTextHierarchy,
@@ -14,6 +16,8 @@ import {
   type PigcassoTemplateInput,
   type PigcassoVariant,
 } from "@/features/editor/pigcasso-actions";
+import { applyCanvasOps, applyCanvasOpsToCanvas, buildCanvasSnapshot } from "@/features/editor/pigcasso-canvas-ops";
+import type { CanvasOp, CanvasSnapshot } from "@/lib/pigcasso-assistant-protocol";
 
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/hono";
@@ -42,6 +46,14 @@ type PendingAction =
       template: PigcassoTemplate;
       content?: PigcassoTemplateInput;
     };
+type CanvasEditsAction = {
+  type: "canvasEdits";
+  ops: CanvasOp[];
+  snapshot: CanvasSnapshot;
+  baseJson: string;
+};
+
+type PendingActionWithDraft = PendingAction | CanvasEditsAction;
 
 const inferTemplateFromText = (text: string): PigcassoTemplate | null => {
   const t = text.toLowerCase();
@@ -325,10 +337,12 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      text: "Hi! I can help you layout your canvas. Try: 置中 / AMA / 產生 3 個版本",
+      text: "Hi! I can help you edit your canvas. Try: Center / Text hierarchy / AMA / 3 variants",
     },
   ]);
-  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [pending, setPending] = useState<PendingActionWithDraft | null>(null);
+  const [draftPreviewUrl, setDraftPreviewUrl] = useState<string | null>(null);
+  const [previewingDraft, setPreviewingDraft] = useState(false);
 
   const [ConfirmDialog, confirm] = useConfirm(
     "Replace current design?",
@@ -337,8 +351,8 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
 
   const quickActions = useMemo(
     () => [
-      { label: "置中", action: { type: "align", mode: "center" } as const },
-      { label: "字級層級", action: { type: "textHierarchy" } as const },
+      { label: "Center", action: { type: "align", mode: "center" } as const },
+      { label: "Text hierarchy", action: { type: "textHierarchy" } as const },
       {
         label: "AMA",
         action: {
@@ -376,8 +390,16 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     if (!action) {
       setAiThinking(true);
       try {
+        const snapshot = editor ? buildCanvasSnapshot(editor) : null;
+        const baseJson = editor
+          ? JSON.stringify(editor.canvas.toJSON(JSON_KEYS))
+          : null;
+
         const response = await client.api.assistant.action.$post({
-          json: { input: text },
+          json: {
+            input: text,
+            ...(snapshot ? { canvas: snapshot } : {}),
+          },
         });
 
         const body = await readApiResponse<{
@@ -393,12 +415,32 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           addAssistantMessage("OK. What would you like to change on the canvas?");
         }
 
-        setPending(nextAction as PendingAction | null);
+        setDraftPreviewUrl(null);
+        if (
+          nextAction &&
+          typeof nextAction === "object" &&
+          "type" in nextAction &&
+          (nextAction as { type?: unknown }).type === "canvasEdits" &&
+          Array.isArray((nextAction as { ops?: unknown }).ops) &&
+          snapshot &&
+          baseJson
+        ) {
+          const ops = (nextAction as unknown as { ops: unknown[] }).ops as CanvasOp[];
+          setPending({
+            type: "canvasEdits",
+            ops,
+            snapshot,
+            baseJson,
+          });
+        } else {
+          setPending(nextAction as PendingAction | null);
+        }
       } catch (error) {
         addAssistantMessage(
           error instanceof Error ? error.message : "Assistant request failed",
         );
         setPending(null);
+        setDraftPreviewUrl(null);
       } finally {
         setAiThinking(false);
       }
@@ -406,6 +448,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     }
 
     setPending(action);
+    setDraftPreviewUrl(null);
 
     if (action.type === "align") {
       addAssistantMessage(`Ready: align ${action.mode}. Click Apply to run it.`);
@@ -429,6 +472,73 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     }
   };
 
+  const createDraftPreview = async (draft: CanvasEditsAction) => {
+    const margin = 24;
+    const base = JSON.parse(draft.baseJson);
+
+    const canvasEl = document.createElement("canvas");
+    const previewCanvas = new fabric.Canvas(canvasEl, {
+      width: Math.round(draft.snapshot.workspace.width + margin * 2),
+      height: Math.round(draft.snapshot.workspace.height + margin * 2),
+      selection: false,
+    });
+
+    return await new Promise<string>((resolve, reject) => {
+      previewCanvas.loadFromJSON(base, () => {
+        try {
+          const workspace = previewCanvas
+            .getObjects()
+            .find((o) => o.name === "clip") as fabric.Rect | undefined;
+          if (!workspace) {
+            reject(new Error("Workspace not found"));
+            return;
+          }
+
+          const rect = workspace.getBoundingRect(true, true);
+          const shiftX = margin - rect.left;
+          const shiftY = margin - rect.top;
+
+          for (const obj of previewCanvas.getObjects()) {
+            obj.set({
+              left: (obj.left ?? 0) + shiftX,
+              top: (obj.top ?? 0) + shiftY,
+            });
+            obj.setCoords();
+          }
+
+          previewCanvas.clipPath = workspace;
+
+          applyCanvasOpsToCanvas({
+            canvas: previewCanvas,
+            ops: draft.ops,
+            snapshot: draft.snapshot,
+            fireEvents: false,
+          });
+
+          previewCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+          previewCanvas.renderAll();
+
+          const workspaceRect = workspace.getBoundingRect(true, true);
+          const dataUrl = previewCanvas.toDataURL({
+            format: "png",
+            quality: 1,
+            left: workspaceRect.left,
+            top: workspaceRect.top,
+            width: workspaceRect.width,
+            height: workspaceRect.height,
+            multiplier: 0.5,
+          });
+
+          previewCanvas.dispose();
+          resolve(dataUrl);
+        } catch (err) {
+          previewCanvas.dispose();
+          reject(err instanceof Error ? err : new Error("Failed to build preview"));
+        }
+      });
+    });
+  };
+
   const applyPending = async (override?: PendingAction) => {
     if (!editor) {
       toast.error("Editor not ready yet.");
@@ -439,9 +549,22 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     if (!action) return;
 
     try {
+      if (action.type === "canvasEdits") {
+        applyCanvasOps({
+          editor,
+          ops: action.ops,
+          snapshot: action.snapshot,
+        });
+        setPending(null);
+        setDraftPreviewUrl(null);
+        toast.success("Applied draft edits.");
+        return;
+      }
+
       if (action.type === "align") {
         alignToWorkspace(editor, action.mode);
         setPending(null);
+        setDraftPreviewUrl(null);
         toast.success("Applied alignment.");
         return;
       }
@@ -449,6 +572,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       if (action.type === "textHierarchy") {
         applyTextHierarchy(editor);
         setPending(null);
+        setDraftPreviewUrl(null);
         toast.success("Applied text hierarchy.");
         return;
       }
@@ -473,6 +597,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           content: action.content,
         });
         setPending(null);
+        setDraftPreviewUrl(null);
         toast.success("Applied layout.");
         return;
       }
@@ -621,6 +746,58 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                   </div>
                 </div>
               ) : null}
+
+              {pending?.type === "canvasEdits" ? (
+                <div className="mt-2 space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    Draft edits ready. Preview before applying.
+                  </div>
+
+                  {draftPreviewUrl ? (
+                    <div className="rounded-lg border overflow-hidden bg-muted">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={draftPreviewUrl} alt="Draft preview" className="w-full h-auto" />
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={previewingDraft}
+                      onClick={async () => {
+                        if (previewingDraft) return;
+                        setPreviewingDraft(true);
+                        try {
+                          const url = await createDraftPreview(pending);
+                          setDraftPreviewUrl(url);
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Failed to generate preview",
+                          );
+                        } finally {
+                          setPreviewingDraft(false);
+                        }
+                      }}
+                    >
+                      {previewingDraft ? "Previewing…" : "Preview"}
+                    </Button>
+                    <Button type="button" onClick={() => applyPending()} disabled={!editor}>
+                      Apply
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPending(null);
+                        setDraftPreviewUrl(null);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </ScrollArea>
 
@@ -629,7 +806,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="例如：做一張 AMA，title: Pigcasso，時間: 2025/01/01 20:00"
+                placeholder="Example: Make this an AMA post. Title: Pigcasso. Time: Jan 1, 2025 8pm. CTA: Join us."
                 rows={2}
               />
               <div className="flex items-center gap-2">
@@ -639,7 +816,9 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
                 <Button
                   type="button"
                   onClick={() => applyPending()}
-                  disabled={!pending || pending.type === "variants"}
+                  disabled={
+                    !pending || pending.type === "variants" || pending.type === "canvasEdits"
+                  }
                   className="flex-1"
                 >
                   Apply

@@ -7,7 +7,7 @@ import { readApiResponse } from "@/lib/api-response";
 type ResponseType = {
   data: string;
   meta: {
-    provider: "gemini" | "replicate";
+    provider: "gemini";
   };
 };
 type RequestType = InferRequestType<typeof client.api.ai["remove-bg"]["$post"]>["json"];

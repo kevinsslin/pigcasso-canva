@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
@@ -29,40 +29,8 @@ export const AiSidebar = ({
   const mutation = useGenerateImage();
 
   const [value, setValue] = useState("");
-  const [provider, setProvider] = useState<"auto" | "replicate" | "gemini">(
-    "auto",
-  );
-
   const aiMeta = me.data?.data.ai;
-  const providers = aiMeta?.providers;
-
-  useEffect(() => {
-    if (!aiMeta) {
-      return;
-    }
-
-    try {
-      const stored = localStorage.getItem("pigcasso:ai-provider-default");
-      if (
-        stored === "gemini" &&
-        providers?.gemini
-      ) {
-        setProvider("gemini");
-        return;
-      }
-      if (
-        stored === "replicate" &&
-        providers?.replicate
-      ) {
-        setProvider("replicate");
-        return;
-      }
-    } catch {
-      // ignore
-    }
-
-    setProvider("auto");
-  }, [aiMeta, providers?.gemini, providers?.replicate]);
+  const aiEnabled = aiMeta?.configured !== false;
 
   const remainingText = useMemo(() => {
     const limit = aiMeta?.limits?.generate;
@@ -76,22 +44,17 @@ export const AiSidebar = ({
     return `${Math.max(0, limit - used)} left today`;
   }, [aiMeta?.limits?.generate, aiMeta?.usage?.generateCount]);
 
-  const autoEnabled =
-    providers?.gemini !== false || providers?.replicate !== false;
-
-  const providerEnabled =
-    provider === "auto"
-      ? autoEnabled
-      : provider === "gemini"
-        ? providers?.gemini !== false
-        : providers?.replicate !== false;
-
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
 
-    mutation.mutate({ prompt: value, provider }, {
+    if (!aiEnabled) {
+      toast.error("AI is currently unavailable.");
+      return;
+    }
+
+    mutation.mutate({ prompt: value }, {
       onSuccess: ({ data }) => {
         editor?.addImage(data);
         setValue("");
@@ -125,54 +88,20 @@ export const AiSidebar = ({
       <ScrollArea>
         <form onSubmit={onSubmit} className="p-4 space-y-6">
           <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                type="button"
-                variant={provider === "auto" ? "default" : "outline"}
-                onClick={() => setProvider("auto")}
-                disabled={mutation.isPending || !autoEnabled}
-              >
-                Auto
-              </Button>
-              <Button
-                type="button"
-                variant={provider === "replicate" ? "default" : "outline"}
-                onClick={() => setProvider("replicate")}
-                disabled={mutation.isPending || providers?.replicate === false}
-              >
-                Replicate
-              </Button>
-              <Button
-                type="button"
-                variant={provider === "gemini" ? "default" : "outline"}
-                onClick={() => setProvider("gemini")}
-                disabled={mutation.isPending || providers?.gemini === false}
-              >
-                Gemini
-              </Button>
-            </div>
-            {provider === "auto" ? (
-              <p className="text-xs text-muted-foreground">
-                Auto uses <span className="font-medium">{aiMeta?.defaultProvider}</span>{" "}
-                and falls back if the provider is unavailable.
-              </p>
-            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Powered by Gemini.
+            </p>
             {remainingText && (
               <p className="text-xs text-muted-foreground">{remainingText}</p>
             )}
-            {providers?.replicate === false && (
+            {aiMeta?.configured === false ? (
               <p className="text-xs text-muted-foreground">
-                Replicate is currently unavailable.
+                AI is currently unavailable.
               </p>
-            )}
-            {providers?.gemini === false && (
-              <p className="text-xs text-muted-foreground">
-                Gemini is currently unavailable.
-              </p>
-            )}
+            ) : null}
           </div>
           <Textarea
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !aiEnabled}
             placeholder="An astronaut riding a horse on mars, hd, dramatic lighting"
             cols={30}
             rows={10}
@@ -182,7 +111,7 @@ export const AiSidebar = ({
             onChange={(e) => setValue(e.target.value)}
           />
           <Button
-            disabled={mutation.isPending || !providerEnabled}
+            disabled={mutation.isPending || !aiEnabled}
             type="submit"
             className="w-full"
           >

@@ -24,7 +24,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
-const AI_PROVIDER_STORAGE_KEY = "pigcasso:ai-provider-default";
 const AVATAR_UPLOAD_TOAST_ID = "pigcasso:upload-avatar";
 
 export default function SettingsPage() {
@@ -37,7 +36,6 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
-  const [aiProvider, setAiProvider] = useState<"replicate" | "gemini" | "auto">("auto");
   const avatarUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearAvatarUploadTimeout = () => {
@@ -48,8 +46,6 @@ export default function SettingsPage() {
 
   const meUser = me.data?.data.user;
   const integrations = me.data?.data.integrations;
-  const aiMeta = me.data?.data.ai;
-  const providers = aiMeta?.providers;
   const displayLabel = useMemo(() => {
     const walletAddress = meUser?.wallets.external ?? meUser?.wallets.embedded ?? null;
     return getUserDisplayLabel({
@@ -59,11 +55,6 @@ export default function SettingsPage() {
     });
   }, [meUser?.email, meUser?.wallets.embedded, meUser?.wallets.external, name]);
 
-  const derivedAiProvider = useMemo(() => {
-    if (aiProvider !== "auto") return aiProvider;
-    return aiMeta?.defaultProvider ?? "replicate";
-  }, [aiMeta?.defaultProvider, aiProvider]);
-
   useEffect(() => {
     if (!meUser) {
       return;
@@ -72,17 +63,6 @@ export default function SettingsPage() {
     setImage(meUser.image ?? "");
     setBio(meUser.bio ?? "");
   }, [meUser]);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AI_PROVIDER_STORAGE_KEY);
-      if (stored === "replicate" || stored === "gemini") {
-        setAiProvider(stored);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
 
   useEffect(() => {
     return () => clearAvatarUploadTimeout();
@@ -149,22 +129,6 @@ export default function SettingsPage() {
     );
   };
 
-  const setPreferredProvider = (next: "replicate" | "gemini" | "auto") => {
-    setAiProvider(next);
-
-    try {
-      if (next === "auto") {
-        localStorage.removeItem(AI_PROVIDER_STORAGE_KEY);
-      } else {
-        localStorage.setItem(AI_PROVIDER_STORAGE_KEY, next);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const canSelectGemini = providers?.gemini !== false;
-  const canSelectReplicate = providers?.replicate !== false;
   const uploadthingConfigured = integrations?.uploadthing.configured === true;
   const avatarUrl = image.trim() ? image.trim() : null;
 
@@ -304,53 +268,6 @@ export default function SettingsPage() {
             Save
           </Button>
         </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>AI</CardTitle>
-          <CardDescription>Choose the default provider for AI tools.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={aiProvider === "auto" ? "default" : "outline"}
-              onClick={() => setPreferredProvider("auto")}
-            >
-              Auto
-            </Button>
-            <Button
-              type="button"
-              variant={aiProvider === "replicate" ? "default" : "outline"}
-              onClick={() => setPreferredProvider("replicate")}
-              disabled={!canSelectReplicate}
-            >
-              Replicate
-            </Button>
-            <Button
-              type="button"
-              variant={aiProvider === "gemini" ? "default" : "outline"}
-              onClick={() => setPreferredProvider("gemini")}
-              disabled={!canSelectGemini}
-            >
-              Gemini
-            </Button>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Current default: <span className="font-medium">{derivedAiProvider}</span>
-          </div>
-          {providers?.replicate === false ? (
-            <div className="text-xs text-muted-foreground">
-              Replicate is currently unavailable.
-            </div>
-          ) : null}
-          {providers?.gemini === false ? (
-            <div className="text-xs text-muted-foreground">
-              Gemini is currently unavailable.
-            </div>
-          ) : null}
-        </CardContent>
       </Card>
 
       <Card>

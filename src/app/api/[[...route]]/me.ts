@@ -46,27 +46,7 @@ const app = new Hono()
     const usage = await getAiUsageRowForToday(authUser.id);
     const limits = getAiLimitsForUser(pro.isPro);
 
-    const providers = {
-      replicate: Boolean(process.env.REPLICATE_API_TOKEN),
-      gemini: Boolean(process.env.GEMINI_API_KEY),
-    };
-
-    const defaultProvider = (() => {
-      const preferred = process.env.AI_PROVIDER_DEFAULT;
-      if (preferred === "gemini" && providers.gemini) {
-        return "gemini";
-      }
-      if (preferred === "replicate" && providers.replicate) {
-        return "replicate";
-      }
-      if (providers.gemini) {
-        return "gemini";
-      }
-      if (providers.replicate) {
-        return "replicate";
-      }
-      return "gemini";
-    })();
+    const aiConfigured = Boolean(process.env.GEMINI_API_KEY);
 
     return c.json({
       data: {
@@ -92,8 +72,8 @@ const app = new Hono()
         },
         pro,
         ai: {
-          providers,
-          defaultProvider,
+          provider: "gemini" as const,
+          configured: aiConfigured,
           limits,
           usage: usage
             ? {

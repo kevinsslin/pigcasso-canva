@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { fabric } from "fabric";
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
@@ -31,9 +31,6 @@ export const RemoveBgSidebar = ({
   const mutation = useRemoveBg();
 
   const selectedObject = editor?.selectedObjects[0];
-  const [provider, setProvider] = useState<"auto" | "replicate" | "gemini">(
-    "auto",
-  );
 
   const imageSrc = useMemo(() => {
     if (!selectedObject || selectedObject.type !== "image") {
@@ -45,35 +42,7 @@ export const RemoveBgSidebar = ({
   }, [selectedObject]);
 
   const aiMeta = me.data?.data.ai;
-  const providers = aiMeta?.providers;
-
-  useEffect(() => {
-    if (!aiMeta) {
-      return;
-    }
-
-    try {
-      const stored = localStorage.getItem("pigcasso:ai-provider-default");
-      if (
-        stored === "gemini" &&
-        providers?.gemini
-      ) {
-        setProvider("gemini");
-        return;
-      }
-      if (
-        stored === "replicate" &&
-        providers?.replicate
-      ) {
-        setProvider("replicate");
-        return;
-      }
-    } catch {
-      // ignore
-    }
-
-    setProvider("auto");
-  }, [aiMeta, providers?.gemini, providers?.replicate]);
+  const aiEnabled = aiMeta?.configured !== false;
 
   const remainingText = useMemo(() => {
     const limit = aiMeta?.limits?.removeBg;
@@ -87,16 +56,6 @@ export const RemoveBgSidebar = ({
     return `${Math.max(0, limit - used)} left today`;
   }, [aiMeta?.limits?.removeBg, aiMeta?.usage?.removeBgCount]);
 
-  const autoEnabled =
-    providers?.gemini !== false || providers?.replicate !== false;
-
-  const providerEnabled =
-    provider === "auto"
-      ? autoEnabled
-      : provider === "gemini"
-        ? providers?.gemini !== false
-        : providers?.replicate !== false;
-
   const onClose = () => {
     onChangeActiveTool("select");
   };
@@ -107,9 +66,13 @@ export const RemoveBgSidebar = ({
       return;
     }
 
+    if (!aiEnabled) {
+      toast.error("AI is currently unavailable.");
+      return;
+    }
+
     mutation.mutate({
       image: imageSrc,
-      provider,
     }, {
       onSuccess: ({ data }) => {
         editor?.addImage(data);
@@ -148,51 +111,17 @@ export const RemoveBgSidebar = ({
         <ScrollArea>
           <div className="p-4 space-y-4">
             <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  variant={provider === "auto" ? "default" : "outline"}
-                  onClick={() => setProvider("auto")}
-                  disabled={mutation.isPending || !autoEnabled}
-                >
-                  Auto
-                </Button>
-                <Button
-                  type="button"
-                  variant={provider === "replicate" ? "default" : "outline"}
-                  onClick={() => setProvider("replicate")}
-                  disabled={mutation.isPending || providers?.replicate === false}
-                >
-                  Replicate
-                </Button>
-                <Button
-                  type="button"
-                  variant={provider === "gemini" ? "default" : "outline"}
-                  onClick={() => setProvider("gemini")}
-                  disabled={mutation.isPending || providers?.gemini === false}
-                >
-                  Gemini
-                </Button>
-              </div>
-              {provider === "auto" ? (
-                <p className="text-xs text-muted-foreground">
-                  Auto uses <span className="font-medium">{aiMeta?.defaultProvider}</span>{" "}
-                  and falls back if the provider is unavailable.
-                </p>
-              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Powered by Gemini.
+              </p>
               {remainingText && (
                 <p className="text-xs text-muted-foreground">{remainingText}</p>
               )}
-              {providers?.replicate === false && (
+              {aiMeta?.configured === false ? (
                 <p className="text-xs text-muted-foreground">
-                  Replicate is currently unavailable.
+                  AI is currently unavailable.
                 </p>
-              )}
-              {provider === "gemini" && (
-                <p className="text-xs text-muted-foreground">
-                  Gemini remove-bg is experimental.
-                </p>
-              )}
+              ) : null}
             </div>
             <div className={cn(
               "relative aspect-square rounded-md overflow-hidden transition bg-muted",
@@ -206,7 +135,7 @@ export const RemoveBgSidebar = ({
               />
             </div>
             <Button
-              disabled={mutation.isPending || !providerEnabled}
+              disabled={mutation.isPending || !aiEnabled}
               onClick={onClick}
               className="w-full"
             >

@@ -41,9 +41,8 @@ bun dev
 
 - `UPLOADTHING_TOKEN=...`
 
-要啟用 AI（擇一或兩個都開）：
+要啟用 AI（Gemini）：
 
-- `REPLICATE_API_TOKEN=...`
 - `GEMINI_API_KEY=...`
 
 ---
@@ -57,8 +56,7 @@ flowchart TD
   API --> DB["Postgres (Drizzle)"]
   UI --> Privy["Privy (Auth + Embedded Wallet)"]
   API --> RPC["Mantle RPC (ERC20 balanceOf)"]
-  API --> Replicate["Replicate (Generate / Remove BG)"]
-  API --> Gemini["Gemini (nano banana)"]
+  API --> Gemini["Gemini (image + remove-bg + assistant)"]
   NX --> UT["UploadThing (files)"]
 ```
 
@@ -120,12 +118,12 @@ sequenceDiagram
 
 ---
 
-## AI（Providers + Daily Limits）
+## AI（Gemini + Daily Limits）
 
-### Providers
+### Models
 
-- Replicate：較穩定（generate / remove-bg）
-- Gemini：`gemini-2.5-flash-image-preview`（更像「nano banana」的 image editing 能力）
+- Image/Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-nano-banana`）
+- Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro`）
 
 ### 用量策略（UTC day）
 

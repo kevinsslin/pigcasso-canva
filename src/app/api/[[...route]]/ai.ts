@@ -15,12 +15,11 @@ const app = new Hono()
       "json",
       z.object({
         image: z.string(),
-        provider: z.enum(["replicate", "gemini", "auto"]).optional(),
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { image, provider } = c.req.valid("json");
+      const { image } = c.req.valid("json");
 
       const proStatus = await getProStatusForUser({
         userId: authUser.id,
@@ -47,7 +46,7 @@ const app = new Hono()
         );
       }
 
-      const result = await removeBackground({ image, provider });
+      const result = await removeBackground({ image });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "remove-bg" });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
@@ -60,12 +59,11 @@ const app = new Hono()
       "json",
       z.object({
         prompt: z.string(),
-        provider: z.enum(["replicate", "gemini", "auto"]).optional(),
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { prompt, provider } = c.req.valid("json");
+      const { prompt } = c.req.valid("json");
 
       const proStatus = await getProStatusForUser({
         userId: authUser.id,
@@ -92,7 +90,7 @@ const app = new Hono()
         );
       }
 
-      const result = await generateImage({ prompt, provider });
+      const result = await generateImage({ prompt });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });

@@ -8,7 +8,7 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 - Unsplash integration: should `/api/images` be disabled by default unless `UNSPLASH_ACCESS_KEY` is present (current behavior returns 501 with a clear message)?
 - Pack export enforcement: current implementation is client-side gated by Pro UI; do you want a server-side export endpoint for stronger enforcement?
 - `export const dynamic = "force-dynamic"` is set in `src/app/layout.tsx` to avoid build-time failures when env keys are missing; confirm if you want to keep this (recommended for auth-heavy apps).
-- Replicate model choice: currently uses `stability-ai/stable-diffusion-3`; do you want to switch the default Replicate model for better Web3-style assets?
+- Gemini model names: confirm the exact IDs for `GEMINI_IMAGE_MODEL` (“nano banana”) and `GEMINI_ASSISTANT_MODEL` (“Gemini 3 Pro”) to avoid runtime model-not-found errors.
 - One-click mint (V2): which chain(s) first (Mantle only?), and should we mint to Privy embedded wallet by default?
 - NFT standard: ERC-721 (1 design = 1 NFT) vs ERC-1155 (editions / packs)?
 - Metadata schema: do we include `source.json` (Fabric JSON) on IPFS and link via `animation_url` or `attributes`?

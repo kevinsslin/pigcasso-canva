@@ -41,5 +41,5 @@
 ## Security & Configuration Tips
 
 - Copy `.env.example` to `.env.local` and fill in required keys (Privy, UploadThing, DB, and optional AI providers).
-- Required integrations for MVP: Privy (`NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`), DB (`DATABASE_URL`), Mantle RPC (`MANTLE_RPC_URL`) for token gating, and optional AI keys (`REPLICATE_API_TOKEN`, `GEMINI_API_KEY`).
+- Required integrations for MVP: Privy (`NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`), DB (`DATABASE_URL`), Mantle RPC (`MANTLE_RPC_URL`) for token gating, and optional AI key (`GEMINI_API_KEY`).
 - Never commit secrets; keep `.env.local` untracked and update `.env.example` when adding new configuration.

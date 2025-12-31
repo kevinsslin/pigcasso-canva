@@ -6,9 +6,11 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "@/server/hono-auth";
 import { normalizeGeminiError } from "@/server/ai-errors";
 import { HttpError } from "@/server/http-error";
+import { canvasOpSchema, canvasSnapshotSchema } from "@/lib/pigcasso-assistant-protocol";
 
 const inputSchema = z.object({
   input: z.string().trim().min(1).max(2000),
+  canvas: canvasSnapshotSchema.optional(),
 });
 
 const templateSchema = z.enum(["ama", "announcement", "event-banner"]);
@@ -43,6 +45,10 @@ const pendingActionSchema = z
       template: templateSchema,
       content: contentSchema.optional(),
     }),
+    z.object({
+      type: z.literal("canvasEdits"),
+      ops: z.array(canvasOpSchema).min(1).max(30),
+    }),
   ])
   .nullable();
 
@@ -69,7 +75,7 @@ const app = new Hono().post(
   requireAuth,
   zValidator("json", inputSchema),
   async (c) => {
-    const { input } = c.req.valid("json");
+    const { input, canvas } = c.req.valid("json");
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -77,7 +83,7 @@ const app = new Hono().post(
     }
 
     const model =
-      process.env.GEMINI_ASSISTANT_MODEL?.trim() || "gemini-2.5-pro";
+      process.env.GEMINI_ASSISTANT_MODEL?.trim() || "gemini-3-pro";
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -93,6 +99,14 @@ You MUST return ONLY valid JSON (no markdown, no code fences) matching this sche
     | { "type": "textHierarchy" }
     | { "type": "template", "template": "ama"|"announcement"|"event-banner", "variant": "centered"|"split"|"diagonal", "content"?: { "title"?: string, "subtitle"?: string, "datetime"?: string, "cta"?: string } }
     | { "type": "variants", "template": "ama"|"announcement"|"event-banner", "content"?: { "title"?: string, "subtitle"?: string, "datetime"?: string, "cta"?: string } }
+    | { "type": "canvasEdits", "ops": Array<
+        | { "op": "setBackground", "color": string }
+        | { "op": "setText", "targetId": string, "text": string }
+        | { "op": "setStyle", "targetId": string, "style": { "fontSize"?: number, "fontWeight"?: number, "fill"?: string, "fontFamily"?: string, "textAlign"?: "left"|"center"|"right" } }
+        | { "op": "move", "targetId": string, "x"?: number, "y"?: number, "anchor"?: "center"|"topLeft" }
+        | { "op": "addTextbox", "text": string, "x": number, "y": number, "widthPct"?: number, "role"?: "title"|"subtitle"|"body"|"cta", "style"?: { "fontSize"?: number, "fontWeight"?: number, "fill"?: string, "fontFamily"?: string, "textAlign"?: "left"|"center"|"right" } }
+        | { "op": "delete", "targetId": string }
+      > }
 }
 
 Rules:
@@ -100,6 +114,11 @@ Rules:
 - If the user asks for a specific layout ("AMA", "announcement/公告", "event/banner/活動") use type "template" with a best-fit variant.
 - If the user asks for alignment (置中/置頂/置底/左對齊/右對齊), use type "align".
 - If the user asks to set title/subtitle/cta hierarchy or make text hierarchy better, use type "textHierarchy".
+- If the user asks to edit what's already on the canvas (change wording, fix layout, tweak colors, add missing CTA), use type "canvasEdits".
+- When using "canvasEdits":
+  - Only reference objects that exist in the provided canvas snapshot: use their "id" as "targetId".
+  - Use x/y as ratios (0..1) relative to the workspace.
+  - Keep ops minimal; do NOT invent unsupported ops.
 - If the request is unrelated or unclear, return action=null and ask a short clarification.
 - Keep reply short, friendly, and in the user's language (Chinese if user wrote Chinese).
 `.trim();
@@ -110,10 +129,17 @@ Rules:
         model,
         contents: [
           { text: system },
-          { text: input },
+          {
+            text: [
+              input,
+              canvas
+                ? `\n\nCanvas snapshot (for reference):\n${JSON.stringify(canvas)}`
+                : "",
+            ].join(""),
+          },
         ],
         config: {
-          maxOutputTokens: 350,
+          maxOutputTokens: 800,
           responseMimeType: "application/json",
         },
       });

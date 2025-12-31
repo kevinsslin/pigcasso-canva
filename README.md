@@ -16,7 +16,7 @@ Product scope and implementation notes:
 - Tailwind CSS + shadcn/ui + Radix UI
 - TanStack React Query
 - Fabric.js editor
-- Integrations: UploadThing, Unsplash, Replicate, Gemini
+- Integrations: UploadThing, Unsplash, Gemini
 
 ## Quickstart (Local)
 
@@ -39,7 +39,7 @@ To get the basic flow working (Privy login → dashboard → editor), start with
 - `PRIVY_APP_SECRET=...`
 - `MANTLE_RPC_URL=...` (Alchemy RPC on Mantle Mainnet)
 
-Optional features require additional keys (see `.env.example`): UploadThing, Replicate, Gemini, Unsplash.
+Optional features require additional keys (see `.env.example`): UploadThing, Gemini, Unsplash.
 
 ### Unsplash setup
 

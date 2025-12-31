@@ -34,11 +34,8 @@ export type ResponseType = {
       error?: string;
     };
     ai: {
-      providers: {
-        replicate: boolean;
-        gemini: boolean;
-      };
-      defaultProvider: "gemini" | "replicate";
+      provider: "gemini";
+      configured: boolean;
       limits: {
         generate: number;
         removeBg: number;

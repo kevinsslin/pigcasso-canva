@@ -1,6 +1,6 @@
 # Pigcasso Canvas — PRD
 
-這個 repo 是 **Pigcasso Canvas**（Next.js + Fabric.js editor + Projects/Templates + Hono API + Drizzle/Postgres + Privy auth + Mantle token gating + UploadThing + Unsplash + Replicate/Gemini）。
+這個 repo 是 **Pigcasso Canvas**（Next.js + Fabric.js editor + Projects/Templates + Hono API + Drizzle/Postgres + Privy auth + Mantle token gating + UploadThing + Unsplash + Gemini）。
 
 更大的 thesis：**Canva 只是一個媒介**。我們要做的是 web3-native 的「next-generation Canva」：創作者完成創作後，內容應該能一鍵沉澱成可定價、可擁有、可交易的**內容資產**（例如：一鍵上鏈 NFT / 可追溯的 remix lineage / 可帶版權與分潤）。
 
@@ -37,8 +37,8 @@
 - [x] Editor：Fabric.js（基本工具 + 自動存檔 + pack export）
 - [x] Pigcasso Assistant（小豬助手、可拖拉、quick actions → Apply 到畫布）
 - [x] Token gating：Mantle 上持倉解鎖 Pro（embedded/external 取最大值）
-- [x] AI：Generate image / Remove BG（Replicate/Gemini provider + daily limits + 更清楚的錯誤訊息）
-- [x] Settings：可更新 display name / avatar + AI 預設 provider（localStorage）
+- [x] AI：Generate image / Remove BG（Gemini + daily limits + 更清楚的錯誤訊息）
+- [x] Settings：可更新 display name / avatar / bio
 
 ### V1.1（polish / 修洞）
 
@@ -46,7 +46,7 @@
 - [x] Onboarding：專案建立 / remix / open editor 的過程更明確（loading overlay + toasts）
 - [x] Assistant：LLM fallback（Gemini Pro，輸出 action JSON → human confirm → apply）
 - [x] Assistant UX：小豬聊天球可拖曳（收合可拖 / 展開僅標題列可拖 / 避免誤觸拖曳 / 拖曳更順）
-- [x] AI：provider fallback + 更清楚的 402/429/5xx 錯誤訊息（auto 時會嘗試切換 provider）
+- [x] AI：Gemini-only + 更清楚的 429/5xx 錯誤訊息
 - [x] UploadThing：SDK v7+ token auth（`UPLOADTHING_TOKEN`）+ Avatar 上傳 UX（較大檔案上限 + 友善錯誤訊息）
 - [x] Dashboard IA：新增 Creator Hub（Home 下方入口 + Sidebar 導航），整理主要工作流
 - [ ] UploadThing：釐清 `prepareUpload 400 Unsupported operation`（可能是 token/appId 配對、plan/region 限制或專案設定）
@@ -130,7 +130,7 @@
 - Hono API mounted at `/api/*` + typed client（`src/lib/hono.ts`）
 - UploadThing（可用於上傳素材/縮圖）
 - Unsplash（可作背景素材來源）
-- Replicate（有 `generate-image` 與 `remove-bg` endpoint）
+- Gemini（有 `generate-image` 與 `remove-bg` endpoint）
 
 ### 目前「會衝突」且需要改動的地方
 
@@ -268,35 +268,20 @@ MVP 保留「現有 repo 的 AI 能力」，但改成符合你想要的分級：
 
 > 用量計數建議以「privyUserId + UTC date」為 key，在 Postgres 記錄每日使用量，避免 client 竄改與切換錢包繞過限制。
 
-#### 7.4.4 Provider 策略：Replicate + Nano Banana 並存（User 可選）
+#### 7.4.4 Provider 策略：Gemini-only（不讓 user 選 provider）
 
-現況：repo 已接 Replicate，`/api/ai/generate-image` 用的是 `stability-ai/stable-diffusion-3`。
+產品決策：**不暴露 provider 選項**。所有 AI 能力都走 Gemini；若環境未配置，UI 只顯示「AI 暫時不可用」的泛用訊息（不暴露內部缺失/ENV）。
 
-MVP 目標：同時保留 Replicate 的穩定性，並引入 Gemini「nano banana」作為更強的 image editing 選項；由使用者在 UI 選 provider（預設 Replicate）。
+模型規劃（可用 env 覆蓋）：
 
-Provider 規劃：
+- Generate Image / Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-nano-banana`）
+- Pigcasso Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro`）
 
-- Generate Image：
-  - Replicate（預設、最省改動）
-  - Gemini nano banana：`gemini-2.5-flash-image-preview`（更擅長一致性與編輯/合成）
-- Remove BG：
-  - Replicate rembg（預設、最穩定）：`cjwbw/rembg:*`
-  - Gemini（可選、偏實驗）：以 image edit 方式要求輸出透明背景（品質可能受 prompt/素材影響）
+工程落點：
 
-Trade-offs（簡述）：
-
-- Replicate
-  - 優點：現成整合、可控、對 remove-bg 這種「工具型模型」更穩定
-  - 缺點：生成品質/一致性取決於模型；對複雜「多圖融合/設計感改造」未必最強
-- Gemini nano banana
-  - 優點：更擅長 image editing / multi-image compose / 一致性；很貼近「把素材修成設計可用」的需求
-  - 缺點：需要 `GEMINI_API_KEY`（多半需 paid tier）；要新寫 server adapter；配額與政策風險較高
-
-工程建議：
-
-- 做一層 provider abstraction（server），並在 API request 加 `provider` 欄位（或 query）
-- UI 預設選 Replicate；若缺少 `GEMINI_API_KEY` 則自動隱藏 Gemini 選項
-- 若 Gemini 的 remove-bg 效果不穩，UI 標註為 Experimental，並保留 Replicate 作為預設/保底
+- `/api/ai/generate-image`、`/api/ai/remove-bg`：不再接收 `provider` 參數，回傳 meta 仍標註 `provider=gemini`
+- `/api/assistant/action`：可接收「畫布 snapshot」；回傳 action JSON（含 `canvasEdits` ops）
+- 前端：提供 Draft → Preview → Apply（Preview 不改動原畫布）
 
 > 重要：不管用哪個模型，AI 只負責「出素材」；排版/安全區/可讀性仍由規則化 layout + Editor actions 保證。
 
@@ -434,7 +419,7 @@ flowchart TD
 - 在以下路徑至少加上 server-side Pro check：
   - Pro templates 的「取得 json」或「套用」行為
   - Pack export 相關的 server 行為（若有）
-  - AI endpoints（如果保留 Replicate：generate/remove-bg）
+  - AI endpoints（generate/remove-bg）
 
 ### 8.5 Data Model（建議最短改動）
 
@@ -484,8 +469,9 @@ flowchart TD
 - `PIGCASSO_TOKEN_ADDRESS=0xd38d6bbc92975501e6ba181262a3d3221dbbe640`
 - `PIGCASSO_TOKEN_DECIMALS=18`（可選，亦可鏈上讀）
 - `PIGCASSO_PRO_THRESHOLD_RAW=100000000000000000000000`（100000e18）
-- `GEMINI_API_KEY`（若採用 nano banana / Gemini provider）
-- `AI_PROVIDER_DEFAULT=replicate`（或 `gemini`；可選）
+- `GEMINI_API_KEY`（Gemini）
+- `GEMINI_ASSISTANT_MODEL=gemini-3-pro`（可選）
+- `GEMINI_IMAGE_MODEL=gemini-nano-banana`（可選）
 
 ---
 
@@ -501,7 +487,7 @@ Pro（持幣 >= 100000）
 
 - 多尺寸 Pack 匯出
 - Pro templates / Pro vibes（少量即可）
-- 批量 variants（例如一次 6 個）或 AI 能力（如果保留 Replicate）
+- 批量 variants（例如一次 6 個）或 AI 能力
 
 ---
 
@@ -565,7 +551,7 @@ Phase 2（上鏈）可選方向（擇一）：
 - [ ] Pro：一鍵輸出多尺寸 pack（至少 3 種），同時支援 ZIP 與 separate files
 - [ ] Template 可 publish/share + Remix，帶 creator attribution + parent 指標
 - [ ] Pro-only server endpoints 有 server-side enforcement（不只 UI）
-- [ ] AI 用量限制：Free（Generate 5/day、Remove BG 5/day），Pro 額度可調；並支援 provider 選擇（Replicate/Gemini）
+- [ ] AI 用量限制：Free（Generate 5/day、Remove BG 5/day），Pro 額度可調
 
 ---
 
@@ -586,6 +572,6 @@ Phase 2（上鏈）可選方向（擇一）：
 - Pack export：同時提供 ZIP 與 separate files（ZIP 失敗則可 fallback）
 - Vibe：先用 `Pigcasso Brand Baseline（v0）` 作為模板與 UI baseline
 - AI 用量：Free（Generate 5/day、Remove BG 5/day）；Pro 額度可調
-- AI provider：Replicate + Gemini nano banana 並存，讓使用者選 provider（預設 Replicate）
+- AI provider：Gemini-only（不讓 user 選 provider）
 - Template hub：所有互動都要求 Privy login（free mode 也一樣）
 - Printr：放 roadmap（MVP UI 不出現）
