@@ -23,4 +23,4 @@ This file tracks open questions, edge cases, and decisions discovered while impl
 - AI daily limits are tracked by `privyUserId` to avoid wallet-switch bypass.
 - V2 mint (initial): Mantle first, user-signed transactions (no relayer/paymaster initially).
 - Royalties: deferred to roadmap (not required for first mint MVP).
-- NFT scaffolding: DB tables + placeholder pages (`/assets`, `/collections`, `/settings/web3`) + basic APIs exist; awaiting contract report (addresses + ABI) to implement mint/export.
+- NFT scaffolding: DB tables + APIs (`/api/assets`, `/api/collections`) exist; UI currently uses a single `/nfts` entry (legacy `/assets` + `/collections` + `/settings/web3` redirect).

@@ -46,17 +46,17 @@
 - [x] Onboarding：專案建立 / remix / open editor 的過程更明確（loading overlay + toasts）
 - [x] Assistant：LLM fallback（Gemini Pro，輸出 action JSON → human confirm → apply）
 - [x] AI：provider fallback + 更清楚的 402/429/5xx 錯誤訊息（auto 時會嘗試切換 provider）
-- [x] UploadThing：SDK v7+ token auth（`UPLOADTHING_TOKEN`）+ Settings 顯示 integration 狀態
+- [x] UploadThing：SDK v7+ token auth（`UPLOADTHING_TOKEN`）+ Avatar 上傳 UX（較大檔案上限 + 友善錯誤訊息）
 - [ ] UploadThing：釐清 `prepareUpload 400 Unsupported operation`（可能是 token/appId 配對、plan/region 限制或專案設定）
 
 ### V2（Web3-native：內容資產 / 一鍵上鏈 NFT）
 
 - [ ] Export as Asset：把 design（PNG + source JSON + metadata）打包成可上鏈資產
 - [ ] NFT 管理頁面（Creator/Collector dashboard）
-  - [x] `/assets`：作品列表（目前為 Coming soon placeholder；已先建 API/DB scaffolding）
-  - [ ] `/assets/:id`：NFT 詳情（預覽、metadata、provenance、remix lineage、操作：view on explorer、refresh、re-mint）
-  - [x] `/collections`（若採用 factory）：collection/series 管理（目前為 Coming soon placeholder；已先建 API/DB scaffolding）
-  - [x] `/settings/web3`：mint 預設設定（目前為 Coming soon placeholder）
+  - [x] `/nfts`：NFT 入口（Assets/Collections 統一資訊架構；目前 Coming soon）
+  - [ ] `/nfts/assets/:id`：NFT 詳情（預覽、metadata、provenance、remix lineage、操作：view on explorer、refresh、re-mint）
+  - [ ] `/nfts/collections/:id`（若採用 factory）：collection/series 詳情與管理
+  - [ ] Mint 偏好設定：不分 Web2/Web3，整合在 `/settings`（Account / Preferences）
 - [ ] IPFS：上傳 image + metadata + source（可選 pinning provider）
 - [ ] One-click Mint：Editor 內一鍵鑄造 NFT（預設 Mint 到 Privy embedded wallet，可選 external）
 - [ ] Provenance：creator / parent template / remix lineage 上鏈或可驗證（含 attribution）

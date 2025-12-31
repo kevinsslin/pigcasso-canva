@@ -9,10 +9,12 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
 import { useUpdateMe } from "@/features/auth/api/use-update-me";
+import { getAvatarFallbackText, getUserDisplayLabel } from "@/features/auth/lib/user-display";
 
 import { UploadButton } from "@/lib/uploadthing";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
+import { getUploadthingErrorMessage } from "@/lib/uploadthing-errors";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,14 @@ export default function SettingsPage() {
   const integrations = me.data?.data.integrations;
   const aiMeta = me.data?.data.ai;
   const providers = aiMeta?.providers;
+  const displayLabel = useMemo(() => {
+    const walletAddress = meUser?.wallets.external ?? meUser?.wallets.embedded ?? null;
+    return getUserDisplayLabel({
+      name,
+      email: meUser?.email,
+      walletAddress,
+    });
+  }, [meUser?.email, meUser?.wallets.embedded, meUser?.wallets.external, name]);
 
   const derivedAiProvider = useMemo(() => {
     if (aiProvider !== "auto") return aiProvider;
@@ -145,7 +155,7 @@ export default function SettingsPage() {
   const canSelectGemini = providers?.gemini !== false;
   const canSelectReplicate = providers?.replicate !== false;
   const uploadthingConfigured = integrations?.uploadthing.configured === true;
-  const unsplashConfigured = integrations?.unsplash.configured === true;
+  const avatarUrl = image.trim() ? image.trim() : null;
 
   return (
     <div className="max-w-screen-md mx-auto space-y-6">
@@ -164,11 +174,11 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4">
             <Avatar className="size-14">
-              {meUser?.image ? (
-                <AvatarImage src={meUser.image} alt={meUser.name ?? "Avatar"} />
+              {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={displayLabel} />
               ) : null}
               <AvatarFallback className="bg-slate-900 font-medium text-white">
-                {(meUser?.name ?? meUser?.email ?? "A").charAt(0).toUpperCase()}
+                {getAvatarFallbackText(displayLabel)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
@@ -194,12 +204,16 @@ export default function SettingsPage() {
                   uploadToastIdRef.current = toast.loading("Uploading avatar…");
                 }}
                 onUploadError={(err) => {
-                  toast.error(err.message || "Upload failed", {
+                  toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "8MB" }), {
                     id: uploadToastIdRef.current ?? undefined,
                   });
                   uploadToastIdRef.current = null;
                 }}
-                onClientUploadComplete={async () => {
+                onClientUploadComplete={async (res) => {
+                  const url = res?.[0]?.ufsUrl ?? res?.[0]?.url;
+                  if (url) {
+                    setImage(url);
+                  }
                   toast.success("Avatar updated.", {
                     id: uploadToastIdRef.current ?? undefined,
                   });
@@ -208,9 +222,9 @@ export default function SettingsPage() {
                 }}
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                {!uploadthingConfigured
-                  ? "UploadThing is not configured on the server. Set `UPLOADTHING_TOKEN`."
-                  : "If uploads fail (e.g. 400 Unsupported operation), rotate keys / verify UploadThing project & plan, or paste an image URL below and save."}
+                {uploadthingConfigured
+                  ? "PNG/JPG up to 8MB. You can also paste an image URL below."
+                  : "Avatar uploads are currently unavailable."}
               </p>
             </div>
           </div>
@@ -275,47 +289,6 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Integrations</CardTitle>
-          <CardDescription>Check external services configuration.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="font-medium">UploadThing</div>
-              <div className="text-xs text-muted-foreground">
-                Used for image uploads.
-              </div>
-            </div>
-            <div className={cn(
-              "text-xs px-2 py-1 rounded-full border",
-              uploadthingConfigured
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-yellow-50 text-yellow-700 border-yellow-200",
-            )}>
-              {uploadthingConfigured ? "Configured" : "Missing env"}
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="font-medium">Unsplash</div>
-              <div className="text-xs text-muted-foreground">
-                Used for the image search sidebar.
-              </div>
-            </div>
-            <div className={cn(
-              "text-xs px-2 py-1 rounded-full border",
-              unsplashConfigured
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-yellow-50 text-yellow-700 border-yellow-200",
-            )}>
-              {unsplashConfigured ? "Configured" : "Missing env"}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>AI</CardTitle>
           <CardDescription>Choose the default provider for AI tools.</CardDescription>
         </CardHeader>
@@ -348,14 +321,14 @@ export default function SettingsPage() {
           <div className="text-sm text-muted-foreground">
             Current default: <span className="font-medium">{derivedAiProvider}</span>
           </div>
-          {providers?.replicate === false || providers?.gemini === false ? (
+          {providers?.replicate === false ? (
             <div className="text-xs text-muted-foreground">
-              {providers?.replicate === false ? (
-                <div>Replicate requires `REPLICATE_API_TOKEN`.</div>
-              ) : null}
-              {providers?.gemini === false ? (
-                <div>Gemini requires `GEMINI_API_KEY`.</div>
-              ) : null}
+              Replicate is currently unavailable.
+            </div>
+          ) : null}
+          {providers?.gemini === false ? (
+            <div className="text-xs text-muted-foreground">
+              Gemini is currently unavailable.
             </div>
           ) : null}
         </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, Crown, Home, MessageCircleQuestion, RefreshCw, Settings, Sparkles, Wallet } from "lucide-react";
+import { Crown, Home, RefreshCw, Settings, Wallet } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -18,6 +18,8 @@ export const SidebarRoutes = () => {
   const refreshMutation = useRefreshTokenGating();
 
   const pathname = usePathname();
+  const isNftsActive =
+    pathname === "/nfts" || pathname === "/assets" || pathname === "/collections";
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -56,38 +58,16 @@ export const SidebarRoutes = () => {
       <ul className="flex flex-col gap-y-1 px-3">
         <SidebarItem href="/" icon={Home} label="Home" isActive={pathname === "/"} />
         <SidebarItem
-          href="/assets"
-          icon={Sparkles}
-          label="Assets"
-          isActive={pathname === "/assets"}
-        />
-        <SidebarItem
-          href="/collections"
-          icon={Boxes}
-          label="Collections"
-          isActive={pathname === "/collections"}
+          href="/nfts"
+          icon={Wallet}
+          label="NFTs"
+          isActive={isNftsActive}
         />
         <SidebarItem
           href="/settings"
           icon={Settings}
           label="Settings"
           isActive={pathname === "/settings"}
-        />
-        <SidebarItem
-          href="/settings/web3"
-          icon={Wallet}
-          label="Web3 Settings"
-          isActive={pathname === "/settings/web3"}
-        />
-      </ul>
-      <div className="px-3">
-        <Separator />
-      </div>
-      <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem
-          href="mailto:support@example.com"
-          icon={MessageCircleQuestion}
-          label="Get Help"
         />
       </ul>
     </div>

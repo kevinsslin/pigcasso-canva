@@ -7,7 +7,11 @@ import { dispatchUnauthorizedEvent } from "@/lib/auth-events";
 
 export const client = hc<AppType>(process.env.NEXT_PUBLIC_APP_URL!, {
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-    const token = await getAuthToken();
+    const token = await getAuthToken({
+      maxWaitMs: 2000,
+      retries: 4,
+      retryDelayMs: 200,
+    });
     const headers = new Headers(init?.headers);
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
@@ -26,9 +30,7 @@ export const client = hc<AppType>(process.env.NEXT_PUBLIC_APP_URL!, {
     // Retry once in case Privy token wasn't ready / just refreshed.
     const retryToken = await getAuthToken({ maxWaitMs: 750, retries: 2 });
     if (!retryToken || retryToken === token) {
-      if (token) {
-        dispatchUnauthorizedEvent();
-      }
+      dispatchUnauthorizedEvent();
       return res;
     }
 

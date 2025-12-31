@@ -73,7 +73,7 @@ const app = new Hono().post(
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new HttpError(501, "GEMINI_API_KEY is not configured");
+      throw new HttpError(501, "Assistant is currently unavailable.");
     }
 
     const model =

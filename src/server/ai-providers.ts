@@ -61,7 +61,7 @@ const getProviderOrder = (
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new HttpError(501, "GEMINI_API_KEY is not configured");
+    throw new HttpError(501, "Gemini is currently unavailable.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -74,11 +74,11 @@ const GEMINI_IMAGE_MODEL =
 
 const ensureProviderConfigured = (provider: AiProvider) => {
   if (provider === "gemini" && !hasGemini()) {
-    throw new HttpError(501, "GEMINI_API_KEY is not configured");
+    throw new HttpError(501, "Gemini is currently unavailable.");
   }
 
   if (provider === "replicate" && !hasReplicate()) {
-    throw new HttpError(501, "REPLICATE_API_TOKEN is not configured");
+    throw new HttpError(501, "Replicate is currently unavailable.");
   }
 };
 
@@ -182,10 +182,7 @@ export const generateImage = async (params: {
 }) => {
   const providerOrder = getProviderOrder(params.provider);
   if (providerOrder.length === 0) {
-    throw new HttpError(
-      501,
-      "No AI provider is configured. Set `REPLICATE_API_TOKEN` and/or `GEMINI_API_KEY`.",
-    );
+    throw new HttpError(501, "AI is currently unavailable.");
   }
 
   let lastError: unknown = null;
@@ -262,10 +259,7 @@ export const removeBackground = async (params: {
 }) => {
   const providerOrder = getProviderOrder(params.provider);
   if (providerOrder.length === 0) {
-    throw new HttpError(
-      501,
-      "No AI provider is configured. Set `REPLICATE_API_TOKEN` and/or `GEMINI_API_KEY`.",
-    );
+    throw new HttpError(501, "AI is currently unavailable.");
   }
 
   let lastError: unknown = null;

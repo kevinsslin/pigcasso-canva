@@ -185,7 +185,7 @@ export const RemoveBgSidebar = ({
               )}
               {providers?.replicate === false && (
                 <p className="text-xs text-muted-foreground">
-                  Replicate requires `REPLICATE_API_TOKEN` on the server.
+                  Replicate is currently unavailable.
                 </p>
               )}
               {provider === "gemini" && (

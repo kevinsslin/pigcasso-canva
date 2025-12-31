@@ -221,10 +221,11 @@ Share page：`src/app/templates/[templateId]/page.tsx`（顯示 attribution + Re
 
 目前只先做到「可接合約前」的 scaffolding（頁面會顯示 Coming soon，等合約 report/地址/ABI 到位再接）。
 
-- Pages：`/assets`、`/collections`、`/settings/web3`
-  - `src/app/(dashboard)/assets/page.tsx`
-  - `src/app/(dashboard)/collections/page.tsx`
-  - `src/app/(dashboard)/settings/web3/page.tsx`
+- Pages：`/nfts`（legacy `/assets`、`/collections`、`/settings/web3` 會 redirect）
+  - `src/app/(dashboard)/nfts/page.tsx`
+  - `src/app/(dashboard)/assets/page.tsx`（redirect）
+  - `src/app/(dashboard)/collections/page.tsx`（redirect）
+  - `src/app/(dashboard)/settings/web3/page.tsx`（redirect）
 - API：`/api/assets`、`/api/collections`
   - `src/app/api/[[...route]]/assets.ts`
   - `src/app/api/[[...route]]/collections.ts`

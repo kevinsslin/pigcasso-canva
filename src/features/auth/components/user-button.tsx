@@ -16,13 +16,7 @@ import {
 
 import { useMe } from "@/features/auth/api/use-me";
 import { useRefreshTokenGating } from "@/features/auth/api/use-refresh-token-gating";
-
-const shortAddress = (address: string) => {
-  if (address.length <= 10) {
-    return address;
-  }
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-};
+import { getAvatarFallbackText, getUserDisplayLabel } from "@/features/auth/lib/user-display";
 
 export const UserButton = () => {
   const { ready, authenticated, user, logout, linkWallet } = usePrivy();
@@ -37,12 +31,16 @@ export const UserButton = () => {
     return null;
   }
 
-  const walletAddress = user.wallet?.address;
-  const label = walletAddress ? shortAddress(walletAddress) : "Account";
   const isPro = me.data?.data.pro.isPro ?? false;
   const avatarUrl = me.data?.data.user.image ?? null;
-  const displayName = me.data?.data.user.name ?? null;
-  const displayLabel = displayName?.trim() ? displayName : label;
+  const meUser = me.data?.data.user;
+  const walletAddress =
+    meUser?.wallets.external ?? meUser?.wallets.embedded ?? user.wallet?.address ?? null;
+  const displayLabel = getUserDisplayLabel({
+    name: meUser?.name,
+    email: meUser?.email,
+    walletAddress,
+  });
 
   return (
     <DropdownMenu modal={false}>
@@ -60,12 +58,12 @@ export const UserButton = () => {
               <AvatarImage src={avatarUrl} alt={displayLabel} />
             ) : null}
             <AvatarFallback className="bg-slate-900 font-medium text-white flex items-center justify-center">
-              {displayLabel.charAt(0).toUpperCase()}
+              {getAvatarFallbackText(displayLabel)}
             </AvatarFallback>
           </Avatar>
-          <Button variant="ghost" size="sm" className="px-2">
+          <Button variant="ghost" size="sm" className="px-2 max-w-[220px] min-w-0">
             <Wallet className="mr-2 size-4 text-muted-foreground" />
-            {displayLabel}
+            <span className="truncate">{displayLabel}</span>
           </Button>
         </div>
       </DropdownMenuTrigger>

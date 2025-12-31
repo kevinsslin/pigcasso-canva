@@ -10,7 +10,7 @@ const app = new Hono()
   .get("/", requireAuth, async (c) => {
     if (!process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY) {
       return c.json(
-        { error: "NEXT_PUBLIC_UNSPLASH_ACCESS_KEY is not configured" },
+        { error: "Stock images are currently unavailable." },
         501,
       );
     }

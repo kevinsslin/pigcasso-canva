@@ -22,7 +22,7 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       return { url: file.ufsUrl ?? file.url };
     }),
-  avatarUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
+  avatarUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(async ({ req }) => {
       const token = getBearerToken(req.headers.get("authorization") ?? undefined);
       if (!token) {

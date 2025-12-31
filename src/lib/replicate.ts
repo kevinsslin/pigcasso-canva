@@ -9,7 +9,7 @@ export const getReplicateClient = () => {
 
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
-    throw new Error("REPLICATE_API_TOKEN is not configured");
+    throw new Error("Replicate is currently unavailable.");
   }
 
   cachedClient = new Replicate({ auth: token });

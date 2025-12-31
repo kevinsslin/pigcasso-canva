@@ -162,12 +162,12 @@ export const AiSidebar = ({
             )}
             {providers?.replicate === false && (
               <p className="text-xs text-muted-foreground">
-                Replicate requires `REPLICATE_API_TOKEN` on the server.
+                Replicate is currently unavailable.
               </p>
             )}
             {providers?.gemini === false && (
               <p className="text-xs text-muted-foreground">
-                Gemini requires `GEMINI_API_KEY` on the server.
+                Gemini is currently unavailable.
               </p>
             )}
           </div>

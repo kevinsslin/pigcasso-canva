@@ -14,6 +14,7 @@ import { useGetImages } from "@/features/images/api/use-get-images";
 import { cn } from "@/lib/utils";
 import { UploadButton } from "@/lib/uploadthing";
 import { getAuthToken } from "@/lib/auth-token";
+import { getUploadthingErrorMessage } from "@/lib/uploadthing-errors";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImageSidebarProps {
@@ -68,7 +69,7 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
             uploadToastIdRef.current = toast.loading("Uploading image…");
           }}
           onUploadError={(err) => {
-            toast.error(err.message || "Upload failed", {
+            toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "4MB" }), {
               id: uploadToastIdRef.current ?? undefined,
             });
             uploadToastIdRef.current = null;
@@ -86,12 +87,12 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
         />
         {uploadthingConfigured === false ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            Uploads are disabled: missing `UPLOADTHING_TOKEN`.
+            Uploads are currently unavailable.
           </p>
         ) : null}
         {unsplashConfigured === false ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            Stock images are disabled: missing `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY`.
+            Stock images are currently unavailable.
           </p>
         ) : null}
       </div>
@@ -149,7 +150,7 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
       ) : unsplashConfigured === false ? (
         <div className="flex flex-1 items-center justify-center p-4">
           <p className="text-xs text-muted-foreground text-center">
-            Add `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY` to enable stock image browsing.
+            Stock images are currently unavailable.
           </p>
         </div>
       ) : (
