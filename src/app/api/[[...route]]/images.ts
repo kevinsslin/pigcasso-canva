@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { unsplash } from "@/lib/unsplash";
+import { getUnsplashClient, hasUnsplashConfigured } from "@/lib/unsplash";
 import { requireAuth } from "@/server/hono-auth";
 
 const DEFAULT_COUNT = 50;
@@ -8,13 +8,14 @@ const DEFAULT_COLLECTION_IDS = ["317099"];
 
 const app = new Hono()
   .get("/", requireAuth, async (c) => {
-    if (!process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY) {
+    if (!hasUnsplashConfigured()) {
       return c.json(
         { error: "Stock images are currently unavailable." },
         501,
       );
     }
 
+    const unsplash = getUnsplashClient();
     const images = await unsplash.photos.getRandom({
       collectionIds: DEFAULT_COLLECTION_IDS,
       count: DEFAULT_COUNT,

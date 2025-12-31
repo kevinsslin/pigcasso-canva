@@ -8,6 +8,7 @@ import { users } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
 import { getAiLimitsForUser, getAiUsageRowForToday } from "@/server/ai-usage";
 import { getProStatusForUser } from "@/server/token-gating";
+import { hasUnsplashConfigured } from "@/lib/unsplash";
 
 const updateMeSchema = z
   .object({
@@ -86,7 +87,7 @@ const app = new Hono()
             configured: Boolean(process.env.UPLOADTHING_TOKEN),
           },
           unsplash: {
-            configured: Boolean(process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY),
+            configured: hasUnsplashConfigured(),
           },
         },
         pro,
