@@ -124,7 +124,9 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const [input, setInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const suppressBubbleClickRef = useRef(false);
   const dragStateRef = useRef<{
+    kind: "bubble" | "header";
     pointerId: number;
     startX: number;
     startY: number;
@@ -132,6 +134,9 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     originY: number;
     width: number;
     height: number;
+    hasMoved: boolean;
+    lastPos: { x: number; y: number };
+    captureEl: HTMLElement;
   } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -163,6 +168,16 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     }
     localStorage.setItem("pigcasso-assistant:pos:v1", JSON.stringify(position));
   }, [position]);
+
+  const applyPositionToDom = (pos: { x: number; y: number }) => {
+    if (!containerRef.current) {
+      return;
+    }
+    containerRef.current.style.left = `${pos.x}px`;
+    containerRef.current.style.top = `${pos.y}px`;
+    containerRef.current.style.right = "auto";
+    containerRef.current.style.bottom = "auto";
+  };
 
   const clampToViewport = (pos: { x: number; y: number }, size: { w: number; h: number }) => {
     const margin = 12;
@@ -218,7 +233,9 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position]);
 
-  const onDragStart = (e: React.PointerEvent) => {
+  const DRAG_THRESHOLD_PX = 6;
+
+  const startDrag = (e: React.PointerEvent<HTMLElement>, kind: "bubble" | "header") => {
     if (!containerRef.current) {
       return;
     }
@@ -226,7 +243,17 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     const rect = containerRef.current.getBoundingClientRect();
     const origin = position ?? { x: rect.left, y: rect.top };
 
+    if (!position) {
+      setPosition(origin);
+      applyPositionToDom(origin);
+    }
+
+    if (kind === "bubble") {
+      suppressBubbleClickRef.current = false;
+    }
+
     dragStateRef.current = {
+      kind,
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
@@ -234,32 +261,61 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       originY: origin.y,
       width: rect.width,
       height: rect.height,
+      hasMoved: false,
+      lastPos: origin,
+      captureEl: e.currentTarget,
     };
 
-    containerRef.current.setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const onDragMove = (e: React.PointerEvent) => {
+  const onDragMove = (e: React.PointerEvent<HTMLElement>) => {
     const state = dragStateRef.current;
     if (!state || state.pointerId !== e.pointerId) {
       return;
     }
 
+    const deltaX = e.clientX - state.startX;
+    const deltaY = e.clientY - state.startY;
+    const distance = Math.hypot(deltaX, deltaY);
+
+    if (!state.hasMoved && distance < DRAG_THRESHOLD_PX) {
+      return;
+    }
+
+    if (!state.hasMoved) {
+      state.hasMoved = true;
+      if (state.kind === "bubble") {
+        suppressBubbleClickRef.current = true;
+      }
+    }
+
     const next = clampToViewport(
       {
-        x: state.originX + (e.clientX - state.startX),
-        y: state.originY + (e.clientY - state.startY),
+        x: state.originX + deltaX,
+        y: state.originY + deltaY,
       },
       { w: state.width, h: state.height },
     );
 
-    setPosition(next);
+    state.lastPos = next;
+    applyPositionToDom(next);
   };
 
-  const onDragEnd = (e: React.PointerEvent) => {
+  const onDragEnd = (e: React.PointerEvent<HTMLElement>) => {
     const state = dragStateRef.current;
     if (!state || state.pointerId !== e.pointerId) {
       return;
+    }
+
+    try {
+      state.captureEl.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    if (state.hasMoved) {
+      setPosition(state.lastPos);
     }
 
     dragStateRef.current = null;
@@ -445,8 +501,18 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       {!open ? (
         <Button
           type="button"
-          onClick={() => setOpen(true)}
-          className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95"
+          onClick={() => {
+            if (suppressBubbleClickRef.current) {
+              suppressBubbleClickRef.current = false;
+              return;
+            }
+            setOpen(true);
+          }}
+          onPointerDown={(e) => startDrag(e, "bubble")}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95 cursor-grab active:cursor-grabbing select-none touch-none"
         >
           <Image src="/pigcasso-pig.svg" alt="Pigcasso Assistant" width={26} height={26} />
         </Button>
@@ -454,8 +520,8 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
         <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
           <div className="px-3 py-2 border-b flex items-center gap-2">
             <div
-              className="flex-1 flex items-center gap-2 cursor-move select-none touch-none"
-              onPointerDown={onDragStart}
+              className="flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none touch-none"
+              onPointerDown={(e) => startDrag(e, "header")}
               onPointerMove={onDragMove}
               onPointerUp={onDragEnd}
               onPointerCancel={onDragEnd}
