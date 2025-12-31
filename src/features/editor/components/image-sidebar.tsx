@@ -39,9 +39,13 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
     [imagesQuery.data],
   );
   const imageUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeUploadIdRef = useRef<string | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const uploadthingConfigured = me.data?.data.integrations?.uploadthing.configured;
+
+  const UPLOAD_IMAGE_TOAST_ID = "pigcasso:upload-image";
 
   const clearImageUploadTimeout = () => {
     if (!imageUploadTimeoutRef.current) return;
@@ -50,7 +54,11 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
   };
 
   useEffect(() => {
-    return () => clearImageUploadTimeout();
+    return () => {
+      uploadAbortRef.current?.abort();
+      uploadAbortRef.current = null;
+      clearImageUploadTimeout();
+    };
   }, []);
 
   const onClose = () => {
@@ -72,16 +80,46 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
       return;
     }
 
+    const maxBytes = 4 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error("File is too large. Max size is 4MB.");
+      return;
+    }
+
+    uploadAbortRef.current?.abort();
+
+    const uploadId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setUploadingImage(true);
     clearImageUploadTimeout();
+    activeUploadIdRef.current = uploadId;
 
-    toast.loading("Uploading image…", { id: "pigcasso:upload-image" });
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
+
+    const cleanupUpload = () => {
+      if (activeUploadIdRef.current !== uploadId) {
+        return;
+      }
+      activeUploadIdRef.current = null;
+      uploadAbortRef.current = null;
+      setUploadingImage(false);
+      clearImageUploadTimeout();
+    };
+
+    toast.loading("Uploading image…", {
+      id: UPLOAD_IMAGE_TOAST_ID,
+      duration: Infinity,
+    });
     imageUploadTimeoutRef.current = setTimeout(() => {
+      if (activeUploadIdRef.current !== uploadId) {
+        return;
+      }
+      abortController.abort();
       toast.error("Upload is taking longer than expected. Please try again.", {
-        id: "pigcasso:upload-image",
+        id: UPLOAD_IMAGE_TOAST_ID,
         duration: 4000,
       });
-      imageUploadTimeoutRef.current = null;
+      cleanupUpload();
     }, 60_000);
 
     try {
@@ -98,7 +136,12 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
       const uploaded = await uploadFiles("imageUploader", {
         files: [file],
         headers: { Authorization: `Bearer ${token}` },
+        signal: abortController.signal,
       });
+
+      if (activeUploadIdRef.current !== uploadId) {
+        return;
+      }
 
       const url =
         uploaded?.[0]?.ufsUrl ??
@@ -112,17 +155,19 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
       editor.addImage(url);
 
       toast.success("Upload complete.", {
-        id: "pigcasso:upload-image",
-        duration: 2000,
+        id: UPLOAD_IMAGE_TOAST_ID,
+        duration: 3000,
       });
     } catch (err) {
+      if (abortController.signal.aborted) {
+        return;
+      }
       toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "4MB" }), {
-        id: "pigcasso:upload-image",
+        id: UPLOAD_IMAGE_TOAST_ID,
         duration: 4000,
       });
     } finally {
-      setUploadingImage(false);
-      clearImageUploadTimeout();
+      cleanupUpload();
     }
   };
 
