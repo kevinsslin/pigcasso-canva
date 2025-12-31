@@ -51,13 +51,16 @@ You do not need to add your Unsplash Secret key for this feature.
 
 ## Database (Drizzle)
 
-> `db:*` scripts use `bunx`, so Bun is required.
-
 ```bash
 bun run db:generate # generate migration from src/db/schema.ts
 bun run db:migrate  # apply migrations
 bun run db:studio   # open Drizzle Studio
 ```
+
+### Vercel deployments
+
+- Ensure `DATABASE_URL` is set in Vercel env vars.
+- Use `npm run vercel-build` (runs Drizzle migrations, then `next build`).
 
 ## Troubleshooting
 

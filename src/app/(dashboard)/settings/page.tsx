@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 const AI_PROVIDER_STORAGE_KEY = "pigcasso:ai-provider-default";
+const AVATAR_UPLOAD_TOAST_ID = "pigcasso:upload-avatar";
 
 export default function SettingsPage() {
   const { ready, authenticated } = useRequireAuth("/settings");
@@ -37,7 +38,13 @@ export default function SettingsPage() {
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
   const [aiProvider, setAiProvider] = useState<"replicate" | "gemini" | "auto">("auto");
-  const uploadToastIdRef = useRef<string | number | null>(null);
+  const avatarUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAvatarUploadTimeout = () => {
+    if (!avatarUploadTimeoutRef.current) return;
+    clearTimeout(avatarUploadTimeoutRef.current);
+    avatarUploadTimeoutRef.current = null;
+  };
 
   const meUser = me.data?.data.user;
   const integrations = me.data?.data.integrations;
@@ -75,6 +82,10 @@ export default function SettingsPage() {
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    return () => clearAvatarUploadTimeout();
   }, []);
 
   if (!ready || !authenticated) {
@@ -196,28 +207,36 @@ export default function SettingsPage() {
                     retries: 4,
                     retryDelayMs: 200,
                   });
-                  return token
+                  const headers: Record<string, string> = token
                     ? { Authorization: `Bearer ${token}` }
-                    : new Headers();
+                    : {};
+                  return headers;
                 }}
                 onUploadBegin={() => {
-                  uploadToastIdRef.current = toast.loading("Uploading avatar…");
+                  clearAvatarUploadTimeout();
+                  toast.loading("Uploading avatar…", { id: AVATAR_UPLOAD_TOAST_ID });
+                  avatarUploadTimeoutRef.current = setTimeout(() => {
+                    toast.dismiss(AVATAR_UPLOAD_TOAST_ID);
+                    avatarUploadTimeoutRef.current = null;
+                  }, 60_000);
                 }}
                 onUploadError={(err) => {
+                  clearAvatarUploadTimeout();
                   toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "8MB" }), {
-                    id: uploadToastIdRef.current ?? undefined,
+                    id: AVATAR_UPLOAD_TOAST_ID,
+                    duration: 4000,
                   });
-                  uploadToastIdRef.current = null;
                 }}
                 onClientUploadComplete={async (res) => {
+                  clearAvatarUploadTimeout();
                   const url = res?.[0]?.ufsUrl ?? res?.[0]?.url;
                   if (url) {
                     setImage(url);
                   }
                   toast.success("Avatar updated.", {
-                    id: uploadToastIdRef.current ?? undefined,
+                    id: AVATAR_UPLOAD_TOAST_ID,
+                    duration: 2000,
                   });
-                  uploadToastIdRef.current = null;
                   await queryClient.invalidateQueries({ queryKey: ["me"] });
                 }}
               />

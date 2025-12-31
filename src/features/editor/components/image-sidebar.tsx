@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, Loader } from "lucide-react";
 import { toast } from "sonner";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
@@ -29,8 +29,18 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
   const { data, isLoading, isError, error } = useGetImages({
     enabled: unsplashConfigured === true,
   });
-  const uploadToastIdRef = useRef<string | number | null>(null);
+  const imageUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadthingConfigured = me.data?.data.integrations?.uploadthing.configured;
+
+  const clearImageUploadTimeout = () => {
+    if (!imageUploadTimeoutRef.current) return;
+    clearTimeout(imageUploadTimeoutRef.current);
+    imageUploadTimeoutRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => clearImageUploadTimeout();
+  }, []);
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -60,25 +70,33 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
               retries: 4,
               retryDelayMs: 200,
             });
-            return token
+            const headers: Record<string, string> = token
               ? { Authorization: `Bearer ${token}` }
-              : new Headers();
+              : {};
+            return headers;
           }}
           endpoint="imageUploader"
           onUploadBegin={() => {
-            uploadToastIdRef.current = toast.loading("Uploading image…");
+            clearImageUploadTimeout();
+            toast.loading("Uploading image…", { id: "pigcasso:upload-image" });
+            imageUploadTimeoutRef.current = setTimeout(() => {
+              toast.dismiss("pigcasso:upload-image");
+              imageUploadTimeoutRef.current = null;
+            }, 60_000);
           }}
           onUploadError={(err) => {
+            clearImageUploadTimeout();
             toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "4MB" }), {
-              id: uploadToastIdRef.current ?? undefined,
+              id: "pigcasso:upload-image",
+              duration: 4000,
             });
-            uploadToastIdRef.current = null;
           }}
           onClientUploadComplete={(res) => {
+            clearImageUploadTimeout();
             toast.success("Upload complete.", {
-              id: uploadToastIdRef.current ?? undefined,
+              id: "pigcasso:upload-image",
+              duration: 2000,
             });
-            uploadToastIdRef.current = null;
             const url = res?.[0]?.ufsUrl ?? res?.[0]?.url;
             if (url) {
               editor?.addImage(url);

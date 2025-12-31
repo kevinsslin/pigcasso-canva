@@ -26,7 +26,11 @@ const app = new Hono()
       err instanceof Error && err.message
         ? err.message
         : "Internal Server Error";
-    return c.json({ error: message }, status);
+
+    const isProd = process.env.NODE_ENV === "production";
+    const safeMessage = isProd && status >= 500 ? "Internal Server Error" : message;
+
+    return c.json({ error: safeMessage }, status);
   })
   .notFound((c) => {
     return c.json({ error: "Not found" }, 404);

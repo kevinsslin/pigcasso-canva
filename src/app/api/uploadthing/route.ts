@@ -2,13 +2,27 @@ import { createRouteHandler } from "uploadthing/next";
  
 import { ourFileRouter } from "./core";
  
-const callbackUrl = (() => {
-  const explicit = process.env.UPLOADTHING_URL?.trim();
+const resolveAppUrl = () => {
+  const explicit =
+    process.env.UPLOADTHING_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (explicit) {
     return explicit;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const vercel =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+
+  if (!vercel) {
+    return undefined;
+  }
+
+  const normalized = vercel.replace(/^https?:\/\//, "");
+  return `https://${normalized}`;
+};
+
+const callbackUrl = (() => {
+  const appUrl = resolveAppUrl();
   if (!appUrl) {
     return undefined;
   }

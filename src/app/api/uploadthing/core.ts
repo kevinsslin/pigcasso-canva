@@ -9,7 +9,7 @@ import { users } from "@/db/schema";
 const f = createUploadthing();
  
 export const ourFileRouter = {
-  imageUploader: f({ image: { maxFileSize: "4MB" } })
+  imageUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(async ({ req }) => {
       const token = getBearerToken(req.headers.get("authorization") ?? undefined);
       if (!token) {
