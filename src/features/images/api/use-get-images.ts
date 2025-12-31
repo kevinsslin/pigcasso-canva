@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { InferRequestType } from "hono";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
@@ -19,19 +20,36 @@ type UnsplashImage = {
   };
 };
 
-export const useGetImages = (options?: { enabled?: boolean }) => {
-  const enabled = options?.enabled ?? true;
+export type ResponseType = {
+  data: UnsplashImage[];
+  nextPage: number | null;
+};
 
-  const query = useQuery<UnsplashImage[], Error>({
-    queryKey: ["images"],
-    enabled,
-    queryFn: async () => {
-      const response = await client.api.images.$get();
-      const body = await readApiResponse<{ data: UnsplashImage[] }>(
-        response,
-        "Failed to fetch images",
-      );
-      return body.data;
+type RequestType = InferRequestType<typeof client.api.images.$get>["query"];
+
+export const useGetImages = (options?: {
+  enabled?: boolean;
+  query?: string;
+  limit?: number;
+}) => {
+  const enabled = options?.enabled ?? true;
+  const queryText = options?.query?.trim() ?? "";
+  const limit = options?.limit ?? 24;
+
+  const query = useInfiniteQuery<ResponseType, Error>({
+    queryKey: ["images", { q: queryText, limit }],
+    enabled: enabled && queryText.length > 0,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    queryFn: async ({ pageParam }) => {
+      const apiQuery: RequestType = {
+        q: queryText,
+        page: (pageParam as number).toString(),
+        limit: limit.toString(),
+      };
+
+      const response = await client.api.images.$get({ query: apiQuery });
+      return readApiResponse<ResponseType>(response, "Failed to fetch images");
     },
   });
 

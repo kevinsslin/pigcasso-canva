@@ -209,20 +209,33 @@ const buildEditor = ({
       });
     },
     addImage: (value: string) => {
-      fabric.Image.fromURL(
-        value,
-        (image) => {
-          const workspace = getWorkspace();
+      const workspace = getWorkspace();
+
+      const load = (crossOrigin?: string) => {
+        const img = new Image();
+        if (crossOrigin) {
+          img.crossOrigin = crossOrigin;
+        }
+
+        img.onload = () => {
+          const image = new fabric.Image(img);
 
           image.scaleToWidth(workspace?.width || 0);
           image.scaleToHeight(workspace?.height || 0);
 
           addToCanvas(image);
-        },
-        {
-          crossOrigin: "anonymous",
-        },
-      );
+        };
+
+        img.onerror = () => {
+          if (crossOrigin) {
+            load(undefined);
+          }
+        };
+
+        img.src = value;
+      };
+
+      load("anonymous");
     },
     delete: () => {
       canvas.getActiveObjects().forEach((object) => canvas.remove(object));

@@ -1,13 +1,22 @@
+import { z } from "zod";
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
 
 import { getUnsplashClient, hasUnsplashConfigured } from "@/lib/unsplash";
 import { requireAuth } from "@/server/hono-auth";
 
-const DEFAULT_COUNT = 50;
-const DEFAULT_COLLECTION_IDS = ["317099"];
+const DEFAULT_LIMIT = 24;
+
+const listImagesSchema = z.object({
+  q: z.string().trim().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(30).default(DEFAULT_LIMIT),
+});
 
 const app = new Hono()
-  .get("/", requireAuth, async (c) => {
+  .get("/", requireAuth, zValidator("query", listImagesSchema), async (c) => {
+    const { q, page, limit } = c.req.valid("query");
+
     if (!hasUnsplashConfigured()) {
       return c.json(
         { error: "Stock images are currently unavailable." },
@@ -15,10 +24,16 @@ const app = new Hono()
       );
     }
 
+    const query = q?.trim();
+    if (!query) {
+      return c.json({ data: [], nextPage: null });
+    }
+
     const unsplash = getUnsplashClient();
-    const images = await unsplash.photos.getRandom({
-      collectionIds: DEFAULT_COLLECTION_IDS,
-      count: DEFAULT_COUNT,
+    const images = await unsplash.search.getPhotos({
+      query,
+      page,
+      perPage: limit,
     });
 
     if (images.errors) {
@@ -28,13 +43,14 @@ const app = new Hono()
       );
     }
 
-    let response = images.response;
+    const response = images.response;
+    const results = response?.results ?? [];
+    const totalPages = response?.total_pages ?? page;
 
-    if (!Array.isArray(response)) {
-      response = [response];
-    }
-
-    return c.json({ data: response });
+    return c.json({
+      data: results,
+      nextPage: page < totalPages ? page + 1 : null,
+    });
   });
 
 export default app;
