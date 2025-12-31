@@ -155,6 +155,25 @@ export default function LandingPage() {
     setPostLoginRedirect(null);
   }, [authenticated, postLoginRedirect, ready, router]);
 
+  const openApp = async (redirectTo = "/app") => {
+    if (!ready) return;
+    const safeRedirect = toSafeRedirectPath(redirectTo);
+
+    if (authenticated) {
+      router.push(safeRedirect);
+      return;
+    }
+
+    handledAutoLoginRef.current = true;
+    setPostLoginRedirect(safeRedirect);
+    setOpening(true);
+    try {
+      await login();
+    } finally {
+      setOpening(false);
+    }
+  };
+
   useEffect(() => {
     if (!ready) {
       return;
@@ -184,23 +203,6 @@ export default function LandingPage() {
     setOpening(true);
     Promise.resolve(login()).finally(() => setOpening(false));
   }, [authenticated, login, postLoginRedirect, ready, router, searchParams]);
-
-  const onOpenApp = async () => {
-    if (!ready) return;
-    if (authenticated) {
-      router.push("/app");
-      return;
-    }
-
-    handledAutoLoginRef.current = true;
-    setPostLoginRedirect("/app");
-    setOpening(true);
-    try {
-      await login();
-    } finally {
-      setOpening(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -241,11 +243,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={onOpenApp}
+              onClick={() => void openApp("/app")}
               disabled={!ready || opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
-              Open app
+              Start creating
               <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
@@ -280,29 +282,40 @@ export default function LandingPage() {
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
                   A modern canvas built for creators: presets for X/Discord/Telegram,
-                  Gemini-powered generation, and a Pigcasso assistant that drafts edits
-                  before you apply them.
+                  AI-generated slide decks, Gemini-powered generation, and a Pigcasso
+                  assistant that drafts edits before you apply them.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
                   <Button
                     type="button"
-                    onClick={onOpenApp}
+                    onClick={() => void openApp("/app")}
                     disabled={!ready || opening}
                     className="rounded-2xl px-8 py-6 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
                     <Brush className="mr-2 size-5" />
-                    Open app
+                    Start creating
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
                   <Button
-                    asChild
                     type="button"
                     variant="secondary"
                     className="rounded-2xl px-8 py-6 text-base"
+                    onClick={() => void openApp("/presentations/new")}
                   >
-                    <a href="#how">See how it works</a>
+                    <LayoutDashboard className="mr-2 size-5" />
+                    Generate AI slides
                   </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground font-medium motion-safe:animate-[pigcasso-enter_780ms_ease-out_260ms_both]">
+                  <span>Connect wallet → open editor. No credit card required.</span>
+                  <a
+                    href="#how"
+                    className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-foreground"
+                  >
+                    See how it works <ArrowRight className="size-3" />
+                  </a>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
@@ -567,7 +580,7 @@ export default function LandingPage() {
                     </div>
                     <Button
                       type="button"
-                      onClick={onOpenApp}
+                      onClick={() => void openApp("/app")}
                       disabled={!ready || opening}
                       className="w-full rounded-2xl mt-3"
                     >
@@ -611,11 +624,11 @@ export default function LandingPage() {
                     </div>
                     <Button
                       type="button"
-                      onClick={onOpenApp}
+                      onClick={() => void openApp("/app")}
                       disabled={!ready || opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
-                      Open app
+                      Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                   </CardContent>
@@ -677,11 +690,11 @@ export default function LandingPage() {
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
                       type="button"
-                      onClick={onOpenApp}
+                      onClick={() => void openApp("/app")}
                       disabled={!ready || opening}
                       className="rounded-full px-10 py-6 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
                     >
-                      Open app
+                      Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                     <Button

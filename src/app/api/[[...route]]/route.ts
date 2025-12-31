@@ -10,6 +10,7 @@ import assets from "./assets";
 import collections from "./collections";
 import images from "./images";
 import me from "./me";
+import presentations from "./presentations";
 import printr from "./printr";
 import projects from "./projects";
 import templates from "./templates";
@@ -47,6 +48,7 @@ const routes = app
   .route("/collections", collections)
   .route("/images", images)
   .route("/me", me)
+  .route("/presentations", presentations)
   .route("/printr", printr)
   .route("/projects", projects)
   .route("/templates", templates)

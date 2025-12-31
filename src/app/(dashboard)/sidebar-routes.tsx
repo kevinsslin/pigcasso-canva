@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Home, LayoutGrid, RefreshCw, Settings, Wallet } from "lucide-react";
+import { Crown, Home, LayoutGrid, LayoutTemplate, RefreshCw, Settings, Wallet } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -21,6 +21,7 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const isNftsActive =
     pathname === "/nfts" || pathname === "/assets" || pathname === "/collections";
   const isCreatorHubActive = pathname === "/creator-hub";
+  const isPresentationsActive = pathname?.startsWith("/presentations");
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -63,6 +64,13 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
       )}
       <ul className="flex flex-col gap-y-1 px-3">
         <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} onClick={onNavigate} />
+        <SidebarItem
+          href="/presentations"
+          icon={LayoutTemplate}
+          label="AI Slides"
+          isActive={isPresentationsActive}
+          onClick={onNavigate}
+        />
         <SidebarItem
           href="/creator-hub"
           icon={LayoutGrid}

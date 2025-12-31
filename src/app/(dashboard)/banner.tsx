@@ -71,18 +71,30 @@ export const Banner = () => {
             <p className="mt-3 text-sm md:text-base text-muted-foreground font-medium">
               Design on a Web3-native canvas with creator templates, token-gated Pro packs, and a Pigcasso assistant that can draft edits before you apply them.
             </p>
-            <Button
-              disabled={mutation.isPending || transitioning}
-              onClick={onClick}
-              className="mt-6 rounded-full px-6 shadow-lg shadow-pink-500/25"
-            >
-              Create a design
-              {mutation.isPending || transitioning ? (
-                <Loader2 className="size-4 ml-2 animate-spin" />
-              ) : (
-                <ArrowRight className="size-4 ml-2" />
-              )}
-            </Button>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <Button
+                disabled={mutation.isPending || transitioning}
+                onClick={onClick}
+                className="rounded-full px-6 shadow-lg shadow-pink-500/25"
+              >
+                Create a design
+                {mutation.isPending || transitioning ? (
+                  <Loader2 className="size-4 ml-2 animate-spin" />
+                ) : (
+                  <ArrowRight className="size-4 ml-2" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={mutation.isPending || transitioning}
+                onClick={() => router.push("/presentations/new")}
+                className="rounded-full px-6"
+              >
+                Generate AI slides
+                <Sparkles className="size-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
