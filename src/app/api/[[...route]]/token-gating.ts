@@ -9,6 +9,7 @@ const app = new Hono().post("/refresh", requireAuth, async (c) => {
   const pro = await getProStatusForUser({
     userId: authUser.id,
     embeddedWalletAddress: authUser.embeddedWalletAddress,
+    externalWalletAddresses: authUser.externalWalletAddresses,
     externalWalletAddress: authUser.externalWalletAddress,
     forceRefresh: true,
   });
@@ -17,4 +18,3 @@ const app = new Hono().post("/refresh", requireAuth, async (c) => {
 });
 
 export default app;
-

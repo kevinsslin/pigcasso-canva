@@ -12,6 +12,7 @@ export type AuthUser = {
   email: string | null;
   embeddedWalletAddress: string | null;
   externalWalletAddress: string | null;
+  externalWalletAddresses: string[];
 };
 
 export const getBearerToken = (authorizationHeader: string | undefined) => {
@@ -32,17 +33,18 @@ const getWalletAddresses = (privyUser: User) => {
     (wallet) => wallet.walletClientType === "privy",
   );
 
-  const externalWallet = wallets
+  const externalWallets = wallets
     .filter((wallet) => wallet.walletClientType !== "privy")
     .sort((a, b) => {
       const aTs = a.latestVerifiedAt?.getTime() ?? a.firstVerifiedAt?.getTime() ?? 0;
       const bTs = b.latestVerifiedAt?.getTime() ?? b.firstVerifiedAt?.getTime() ?? 0;
       return bTs - aTs;
-    })[0];
+    });
 
   return {
     embeddedWalletAddress: embeddedWallet?.address ?? null,
-    externalWalletAddress: externalWallet?.address ?? null,
+    externalWalletAddress: externalWallets[0]?.address ?? null,
+    externalWalletAddresses: externalWallets.map((wallet) => wallet.address),
   };
 };
 
@@ -75,7 +77,8 @@ export const getOrCreateUserFromPrivyToken = async (
     throw new HttpError(502, "Privy request failed");
   }
 
-  const { embeddedWalletAddress, externalWalletAddress } = getWalletAddresses(privyUser);
+  const { embeddedWalletAddress, externalWalletAddress, externalWalletAddresses } =
+    getWalletAddresses(privyUser);
   const email = privyUser.email?.address ?? null;
 
   let existingUser: (typeof users.$inferSelect) | undefined;
@@ -122,6 +125,7 @@ export const getOrCreateUserFromPrivyToken = async (
       email: inserted[0].email ?? null,
       embeddedWalletAddress: inserted[0].embeddedWalletAddress ?? null,
       externalWalletAddress: inserted[0].externalWalletAddress ?? null,
+      externalWalletAddresses,
     };
   }
 
@@ -155,5 +159,6 @@ export const getOrCreateUserFromPrivyToken = async (
     email: existingUser.email ?? email ?? null,
     embeddedWalletAddress: embeddedWalletAddress ?? existingUser.embeddedWalletAddress ?? null,
     externalWalletAddress: externalWalletAddress ?? existingUser.externalWalletAddress ?? null,
+    externalWalletAddresses,
   };
 };

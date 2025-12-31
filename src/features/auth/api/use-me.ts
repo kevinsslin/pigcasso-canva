@@ -15,6 +15,7 @@ export type ResponseType = {
       wallets: {
         embedded: string | null;
         external: string | null;
+        externals: string[];
       };
     };
     integrations: {

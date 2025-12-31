@@ -131,10 +131,12 @@ const isCacheFresh = (checkedAt: Date | null) => {
 export const getProStatusForUser = async (params: {
   userId: string;
   embeddedWalletAddress: string | null;
-  externalWalletAddress: string | null;
+  /** @deprecated Prefer `externalWalletAddresses` */
+  externalWalletAddress?: string | null;
+  externalWalletAddresses?: string[];
   forceRefresh?: boolean;
 }): Promise<ProStatus> => {
-  const { userId, embeddedWalletAddress, externalWalletAddress, forceRefresh } = params;
+  const { userId, embeddedWalletAddress, externalWalletAddress, externalWalletAddresses, forceRefresh } = params;
 
   const [row] = await db
     .select({
@@ -168,7 +170,11 @@ export const getProStatusForUser = async (params: {
   }
 
   try {
-    const addresses = uniqueAddresses([embeddedWalletAddress, externalWalletAddress]);
+    const addresses = uniqueAddresses([
+      embeddedWalletAddress,
+      ...(externalWalletAddresses ?? []),
+      externalWalletAddress,
+    ]);
     const { maxBalance, maxWalletAddress } = await getMaxPigcassoBalance(addresses);
     const { thresholdRaw } = getConfig();
     const isPro = maxBalance >= thresholdRaw;

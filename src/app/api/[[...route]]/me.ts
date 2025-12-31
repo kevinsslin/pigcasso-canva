@@ -40,6 +40,7 @@ const app = new Hono()
     const pro = await getProStatusForUser({
       userId: authUser.id,
       embeddedWalletAddress: authUser.embeddedWalletAddress,
+      externalWalletAddresses: authUser.externalWalletAddresses,
       externalWalletAddress: authUser.externalWalletAddress,
     });
 
@@ -60,6 +61,7 @@ const app = new Hono()
           wallets: {
             embedded: authUser.embeddedWalletAddress,
             external: authUser.externalWalletAddress,
+            externals: authUser.externalWalletAddresses,
           },
         },
         integrations: {
@@ -153,6 +155,7 @@ const app = new Hono()
             wallets: {
               embedded: updated.embeddedWalletAddress,
               external: updated.externalWalletAddress,
+              externals: authUser.externalWalletAddresses,
             },
           },
         },

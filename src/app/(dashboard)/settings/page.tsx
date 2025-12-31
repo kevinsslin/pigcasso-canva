@@ -290,10 +290,18 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">External wallet</div>
-                <div className={cn("text-sm break-all", !meUser?.wallets.external && "text-muted-foreground")}>
-                  {meUser?.wallets.external ?? "—"}
-                </div>
+                <div className="text-xs text-muted-foreground">External wallets</div>
+                {meUser?.wallets.externals?.length ? (
+                  <div className="space-y-1">
+                    {meUser.wallets.externals.map((address) => (
+                      <div key={address} className="text-sm break-all">
+                        {address}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">—</div>
+                )}
               </div>
             </div>
           </div>

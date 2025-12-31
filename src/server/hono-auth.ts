@@ -83,6 +83,7 @@ export const requirePro = createMiddleware(async (c, next) => {
     const proStatus = await getProStatusForUser({
       userId: authUser.id,
       embeddedWalletAddress: authUser.embeddedWalletAddress,
+      externalWalletAddresses: authUser.externalWalletAddresses,
       externalWalletAddress: authUser.externalWalletAddress,
     });
 
