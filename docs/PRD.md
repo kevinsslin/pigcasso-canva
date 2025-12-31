@@ -70,7 +70,10 @@
 
 ### V2.5（Template Tokens：交易元素 + 內容資產化）
 
-核心敘事：**Canva ship file → Pigcasso ship asset**。Template 不只是「Canva template」，也可以是任何可重用的 creator 資產（例如 landing page / frontend component / meme kit / launch kit）。
+核心敘事：**Canva ship file → Pigcasso ship asset**。
+
+- Phase 1（先做）：Template 先限縮為「Canva template」（本 repo 內的 template / project template）。
+- Phase 2（再做）：Template 才擴展成更廣義的可重用 creator 資產（例如 landing page / frontend component / meme kit / launch kit）。
 
 我們把 template 變成可交易的 asset，並透過 Printr 作為 launchpad/市場，提供「內外盤」與 meme/現金流敘事：
 
@@ -570,11 +573,17 @@ Phase 2（上鏈）可選方向（擇一）：
 
 需要跟產品/Printr 對齊的關鍵問題（待定）：
 
-- template token 的標準/鏈（ERC20 on Mantle？還是 Printr 自帶？）
-- stake 的語意：是 lock 一段時間、還是持有即解鎖？是否可換 credits？
-- pay-to-use 的支付 token：PIGCASSO？template token？stablecoin？
-- usage/cashflow 如何計價與分配（creator vs token holders vs protocol fee）
-- template 的範圍：只做 Canva template，還是 web template / components 也算？
+已確定（目前共識）：
+
+- Template Token：**ERC20 on Mantle**，交易/市場由 **Printr** 提供（本 repo 僅做 API 對接與 UI）。
+- Stake-to-use：**鎖倉一段時間**取得 template 使用權（具體期限/解鎖規則待 Printr API/產品定案）。
+- Template 範圍：**Phase 1 只做 Canva template**；Phase 2 才擴展到 web template / components。
+
+待定 / Open questions：
+
+- pay-to-use 的支付與定價：使用 template token 購買 credits/usage rights（pricing model 待定；是否支援 stablecoin 待定）。
+- usage/cashflow 如何計價與分配（creator vs token holders vs protocol fee）。
+- stake 是否可換 credits、或持有即解鎖等替代模型（若要做 A/B 需先抽象成 policy）。
 
 ---
 
