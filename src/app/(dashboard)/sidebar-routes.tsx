@@ -7,8 +7,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { usePro } from "@/features/auth/hooks/use-pro";
 import { useRefreshTokenGating } from "@/features/auth/api/use-refresh-token-gating";
 
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 
 import { SidebarItem } from "./sidebar-item";
 
@@ -27,28 +27,33 @@ export const SidebarRoutes = () => {
       {!isLoading && authenticated && (
         <>
           <div className="px-3">
-            <div className="rounded-xl border bg-white p-3">
-              <div className="flex items-center gap-x-2">
-                <Crown className="size-4 text-yellow-500 fill-yellow-500" />
-                <p className="text-sm font-medium">
-                  {isPro ? "Pigcasso Pro unlocked" : "Unlock Pigcasso Pro"}
-                </p>
+            <div className="rounded-2xl bg-gradient-to-br from-primary to-cyan-400 p-4 text-white shadow-lg relative overflow-hidden">
+              <div className="absolute -right-2 -bottom-2 opacity-20">
+                <Crown className="size-20" />
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isPro
-                  ? "Token gating is active on Mantle."
-                  : "Hold 100,000 PIGCASSO on Mantle to unlock Pro features."}
-              </p>
-              <Button
-                onClick={() => refreshMutation.mutate()}
-                disabled={refreshMutation.isPending}
-                className="w-full mt-3 rounded-lg"
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className="mr-2 size-4" />
-                Refresh status
-              </Button>
+              <div className="relative">
+                <div className="flex items-center gap-x-2">
+                  <Crown className="size-4 fill-white text-white" />
+                  <p className="text-sm font-bold">
+                    {isPro ? "Pigcasso Pro unlocked" : "Unlock Pigcasso Pro"}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-white/80">
+                  {isPro
+                    ? "Token gating is active on Mantle."
+                    : "Hold 100,000 PIGCASSO on Mantle to unlock Pro packs."}
+                </p>
+                <Button
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  className="w-full mt-3 bg-white/20 text-white border border-white/25 hover:bg-white/30 hover:text-white"
+                  variant="secondary"
+                  size="sm"
+                >
+                  <RefreshCw className="mr-2 size-4" />
+                  Refresh status
+                </Button>
+              </div>
             </div>
           </div>
           <div className="px-3">

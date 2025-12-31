@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Noto_Sans_TC, Nunito } from "next/font/google";
 import { Modals } from "@/components/modals";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const nunito = Nunito({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400", "600", "700", "800"],
+});
+
+const notoSansTc = Noto_Sans_TC({
+  subsets: ["latin"],
+  variable: "--font-tc",
+  weight: ["400", "500", "700"],
+});
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${nunito.variable} ${notoSansTc.variable}`}>
         <Providers>
           <Toaster />
           <Modals />

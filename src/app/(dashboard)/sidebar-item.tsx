@@ -21,13 +21,11 @@ export const SidebarItem = ({
   return (
     <Link href={href} onClick={onClick}>
       <div className={cn(
-        "flex items-center px-3 py-3 rounded-xl bg-transparent hover:bg-white transition",
-        isActive && "bg-white",
+        "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+        isActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
       )}>
-        <Icon className="size-4 mr-2 stroke-2" />
-        <span className="text-sm font-medium">
-          {label}
-        </span>
+        <Icon className="size-4 stroke-2" />
+        <span className="truncate">{label}</span>
       </div>
     </Link>
   );

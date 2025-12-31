@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCreateProject } from "@/features/projects/api/use-create-project";
@@ -49,7 +49,7 @@ export const Banner = () => {
         title="Preparing your canvas…"
         description="This can take a few seconds the first time."
       />
-      <div className="relative overflow-hidden rounded-xl border bg-white">
+      <div className="relative overflow-hidden rounded-3xl border bg-card shadow-xl">
         <Image
           src="/pig-banner.png"
           alt="Pigcasso"
@@ -58,22 +58,25 @@ export const Banner = () => {
           priority
           className="w-full h-auto"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-transparent" />
-        <div className="absolute inset-0 p-6 flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/60 to-transparent" />
+        <div className="absolute inset-0 p-7 md:p-10 flex items-center">
           <div className="max-w-xl">
-            <h1 className="text-xl md:text-3xl font-semibold text-[#111827]">
-              Pigcasso Canvas
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+              <Sparkles className="size-4" />
+              AI Powered
+            </div>
+            <h1 className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+              What will you create today?
             </h1>
-            <p className="mt-2 text-xs md:text-sm text-muted-foreground">
-              Web3-native editor with token-gated Pro packs, creator templates, and an assistant that edits your canvas.
+            <p className="mt-3 text-sm md:text-base text-muted-foreground font-medium">
+              Design on a Web3-native canvas with creator templates, token-gated Pro packs, and a Pigcasso assistant that can draft edits before you apply them.
             </p>
             <Button
               disabled={mutation.isPending || transitioning}
               onClick={onClick}
-              variant="secondary"
-              className="mt-4 w-[180px]"
+              className="mt-6 rounded-full px-6 shadow-lg shadow-pink-500/25"
             >
-              Start creating
+              Create a design
               {mutation.isPending || transitioning ? (
                 <Loader2 className="size-4 ml-2 animate-spin" />
               ) : (

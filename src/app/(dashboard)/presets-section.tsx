@@ -63,8 +63,11 @@ export const PresetsSection = () => {
       />
       <div className="space-y-4">
         <div>
-          <h3 className="font-semibold text-lg">Web3 Presets</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-xl font-bold flex items-center gap-2">
+            <span className="w-1.5 h-6 rounded-full bg-primary" />
+            Web3 Presets
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Start with common sizes for X, Telegram, and Discord.
           </p>
         </div>
