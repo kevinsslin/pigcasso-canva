@@ -113,4 +113,41 @@ body {
       transform: translate3d(14px, -10px, 0) scale(1.03);
     }
   }
+
+  @keyframes pigcasso-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes pigcasso-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pigcasso-sheen {
+    0% {
+      transform: translate3d(-30%, 0, 0);
+      opacity: 0;
+    }
+    30% {
+      opacity: 0.55;
+    }
+    60% {
+      opacity: 0.15;
+    }
+    100% {
+      transform: translate3d(130%, 0, 0);
+      opacity: 0;
+    }
+  }
 }

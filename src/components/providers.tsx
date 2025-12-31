@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
-import { ThemeProvider } from "next-themes";
 import { toast } from "sonner";
 
 import { QueryProvider } from "@/components/query-provider";
@@ -53,20 +52,18 @@ const PrivyTokenSync = () => {
 
 export const Providers = ({ children }: ProvidersProps) => {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <PrivyProvider
-        appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-        config={{
-          embeddedWallets: {
-            ethereum: {
-              createOnLogin: "all-users",
-            },
+    <PrivyProvider
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+      config={{
+        embeddedWallets: {
+          ethereum: {
+            createOnLogin: "all-users",
           },
-        }}
-      >
-        <PrivyTokenSync />
-        <QueryProvider>{children}</QueryProvider>
-      </PrivyProvider>
-    </ThemeProvider>
+        },
+      }}
+    >
+      <PrivyTokenSync />
+      <QueryProvider>{children}</QueryProvider>
+    </PrivyProvider>
   );
 };

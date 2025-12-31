@@ -3,7 +3,6 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { UserButton } from "@/features/auth/components/user-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 
 import { MobileNav } from "./mobile-nav";
@@ -33,7 +32,6 @@ export const Navbar = () => {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle />
           <UserButton />
         </div>
       </div>

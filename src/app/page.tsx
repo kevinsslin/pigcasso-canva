@@ -26,7 +26,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Tilt } from "@/components/tilt";
 
 import { cn } from "@/lib/utils";
@@ -240,7 +239,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Button
               type="button"
               onClick={onOpenApp}
@@ -256,39 +254,42 @@ export default function LandingPage() {
 
       <main className="pt-20">
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.18),_transparent_60%)]" />
-          <div className="absolute -top-40 -right-40 w-[780px] h-[780px] bg-primary/10 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-overlay motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
-          <div className="absolute top-1/2 -left-40 w-[640px] h-[640px] bg-cyan-400/10 blur-[110px] rounded-full mix-blend-multiply dark:mix-blend-overlay motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.28),_transparent_58%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgb(34_211_238_/_0.18),_transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,_rgb(250_204_21_/_0.14),_transparent_55%)]" />
+          <div className="absolute -top-44 -right-44 w-[860px] h-[860px] bg-primary/20 blur-[120px] rounded-full mix-blend-multiply motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
+          <div className="absolute top-1/2 -left-48 w-[740px] h-[740px] bg-cyan-400/18 blur-[110px] rounded-full mix-blend-multiply motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
+          <div className="absolute -bottom-64 left-1/3 w-[620px] h-[620px] bg-yellow-300/16 blur-[100px] rounded-full mix-blend-multiply motion-safe:animate-[pigcasso-drift_22s_ease-in-out_infinite]" />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16 lg:py-20">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
               <div className="lg:col-span-6 text-center lg:text-left space-y-6">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 dark:bg-card/60 backdrop-blur border border-white/40 dark:border-border shadow-sm">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/75 backdrop-blur border border-white/50 shadow-sm motion-safe:animate-[pigcasso-enter_650ms_ease-out_0ms_both]">
                   <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
                   <span className="text-xs font-bold tracking-wider text-foreground/80">
                     Next-generation Canva for Web3 creators
                   </span>
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight motion-safe:animate-[pigcasso-enter_780ms_ease-out_120ms_both]">
                   Create faster with{" "}
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-400">
                     Pigcasso AI
                   </span>
                 </h1>
 
-                <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0">
+                <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
                   A modern canvas built for creators: presets for X/Discord/Telegram,
                   Gemini-powered generation, and a Pigcasso assistant that drafts edits
                   before you apply them.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
                   <Button
                     type="button"
                     onClick={onOpenApp}
                     disabled={!ready || opening}
-                    className="rounded-2xl px-8 py-6 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
+                    className="rounded-2xl px-8 py-6 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
                     <Brush className="mr-2 size-5" />
                     Open app
@@ -304,7 +305,7 @@ export default function LandingPage() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
                   <StatChip
                     icon={<BadgeCheck className="size-5 text-primary" />}
                     title="Draft → Preview → Apply"
@@ -319,7 +320,11 @@ export default function LandingPage() {
               </div>
 
               <div className="lg:col-span-6">
-                <Tilt className="relative" max={6} scale={1.01}>
+                <Tilt
+                  className="relative motion-safe:animate-[pigcasso-fade_700ms_ease-out_140ms_both]"
+                  max={6}
+                  scale={1.01}
+                >
                   <div className="relative rounded-[2.75rem] overflow-hidden border border-white/40 dark:border-border bg-white/60 dark:bg-card/60 backdrop-blur shadow-2xl">
                     <Image
                       src="/pig-banner.png"
@@ -330,9 +335,12 @@ export default function LandingPage() {
                       className="w-full h-auto"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent pointer-events-none" />
+                    <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6 pointer-events-none">
+                      <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/40 to-white/0 motion-safe:animate-[pigcasso-sheen_5.5s_ease-in-out_1.2s_infinite]" />
+                    </div>
                   </div>
 
-                  <div className="hidden sm:block absolute left-6 bottom-6">
+                  <div className="hidden sm:block absolute left-6 bottom-6 motion-safe:animate-[pigcasso-float_10s_ease-in-out_0ms_infinite]">
                     <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">
@@ -348,7 +356,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="hidden sm:block absolute left-6 top-6">
+                  <div className="hidden sm:block absolute left-6 top-6 motion-safe:animate-[pigcasso-float_12s_ease-in-out_900ms_infinite]">
                     <div className="rounded-2xl bg-white/85 dark:bg-card/70 backdrop-blur border border-white/40 dark:border-border shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/30 dark:border-border">

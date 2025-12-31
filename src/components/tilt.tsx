@@ -20,9 +20,9 @@ const addMediaListener = (media: MediaQueryList, listener: () => void) => {
 export const Tilt = ({
   className,
   children,
-  max = 8,
+  max = 10,
   perspective = 900,
-  scale = 1.02,
+  scale = 1.03,
   disabled,
   onPointerEnter,
   onPointerLeave,
