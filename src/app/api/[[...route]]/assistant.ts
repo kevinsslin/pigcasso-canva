@@ -26,6 +26,11 @@ const contentSchema = z
   })
   .partial();
 
+const suggestionSchema = z.object({
+  label: z.string().trim().min(1).max(32),
+  prompt: z.string().trim().min(1).max(400),
+});
+
 const pendingActionSchema = z
   .discriminatedUnion("type", [
     z.object({
@@ -56,7 +61,40 @@ const pendingActionSchema = z
 const responseSchema = z.object({
   reply: z.string().trim().min(1).max(800),
   action: pendingActionSchema,
+  suggestions: z.array(suggestionSchema).min(1).max(8).optional(),
 });
+
+const DEFAULT_SUGGESTIONS: Array<{ label: string; prompt: string }> = [
+  { label: "Make it readable", prompt: "Make this design more readable and well-aligned." },
+  { label: "Rewrite headline", prompt: "Rewrite the headline to be punchier and clearer." },
+  { label: "Add a CTA", prompt: "Add a clear call-to-action and place it prominently." },
+  { label: "Try 3 variants", prompt: "Create 3 layout variants for this design." },
+];
+
+const normalizeSuggestions = (
+  raw: Array<{ label: string; prompt: string }> | undefined,
+) => {
+  const seen = new Set<string>();
+  const suggestions: Array<{ label: string; prompt: string }> = [];
+
+  const pushUnique = (item: { label: string; prompt: string }) => {
+    const label = item.label.trim();
+    const prompt = item.prompt.trim();
+    if (!label || !prompt) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    suggestions.push({
+      label: label.slice(0, 32),
+      prompt: prompt.slice(0, 400),
+    });
+  };
+
+  (raw ?? []).forEach(pushUnique);
+  DEFAULT_SUGGESTIONS.forEach(pushUnique);
+
+  return suggestions.slice(0, 4);
+};
 
 const extractJson = (text: string) => {
   const start = text.indexOf("{");
@@ -90,6 +128,7 @@ const app = new Hono().post(
     const system = `
 You are Pigcasso Assistant inside a web-based canvas editor.
 Your job: interpret the user's message and suggest ONE action that the editor can apply.
+Also: provide 4 short "next-step" suggestions for the user to tap.
 
 You MUST return ONLY valid JSON (no markdown, no code fences) matching this schema:
 {
@@ -107,6 +146,8 @@ You MUST return ONLY valid JSON (no markdown, no code fences) matching this sche
         | { "op": "addTextbox", "text": string, "x": number, "y": number, "widthPct"?: number, "role"?: "title"|"subtitle"|"body"|"cta", "style"?: { "fontSize"?: number, "fontWeight"?: number, "fill"?: string, "fontFamily"?: string, "textAlign"?: "left"|"center"|"right" } }
         | { "op": "delete", "targetId": string }
       > }
+  ,
+  "suggestions": Array<{ "label": string, "prompt": string }>
 }
 
 Rules:
@@ -114,13 +155,17 @@ Rules:
 - If the user asks for a specific layout ("AMA", "announcement/公告", "event/banner/活動") use type "template" with a best-fit variant.
 - If the user asks for alignment (置中/置頂/置底/左對齊/右對齊), use type "align".
 - If the user asks to set title/subtitle/cta hierarchy or make text hierarchy better, use type "textHierarchy".
+- If the user asks to make it more readable / fix layout / improve spacing / tidy up / 更易讀 / 排版更好, use type "canvasEdits" (NOT "textHierarchy").
 - If the user asks to edit what's already on the canvas (change wording, fix layout, tweak colors, add missing CTA), use type "canvasEdits".
 - When using "canvasEdits":
   - Only reference objects that exist in the provided canvas snapshot: use their "id" as "targetId".
   - Use x/y as ratios (0..1) relative to the workspace.
-  - Keep ops minimal; do NOT invent unsupported ops.
+  - Prefer noticeable improvements over tiny tweaks. Use 6–20 ops when improving readability/layout.
+  - For readability requests: adjust text hierarchy (fontSize/fontWeight), improve contrast (fill), and move key text to a clear layout with consistent spacing and safe margins (~8% from edges).
+  - Do NOT invent unsupported ops.
 - If the request is unrelated or unclear, return action=null and ask a short clarification.
 - Keep reply short, friendly, and in the user's language (Chinese if user wrote Chinese).
+- "suggestions" MUST contain exactly 4 items, all different. Keep labels short (2–20 chars), in English. Prompts should be actionable and specific.
 `.trim();
 
     let response: unknown;
@@ -159,13 +204,20 @@ Rules:
     const validated = parsed ? responseSchema.safeParse(parsed) : null;
 
     if (validated?.success) {
-      return c.json({ data: validated.data });
+      return c.json({
+        data: {
+          reply: validated.data.reply,
+          action: validated.data.action,
+          suggestions: normalizeSuggestions(validated.data.suggestions),
+        },
+      });
     }
 
     return c.json({
       data: {
         reply: text || "我還不太確定要怎麼做，你可以再說清楚一點嗎？",
         action: null,
+        suggestions: normalizeSuggestions(undefined),
       },
     });
   },

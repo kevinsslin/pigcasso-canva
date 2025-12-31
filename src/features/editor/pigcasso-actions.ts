@@ -119,7 +119,11 @@ export const alignToWorkspace = (editor: Editor, mode: "center" | "left" | "righ
 };
 
 export const applyTextHierarchy = (editor: Editor) => {
-  const { width } = getWorkspaceRect(editor);
+  const { left, top, width, height, center } = getWorkspaceRect(editor);
+  const safeMargin = getSuggestedSafeMargin(width, height);
+  const safeTop = top + safeMargin;
+  const safeWidth = Math.max(120, width - safeMargin * 2);
+  const safeHeight = Math.max(120, height - safeMargin * 2);
 
   const candidates =
     editor.selectedObjects.length > 0 ? editor.selectedObjects : getNonWorkspaceObjects(editor);
@@ -142,15 +146,35 @@ export const applyTextHierarchy = (editor: Editor) => {
     { fontSize: ctaSize, fontWeight: 700, fill: COLORS.neonCyan },
   ] as const;
 
-  sorted.forEach((obj, index) => {
+  const spacing = clamp(Math.round(height * 0.04), 12, 56);
+  const heights = sorted.map((obj, index) => {
     const role = roles[Math.min(index, roles.length - 1)];
     obj.set({
+      width: safeWidth,
       fontSize: role.fontSize,
       fontWeight: role.fontWeight,
       fill: role.fill,
       textAlign: "center",
     });
+    (obj as unknown as { initDimensions?: () => void }).initDimensions?.();
     obj.setCoords();
+    return obj.getScaledHeight();
+  });
+
+  const totalHeight =
+    heights.reduce((sum, h) => sum + h, 0) + spacing * Math.max(0, sorted.length - 1);
+  const startY = safeTop + Math.max(0, (safeHeight - totalHeight) / 2);
+
+  let cursorY = startY;
+  sorted.forEach((obj, index) => {
+    const h = heights[index] ?? obj.getScaledHeight();
+    obj.setPositionByOrigin(
+      new fabric.Point(center.x, cursorY + h / 2),
+      "center",
+      "center",
+    );
+    obj.setCoords();
+    cursorY += h + spacing;
   });
 
   editor.canvas.requestRenderAll();

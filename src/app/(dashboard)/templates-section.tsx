@@ -44,7 +44,7 @@ export const TemplatesSection = () => {
       { id: template.id },
       {
         onSuccess: ({ data }) => {
-          toast.success("Opening editor…", { id: toastId });
+          toast.success("Opening editor…", { id: toastId, duration: 3000 });
           setTransitioning({
             name: template.name,
             width: template.width,
@@ -53,7 +53,7 @@ export const TemplatesSection = () => {
           router.push(`/editor/${data.id}`);
         },
         onError: (error) => {
-          toast.error(error.message || "Failed to create from template", { id: toastId });
+          toast.error(error.message || "Failed to create from template", { id: toastId, duration: 3000 });
           setTransitioning(null);
         },
       },

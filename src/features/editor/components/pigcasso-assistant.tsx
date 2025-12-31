@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GripVertical, Mic, MicOff, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { fabric } from "fabric";
@@ -54,6 +54,13 @@ type CanvasEditsAction = {
 };
 
 type PendingActionWithDraft = PendingAction | CanvasEditsAction;
+
+const DEFAULT_SUGGESTIONS: Array<{ label: string; prompt: string }> = [
+  { label: "Make it readable", prompt: "Make this design more readable and well-aligned." },
+  { label: "3 variants", prompt: "Create 3 layout variants for this design." },
+  { label: "Rewrite headline", prompt: "Rewrite the headline to be punchier and clearer." },
+  { label: "Add a CTA", prompt: "Add a clear call-to-action and place it prominently." },
+];
 
 export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) => {
   const [open, setOpen] = useState(false);
@@ -339,15 +346,8 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     "This will replace all objects on the canvas (except the workspace background).",
   );
 
-  const quickPrompts = useMemo(
-    () => [
-      { label: "Make it readable", prompt: "Make this design more readable and well-aligned." },
-      { label: "3 variants", prompt: "Create 3 layout variants for this design." },
-      { label: "Stronger headline", prompt: "Rewrite the headline to be punchier and clearer." },
-      { label: "Cyberpunk vibe", prompt: "Make the style more cyberpunk (colors + typography) while keeping it readable." },
-    ],
-    [],
-  );
+  const [suggestions, setSuggestions] =
+    useState<Array<{ label: string; prompt: string }>>(DEFAULT_SUGGESTIONS);
 
   const addAssistantMessage = (text: string) => {
     setMessages((m) => [...m, { role: "assistant", text }]);
@@ -396,11 +396,12 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       });
 
       const body = await readApiResponse<{
-        data?: { reply?: unknown; action?: unknown };
+        data?: { reply?: unknown; action?: unknown; suggestions?: unknown };
       }>(response, "Assistant request failed");
 
       const reply = body?.data?.reply;
       const nextAction = body?.data?.action;
+      const nextSuggestions = body?.data?.suggestions;
 
       if (typeof reply === "string" && reply.trim()) {
         addAssistantMessage(reply);
@@ -426,6 +427,29 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
         });
       } else {
         setPending(nextAction as PendingAction | null);
+      }
+
+      if (Array.isArray(nextSuggestions)) {
+        const parsed = nextSuggestions
+          .filter(
+            (item): item is { label: string; prompt: string } =>
+              Boolean(item) &&
+              typeof item === "object" &&
+              "label" in item &&
+              "prompt" in item &&
+              typeof (item as { label?: unknown }).label === "string" &&
+              typeof (item as { prompt?: unknown }).prompt === "string",
+          )
+          .map((item) => ({
+            label: item.label.trim(),
+            prompt: item.prompt.trim(),
+          }))
+          .filter((item) => item.label && item.prompt)
+          .slice(0, 4);
+
+        if (parsed.length === 4) {
+          setSuggestions(parsed);
+        }
       }
     } catch (error) {
       addAssistantMessage(error instanceof Error ? error.message : "Assistant request failed");
@@ -638,7 +662,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           </div>
 
           <div className="px-3 py-2 border-b flex flex-wrap gap-2">
-            {quickPrompts.map((qa) => (
+            {suggestions.map((qa) => (
               <Button
                 key={qa.label}
                 type="button"

@@ -30,12 +30,12 @@ export const Banner = () => {
       },
       {
         onSuccess: ({ data }) => {
-          toast.success("Opening editor…", { id: toastId });
+          toast.success("Opening editor…", { id: toastId, duration: 3000 });
           setTransitioning(true);
           router.push(`/editor/${data.id}`);
         },
         onError: (error) => {
-          toast.error(error.message || "Failed to create project", { id: toastId });
+          toast.error(error.message || "Failed to create project", { id: toastId, duration: 3000 });
           setTransitioning(false);
         },
       }
