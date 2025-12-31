@@ -45,6 +45,10 @@ bun dev
 
 - `GEMINI_API_KEY=...`
 
+要啟用 Printr launchpad（Template Token）：
+
+- `PRINTR_API_TOKEN=...`
+
 ---
 
 ## 系統架構（High-level）

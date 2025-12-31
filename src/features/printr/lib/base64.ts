@@ -5,7 +5,18 @@ export const base64ToHex = (value: string): `0x${string}` => {
   }
 
   const normalized = trimmed.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized);
+  const binary = (() => {
+    if (typeof atob === "function") {
+      return atob(normalized);
+    }
+
+    const bufferCtor = (globalThis as unknown as { Buffer?: typeof Buffer }).Buffer;
+    if (bufferCtor) {
+      return bufferCtor.from(normalized, "base64").toString("binary");
+    }
+
+    throw new Error("Base64 decoder unavailable");
+  })();
 
   let hex = "0x";
   for (let i = 0; i < binary.length; i += 1) {
@@ -14,4 +25,3 @@ export const base64ToHex = (value: string): `0x${string}` => {
 
   return hex as `0x${string}`;
 };
-

@@ -16,6 +16,10 @@ export type Template = {
   publishedAt: string | null;
   updatedAt: string;
   json: string | null;
+  token: {
+    printrTokenId: string | null;
+    status: string | null;
+  } | null;
 };
 
 export type ResponseType = {

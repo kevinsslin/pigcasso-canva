@@ -48,6 +48,7 @@ export default function CreatorHubLaunchpadPage() {
   const { ready, authenticated } = useRequireAuth("/creator-hub/launchpad");
   const me = useMe({ enabled: ready && authenticated });
   const { wallets } = useWallets();
+  const meUser = me.data?.data.user ?? null;
 
   const myTemplates = useGetMyTemplates({ publicOnly: "true" });
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -92,6 +93,7 @@ export default function CreatorHubLaunchpadPage() {
     };
   }>(null);
   const [quoting, setQuoting] = useState(false);
+  const [creatorAddress, setCreatorAddress] = useState("");
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -116,13 +118,30 @@ export default function CreatorHubLaunchpadPage() {
     me.data?.data.integrations.printr.configured === true &&
     me.data?.data.pro.isPro === true;
 
-  if (!ready || !authenticated) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader className="size-6 text-muted-foreground animate-spin" />
-      </div>
-    );
-  }
+  const walletChoices = useMemo(() => {
+    const addresses = new Map<string, { address: string; label: string }>();
+
+    const add = (address: string | null | undefined, label: string) => {
+      const trimmed = typeof address === "string" ? address.trim() : "";
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (addresses.has(key)) return;
+      addresses.set(key, { address: trimmed, label });
+    };
+
+    add(meUser?.wallets.external, "External (primary)");
+    add(meUser?.wallets.embedded, "Embedded");
+    for (const address of meUser?.wallets.externals ?? []) {
+      add(address, "External");
+    }
+
+    return Array.from(addresses.values());
+  }, [meUser?.wallets.embedded, meUser?.wallets.external, meUser?.wallets.externals]);
+
+  useEffect(() => {
+    const defaultAddress = meUser?.wallets.external ?? meUser?.wallets.embedded ?? "";
+    setCreatorAddress((current) => (current ? current : defaultAddress));
+  }, [meUser?.wallets.embedded, meUser?.wallets.external]);
 
   const buildInitialBuy = () => {
     if (initialBuyMode === "supply_percent") {
@@ -187,6 +206,7 @@ export default function CreatorHubLaunchpadPage() {
         chains,
         initial_buy: buildInitialBuy(),
         graduation_threshold_per_chain_usd: graduationThreshold,
+        ...(creatorAddress.trim() ? { creatorAddress: creatorAddress.trim() } : {}),
         external_links: {
           ...(website.trim() ? { website: website.trim() } : {}),
           ...(x.trim() ? { x: x.trim() } : {}),
@@ -279,6 +299,44 @@ export default function CreatorHubLaunchpadPage() {
   const printrTokenId = templateToken.data?.printrTokenId ?? null;
   const explorerBase = "https://explorer.mantle.xyz";
   const mantleDeployment = deployments.data?.deployments?.find((d) => d.chain_id === MANTLE_CAIP2) ?? null;
+  const launchedTemplateId = templateToken.data?.templateProjectId ?? null;
+  const launchStatus = templateToken.data?.status ?? null;
+  const updateTemplateToken = updateToken.mutate;
+  const updatingTemplateToken = updateToken.isPending;
+
+  useEffect(() => {
+    if (!launchedTemplateId) return;
+    if (!mantleDeployment?.status) return;
+
+    const nextStatus =
+      mantleDeployment.status === "live"
+        ? "live"
+        : mantleDeployment.status === "failed"
+          ? "failed"
+          : null;
+    if (!nextStatus) return;
+    if (launchStatus === nextStatus) return;
+    if (updatingTemplateToken) return;
+
+    updateTemplateToken({
+      templateId: launchedTemplateId,
+      status: nextStatus,
+    });
+  }, [
+    mantleDeployment?.status,
+    launchStatus,
+    launchedTemplateId,
+    updatingTemplateToken,
+    updateTemplateToken,
+  ]);
+
+  if (!ready || !authenticated) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader className="size-6 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-screen-lg mx-auto space-y-6">
@@ -286,7 +344,7 @@ export default function CreatorHubLaunchpadPage() {
         <div>
           <h1 className="text-2xl font-semibold">Template Token Launchpad</h1>
           <p className="text-sm text-muted-foreground">
-            Launch a token for your template on Printr (coming soon).
+            Launch a token for your template on Printr.
           </p>
         </div>
         <Button asChild variant="secondary" className="rounded-full">
@@ -393,6 +451,32 @@ export default function CreatorHubLaunchpadPage() {
               </div>
             </div>
           </div>
+
+          {walletChoices.length ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Creator wallet</Label>
+                <select
+                  className={cn(
+                    "w-full h-10 rounded-md border bg-background px-3 text-sm",
+                    !canLaunch && "opacity-60",
+                  )}
+                  value={creatorAddress}
+                  onChange={(e) => setCreatorAddress(e.target.value)}
+                  disabled={!canLaunch}
+                >
+                  {walletChoices.map((choice) => (
+                    <option key={choice.address} value={choice.address}>
+                      {shortHash(choice.address)} · {choice.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-muted-foreground">
+                  The deployment transaction must be signed by this wallet.
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {selectedTemplate ? (
             <div className="grid gap-4 md:grid-cols-2">

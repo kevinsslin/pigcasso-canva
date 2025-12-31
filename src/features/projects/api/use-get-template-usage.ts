@@ -17,7 +17,7 @@ export const useGetTemplateUsage = (
   const { ready, authenticated } = usePrivy();
 
   return useQuery<ResponseType["data"], Error>({
-    queryKey: ["templates", templateId, "usage"],
+    queryKey: ["template-usage", templateId],
     queryFn: async () => {
       const response = await client.api.templates[":id"].usage.$get({
         param: { id: templateId },
@@ -32,4 +32,3 @@ export const useGetTemplateUsage = (
     staleTime: 30_000,
   });
 };
-

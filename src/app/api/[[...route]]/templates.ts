@@ -159,6 +159,14 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
+      const [token] = await db
+        .select({
+          printrTokenId: templateTokens.printrTokenId,
+          status: templateTokens.status,
+        })
+        .from(templateTokens)
+        .where(eq(templateTokens.templateProjectId, id));
+
       const pro = template.isPro
         ? await getProStatusForUser({
             userId: auth.id,
@@ -174,6 +182,7 @@ const app = new Hono()
         data: {
           ...template,
           json: locked ? null : template.json,
+          token: token ?? null,
         },
         locked,
       });
