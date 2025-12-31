@@ -41,6 +41,14 @@ To get the basic flow working (Privy login → dashboard → editor), start with
 
 Optional features require additional keys (see `.env.example`): UploadThing, Replicate, Gemini, Unsplash.
 
+### Unsplash setup
+
+Unsplash is used only for stock image browsing in the editor. Set:
+
+- `UNSPLASH_ACCESS_KEY=...` (use the Unsplash **Access Key**)
+
+You do not need to add your Unsplash Secret key for this feature.
+
 ## Database (Drizzle)
 
 > `db:*` scripts use `bunx`, so Bun is required.

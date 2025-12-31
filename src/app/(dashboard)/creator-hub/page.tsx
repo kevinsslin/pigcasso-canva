@@ -4,8 +4,6 @@ import { Loader } from "lucide-react";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 
-import { PresetsSection } from "../presets-section";
-import { ProjectsSection } from "../projects-section";
 import { TemplatesSection } from "../templates-section";
 
 export default function CreatorHubPage() {
@@ -24,14 +22,11 @@ export default function CreatorHubPage() {
       <div>
         <h1 className="text-2xl font-semibold">Creator Hub</h1>
         <p className="text-sm text-muted-foreground">
-          Presets, templates, and your projects in one place.
+          Browse and remix templates.
         </p>
       </div>
 
-      <PresetsSection />
       <TemplatesSection />
-      <ProjectsSection />
     </div>
   );
 }
-

@@ -233,9 +233,10 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position]);
 
-  const DRAG_THRESHOLD_PX = 6;
+  const DRAG_THRESHOLD_PX = 2;
 
   const startDrag = (e: React.PointerEvent<HTMLElement>, kind: "bubble" | "header") => {
+    e.preventDefault();
     if (!containerRef.current) {
       return;
     }
@@ -512,9 +513,15 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
           onPointerCancel={onDragEnd}
-          className="rounded-full h-12 w-12 p-0 shadow-lg bg-gradient-to-br from-[#F7A9B8] via-[#FBE9E8] to-[#25D6FF] text-black hover:opacity-95 cursor-grab active:cursor-grabbing select-none touch-none"
+          className="rounded-full h-14 w-14 p-0 shadow-lg bg-white border border-border hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none touch-none"
         >
-          <Image src="/logo-pig.png" alt="Pigcasso Assistant" width={26} height={26} />
+          <Image
+            src="/logo-pig.png"
+            alt="Pigcasso Assistant"
+            width={44}
+            height={44}
+            className="rounded-full"
+          />
         </Button>
       ) : (
         <div className="w-[340px] h-[460px] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col">
