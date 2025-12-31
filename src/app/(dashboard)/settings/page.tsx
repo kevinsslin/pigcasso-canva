@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Loader, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { usePrivy } from "@privy-io/react-auth";
@@ -11,7 +10,7 @@ import { useMe } from "@/features/auth/api/use-me";
 import { useUpdateMe } from "@/features/auth/api/use-update-me";
 import { getAvatarFallbackText, getUserDisplayLabel } from "@/features/auth/lib/user-display";
 
-import { UploadButton } from "@/lib/uploadthing";
+import { uploadFiles } from "@/lib/uploadthing";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
 import { getUploadthingErrorMessage } from "@/lib/uploadthing-errors";
@@ -31,12 +30,14 @@ export default function SettingsPage() {
   const { logout } = usePrivy();
   const me = useMe({ enabled: ready && authenticated });
   const updateMe = useUpdateMe();
-  const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
   const avatarUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const initializedUserIdRef = useRef<string | null>(null);
 
   const clearAvatarUploadTimeout = () => {
     if (!avatarUploadTimeoutRef.current) return;
@@ -59,6 +60,12 @@ export default function SettingsPage() {
     if (!meUser) {
       return;
     }
+
+    if (initializedUserIdRef.current === meUser.id) {
+      return;
+    }
+
+    initializedUserIdRef.current = meUser.id;
     setName(meUser.name ?? "");
     setImage(meUser.image ?? "");
     setBio(meUser.bio ?? "");
@@ -131,6 +138,76 @@ export default function SettingsPage() {
 
   const uploadthingConfigured = integrations?.uploadthing.configured === true;
   const avatarUrl = image.trim() ? image.trim() : null;
+  const avatarUploadEnabled = uploadthingConfigured && !updateMe.isPending && !uploadingAvatar;
+
+  const onUploadAvatar = async (file: File) => {
+    if (!uploadthingConfigured) {
+      toast.error("Avatar uploads are currently unavailable.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    clearAvatarUploadTimeout();
+    toast.loading("Uploading avatar…", { id: AVATAR_UPLOAD_TOAST_ID });
+
+    avatarUploadTimeoutRef.current = setTimeout(() => {
+      toast.error("Upload is taking longer than expected. Please try again.", {
+        id: AVATAR_UPLOAD_TOAST_ID,
+        duration: 4000,
+      });
+      avatarUploadTimeoutRef.current = null;
+      setUploadingAvatar(false);
+    }, 60_000);
+
+    try {
+      const token = await getAuthToken({
+        maxWaitMs: 2000,
+        retries: 4,
+        retryDelayMs: 200,
+      });
+
+      if (!token) {
+        throw new Error("Missing auth token. Please sign in again.");
+      }
+
+      const uploaded = await uploadFiles("avatarUploader", {
+        files: [file],
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const url =
+        uploaded?.[0]?.ufsUrl ??
+        uploaded?.[0]?.url ??
+        (uploaded?.[0] as { serverData?: { url?: string } } | undefined)?.serverData?.url;
+
+      if (!url) {
+        throw new Error("Upload finished but no URL was returned.");
+      }
+
+      setImage(url);
+
+      try {
+        await updateMe.mutateAsync({ image: url });
+        toast.success("Avatar updated.", {
+          id: AVATAR_UPLOAD_TOAST_ID,
+          duration: 3000,
+        });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save avatar", {
+          id: AVATAR_UPLOAD_TOAST_ID,
+          duration: 4000,
+        });
+      }
+    } catch (err) {
+      toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "8MB" }), {
+        id: AVATAR_UPLOAD_TOAST_ID,
+        duration: 4000,
+      });
+    } finally {
+      clearAvatarUploadTimeout();
+      setUploadingAvatar(false);
+    }
+  };
 
   return (
     <div className="max-w-screen-md mx-auto space-y-6">
@@ -157,53 +234,29 @@ export default function SettingsPage() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <UploadButton
-                appearance={{
-                  button: "text-sm font-medium",
-                  allowedContent: "hidden",
-                }}
-                content={{ button: "Upload avatar" }}
-                disabled={!uploadthingConfigured || updateMe.isPending}
-                endpoint="avatarUploader"
-                headers={async () => {
-                  const token = await getAuthToken({
-                    maxWaitMs: 2000,
-                    retries: 4,
-                    retryDelayMs: 200,
-                  });
-                  const headers: Record<string, string> = token
-                    ? { Authorization: `Bearer ${token}` }
-                    : {};
-                  return headers;
-                }}
-                onUploadBegin={() => {
-                  clearAvatarUploadTimeout();
-                  toast.loading("Uploading avatar…", { id: AVATAR_UPLOAD_TOAST_ID });
-                  avatarUploadTimeoutRef.current = setTimeout(() => {
-                    toast.dismiss(AVATAR_UPLOAD_TOAST_ID);
-                    avatarUploadTimeoutRef.current = null;
-                  }, 60_000);
-                }}
-                onUploadError={(err) => {
-                  clearAvatarUploadTimeout();
-                  toast.error(getUploadthingErrorMessage(err, { maxFileSizeLabel: "8MB" }), {
-                    id: AVATAR_UPLOAD_TOAST_ID,
-                    duration: 4000,
-                  });
-                }}
-                onClientUploadComplete={async (res) => {
-                  clearAvatarUploadTimeout();
-                  const url = res?.[0]?.ufsUrl ?? res?.[0]?.url;
-                  if (url) {
-                    setImage(url);
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) {
+                    void onUploadAvatar(file);
                   }
-                  toast.success("Avatar updated.", {
-                    id: AVATAR_UPLOAD_TOAST_ID,
-                    duration: 2000,
-                  });
-                  await queryClient.invalidateQueries({ queryKey: ["me"] });
                 }}
               />
+              <Button
+                type="button"
+                variant="secondary"
+                className="text-sm font-medium"
+                disabled={!avatarUploadEnabled}
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {uploadingAvatar ? <Loader className="mr-2 size-4 animate-spin" /> : null}
+                Upload avatar
+              </Button>
               <p className="mt-2 text-xs text-muted-foreground">
                 {uploadthingConfigured
                   ? "PNG/JPG up to 8MB. You can also paste an image URL below."
