@@ -1,25 +1,16 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
-
-import { PrivyAuthCard } from "@/features/auth/components/privy-auth-card";
-
-const SignInPage = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { ready, authenticated } = usePrivy();
-
-  useEffect(() => {
-    if (ready && authenticated) {
-      const redirect = searchParams?.get("redirect");
-      const nextPath = redirect && redirect.startsWith("/") ? redirect : "/app";
-      router.replace(nextPath);
-    }
-  }, [authenticated, ready, router, searchParams]);
-
-  return <PrivyAuthCard />;
+const toSafeRedirectPath = (value: string | undefined) => {
+  if (!value) return "/app";
+  if (!value.startsWith("/")) return "/app";
+  if (value.startsWith("//")) return "/app";
+  return value;
 };
 
-export default SignInPage;
+export default function SignInPage(props: {
+  searchParams?: { redirect?: string };
+}) {
+  const nextPath = toSafeRedirectPath(props.searchParams?.redirect);
+  redirect(`/?open=1&redirect=${encodeURIComponent(nextPath)}`);
+}
+

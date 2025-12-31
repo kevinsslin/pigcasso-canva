@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
 const toSafeRedirectPath = (path: string) => {
-  if (path.startsWith("/")) return path;
+  if (path.startsWith("/") && !path.startsWith("//")) return path;
   return "/";
 };
 
@@ -16,10 +16,9 @@ export const useRequireAuth = (redirectPath: string) => {
   useEffect(() => {
     if (ready && !authenticated) {
       const safePath = toSafeRedirectPath(redirectPath);
-      router.replace(`/sign-in?redirect=${encodeURIComponent(safePath)}`);
+      router.replace(`/?open=1&redirect=${encodeURIComponent(safePath)}`);
     }
   }, [authenticated, ready, redirectPath, router]);
 
   return { ready, authenticated };
 };
-
