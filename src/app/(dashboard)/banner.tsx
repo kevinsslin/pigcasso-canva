@@ -84,16 +84,6 @@ export const Banner = () => {
                   <ArrowRight className="size-4 ml-2" />
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={mutation.isPending || transitioning}
-                onClick={() => router.push("/presentations/new")}
-                className="rounded-full px-6"
-              >
-                Generate AI slides
-                <Sparkles className="size-4 ml-2" />
-              </Button>
             </div>
           </div>
         </div>

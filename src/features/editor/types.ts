@@ -209,6 +209,7 @@ export interface Editor {
   saveSvg: () => void;
   saveJson: () => void;
   loadJson: (json: string) => void;
+  loadPage: (params: { json: string; width: number; height: number }) => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: () => boolean;

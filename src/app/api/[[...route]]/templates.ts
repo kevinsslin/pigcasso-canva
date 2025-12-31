@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 
 import { db } from "@/db/drizzle";
-import { projects, templateTokens, templateUsageEvents } from "@/db/schema";
+import { projectPages, projects, templateTokens, templateUsageEvents } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
 import { getProStatusForUser } from "@/server/token-gating";
 
@@ -159,6 +159,23 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
+      const pages = await db
+        .select({
+          id: projectPages.id,
+          projectId: projectPages.projectId,
+          index: projectPages.index,
+          name: projectPages.name,
+          json: projectPages.json,
+          width: projectPages.width,
+          height: projectPages.height,
+          thumbnailUrl: projectPages.thumbnailUrl,
+          createdAt: projectPages.createdAt,
+          updatedAt: projectPages.updatedAt,
+        })
+        .from(projectPages)
+        .where(eq(projectPages.projectId, id))
+        .orderBy(asc(projectPages.index));
+
       const [token] = await db
         .select({
           printrTokenId: templateTokens.printrTokenId,
@@ -181,7 +198,10 @@ const app = new Hono()
       return c.json({
         data: {
           ...template,
-          json: locked ? null : template.json,
+          pages: pages.map((page) => ({
+            ...page,
+            json: locked ? null : page.json,
+          })),
           token: token ?? null,
         },
         locked,
@@ -205,6 +225,12 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
+      const pages = await db
+        .select()
+        .from(projectPages)
+        .where(eq(projectPages.projectId, id))
+        .orderBy(asc(projectPages.index));
+
       if (template.isPro) {
         const pro = await getProStatusForUser({
           userId: auth.id,
@@ -222,7 +248,6 @@ const app = new Hono()
         .insert(projects)
         .values({
           name: `Remix of ${template.name}`,
-          json: template.json,
           width: template.width,
           height: template.height,
           userId: auth.id,
@@ -235,6 +260,37 @@ const app = new Hono()
       if (!created) {
         return c.json({ error: "Failed to remix" }, 400);
       }
+
+      const now = new Date();
+      const pageRows = pages.length
+        ? pages.map((page) => ({
+            ...(page.index === 0 ? { id: created.id } : {}),
+            projectId: created.id,
+            index: page.index,
+            name: page.name,
+            json: page.json,
+            width: page.width,
+            height: page.height,
+            thumbnailUrl: page.thumbnailUrl,
+            createdAt: now,
+            updatedAt: now,
+          }))
+        : [
+            {
+              id: created.id,
+              projectId: created.id,
+              index: 0,
+              name: "Page 1",
+              json: "",
+              width: created.width,
+              height: created.height,
+              thumbnailUrl: created.thumbnailUrl,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ];
+
+      await db.insert(projectPages).values(pageRows);
 
       try {
         await db.insert(templateUsageEvents).values({

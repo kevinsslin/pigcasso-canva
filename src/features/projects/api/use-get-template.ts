@@ -15,7 +15,18 @@ export type Template = {
   parentProjectId: string | null;
   publishedAt: string | null;
   updatedAt: string;
-  json: string | null;
+  pages: Array<{
+    id: string;
+    projectId: string;
+    index: number;
+    name: string | null;
+    json: string | null;
+    width: number;
+    height: number;
+    thumbnailUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   token: {
     printrTokenId: string | null;
     status: string | null;

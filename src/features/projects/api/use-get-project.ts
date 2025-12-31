@@ -7,10 +7,21 @@ import { readApiResponse } from "@/lib/api-response";
 export type Project = {
   id: string;
   name: string;
-  json: string;
   width: number;
   height: number;
   thumbnailUrl: string | null;
+  pages: Array<{
+    id: string;
+    projectId: string;
+    index: number;
+    name: string | null;
+    json: string;
+    width: number;
+    height: number;
+    thumbnailUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 };
 
 export type ResponseType = { data: Project };

@@ -9,6 +9,7 @@ interface UseLoadStateProps {
   initialState: React.MutableRefObject<string | undefined>;
   canvasHistory: React.MutableRefObject<string[]>;
   setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
+  suppressSaveRef: React.MutableRefObject<boolean>;
 };
 
 export const useLoadState = ({
@@ -17,6 +18,7 @@ export const useLoadState = ({
   initialState,
   canvasHistory,
   setHistoryIndex,
+  suppressSaveRef,
 }: UseLoadStateProps) => {
   const initialized = useRef(false);
 
@@ -24,6 +26,7 @@ export const useLoadState = ({
     if (!initialized.current && initialState?.current && canvas) {
       const data = JSON.parse(initialState.current);
 
+      suppressSaveRef.current = true;
       canvas.loadFromJSON(data, () => {
         const currentState = JSON.stringify(
           canvas.toJSON(JSON_KEYS),
@@ -32,6 +35,7 @@ export const useLoadState = ({
         canvasHistory.current = [currentState];
         setHistoryIndex(0);
         autoZoom();
+        suppressSaveRef.current = false;
       });
       initialized.current = true;
     }
@@ -42,5 +46,6 @@ export const useLoadState = ({
     initialState, // no need, this is a ref
     canvasHistory, // no need, this is a ref
     setHistoryIndex, // no need, this is a dispatch
+    suppressSaveRef,
   ]);
 };

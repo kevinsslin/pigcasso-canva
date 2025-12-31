@@ -1,8 +1,10 @@
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader, Crown } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePro } from "@/features/auth/hooks/use-pro";
+import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
 
 import { 
   ActiveTool, 
@@ -14,8 +16,6 @@ import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-hea
 import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { cn } from "@/lib/utils";
-import { client } from "@/lib/hono";
-import { readApiResponse } from "@/lib/api-response";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -30,11 +30,13 @@ export const TemplateSidebar = ({
   activeTool,
   onChangeActiveTool,
 }: TemplateSidebarProps) => {
+  const router = useRouter();
   const { isPro } = usePro();
+  const remix = useRemixTemplate({ toast: false });
 
   const [ConfirmDialog, confirm] = useConfirm(
     "Are you sure?",
-    "You are about to replace the current project with this template."
+    "This will create a new project from the template and open it in the editor."
   )
 
   const { data, isLoading, isError, error } = useGetTemplates({
@@ -55,29 +57,17 @@ export const TemplateSidebar = ({
     const ok = await confirm();
 
     if (ok) {
-      const response = await client.api.templates[":id"].$get({
-        param: { id: template.id },
-      });
-
-      let body: { data: { json?: string | null } };
-      try {
-        body = await readApiResponse(response, ({ status }) =>
-          status === 403
-            ? "Pro template locked. Hold 100,000 PIGCASSO to unlock Pro."
-            : "Failed to load template",
-        );
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to load template");
-        return;
-      }
-
-      const { data } = body;
-      if (!data.json) {
-        toast.error("Pro template locked. Hold 100,000 PIGCASSO to unlock Pro.");
-        return;
-      }
-
-      editor?.loadJson(data.json);
+      remix.mutate(
+        { id: template.id },
+        {
+          onSuccess: ({ data: created }) => {
+            router.push(`/editor/${created.id}`);
+          },
+          onError: (error) => {
+            toast.error(error.message || "Failed to remix template");
+          },
+        },
+      );
     }
   };
 

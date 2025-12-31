@@ -34,7 +34,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
   nftCollections: many(nftCollections),
   nftAssets: many(nftAssets),
-  presentationDecks: many(presentationDecks),
 }));
 
 export const projects = pgTable("project", {
@@ -47,7 +46,6 @@ export const projects = pgTable("project", {
     .references(() => users.id, {
       onDelete: "cascade",
     }),
-  json: text("json").notNull(),
   height: integer("height").notNull(),
   width: integer("width").notNull(),
   thumbnailUrl: text("thumbnailUrl"),
@@ -66,10 +64,44 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.userId],
     references: [users.id],
   }),
+  pages: many(projectPages),
   nftAssets: many(nftAssets),
 }));
 
 export const projectsInsertSchema = createInsertSchema(projects);
+
+export const projectPages = pgTable(
+  "project_page",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("projectId")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    index: integer("index").notNull(),
+    name: text("name"),
+    json: text("json").notNull(),
+    height: integer("height").notNull(),
+    width: integer("width").notNull(),
+    thumbnailUrl: text("thumbnailUrl"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    projectIndexUnique: uniqueIndex("project_page_project_index_unique").on(
+      table.projectId,
+      table.index,
+    ),
+  }),
+);
+
+export const projectPagesRelations = relations(projectPages, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectPages.projectId],
+    references: [projects.id],
+  }),
+}));
 
 export const nftCollections = pgTable(
   "nft_collection",
@@ -116,6 +148,9 @@ export const nftAssets = pgTable(
     projectId: text("projectId")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
+    projectPageId: text("projectPageId").references(() => projectPages.id, {
+      onDelete: "set null",
+    }),
     chainId: integer("chainId").notNull().default(MANTLE_CHAIN_ID),
     collectionId: text("collectionId").references(() => nftCollections.id, {
       onDelete: "set null",
@@ -148,6 +183,10 @@ export const nftAssetsRelations = relations(nftAssets, ({ one }) => ({
   project: one(projects, {
     fields: [nftAssets.projectId],
     references: [projects.id],
+  }),
+  projectPage: one(projectPages, {
+    fields: [nftAssets.projectPageId],
+    references: [projectPages.id],
   }),
   collection: one(nftCollections, {
     fields: [nftAssets.collectionId],
@@ -255,64 +294,3 @@ export const templateUsageEventsRelations = relations(
     }),
   }),
 );
-
-export const presentationDecks = pgTable("presentation_deck", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  prompt: text("prompt").notNull(),
-  spec: text("spec").notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
-});
-
-export const presentationDecksRelations = relations(presentationDecks, ({ one, many }) => ({
-  user: one(users, {
-    fields: [presentationDecks.userId],
-    references: [users.id],
-  }),
-  slides: many(presentationSlides),
-}));
-
-export const presentationSlides = pgTable(
-  "presentation_slide",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    deckId: text("deckId")
-      .notNull()
-      .references(() => presentationDecks.id, { onDelete: "cascade" }),
-    projectId: text("projectId")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    index: integer("index").notNull(),
-    title: text("title").notNull(),
-    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => ({
-    deckIndexUnique: uniqueIndex("presentation_slide_deck_index_unique").on(
-      table.deckId,
-      table.index,
-    ),
-    deckProjectUnique: uniqueIndex("presentation_slide_deck_project_unique").on(
-      table.deckId,
-      table.projectId,
-    ),
-  }),
-);
-
-export const presentationSlidesRelations = relations(presentationSlides, ({ one }) => ({
-  deck: one(presentationDecks, {
-    fields: [presentationSlides.deckId],
-    references: [presentationDecks.id],
-  }),
-  project: one(projects, {
-    fields: [presentationSlides.projectId],
-    references: [projects.id],
-  }),
-}));

@@ -43,6 +43,13 @@
       "when": 1767207550485,
       "tag": "0005_ancient_ultron",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1767212151091,
+      "tag": "0006_project_pages",
+      "breakpoints": true
     }
   ]
 }

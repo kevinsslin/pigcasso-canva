@@ -282,8 +282,8 @@ export default function LandingPage() {
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
                   A modern canvas built for creators: presets for X/Discord/Telegram,
-                  AI-generated slide decks, Gemini-powered generation, and a Pigcasso
-                  assistant that drafts edits before you apply them.
+                  multi-page designs (Canva-style), Gemini-powered generation, and a
+                  Pigcasso assistant that drafts edits before you apply them.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
@@ -296,15 +296,6 @@ export default function LandingPage() {
                     <Brush className="mr-2 size-5" />
                     Start creating
                     <ArrowRight className="ml-2 size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="rounded-2xl px-8 py-6 text-base"
-                    onClick={() => void openApp("/presentations/new")}
-                  >
-                    <LayoutDashboard className="mr-2 size-5" />
-                    Generate AI slides
                   </Button>
                 </div>
 

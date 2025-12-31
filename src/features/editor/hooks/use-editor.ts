@@ -33,6 +33,8 @@ import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
 import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 
+type BaseEditor = Omit<Editor, "loadPage">;
+
 const buildEditor = ({
   save,
   undo,
@@ -54,7 +56,7 @@ const buildEditor = ({
   selectedObjects,
   strokeDashArray,
   setStrokeDashArray,
-}: BuildEditorProps): Editor => {
+}: BuildEditorProps): BaseEditor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
 
@@ -633,6 +635,7 @@ export const useEditor = ({
   const initialState = useRef(defaultState);
   const initialWidth = useRef(defaultWidth);
   const initialHeight = useRef(defaultHeight);
+  const suppressSaveRef = useRef(false);
 
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -667,7 +670,10 @@ export const useEditor = ({
   });
 
   useCanvasEvents({
-    save,
+    save: () => {
+      if (suppressSaveRef.current) return;
+      save();
+    },
     canvas,
     setSelectedObjects,
     clearSelectionCallback,
@@ -688,11 +694,12 @@ export const useEditor = ({
     initialState,
     canvasHistory,
     setHistoryIndex,
+    suppressSaveRef,
   });
 
   const editor = useMemo(() => {
     if (canvas) {
-      return buildEditor({
+      const base = buildEditor({
         save,
         undo,
         redo,
@@ -714,6 +721,62 @@ export const useEditor = ({
         fontFamily,
         setFontFamily,
       });
+
+      return {
+        ...base,
+        loadPage: (params: { json: string; width: number; height: number }) => {
+          suppressSaveRef.current = true;
+
+          const loadBlank = () => {
+            canvas.clear();
+            const workspace = new fabric.Rect({
+              width: params.width,
+              height: params.height,
+              name: "clip",
+              fill: "white",
+              selectable: false,
+              hasControls: false,
+              shadow: new fabric.Shadow({
+                color: "rgba(0,0,0,0.8)",
+                blur: 5,
+              }),
+            });
+
+            canvas.add(workspace);
+            canvas.centerObject(workspace);
+            canvas.clipPath = workspace;
+            canvas.renderAll();
+
+            const currentState = JSON.stringify(canvas.toJSON(JSON_KEYS));
+            canvasHistory.current = [currentState];
+            setHistoryIndex(0);
+            autoZoom();
+            suppressSaveRef.current = false;
+          };
+
+          const trimmed = params.json.trim();
+          if (!trimmed) {
+            loadBlank();
+            return;
+          }
+
+          let data: unknown;
+          try {
+            data = JSON.parse(trimmed);
+          } catch {
+            loadBlank();
+            return;
+          }
+
+          canvas.loadFromJSON(data, () => {
+            const currentState = JSON.stringify(canvas.toJSON(JSON_KEYS));
+            canvasHistory.current = [currentState];
+            setHistoryIndex(0);
+            autoZoom();
+            suppressSaveRef.current = false;
+          });
+        },
+      };
     }
 
     return undefined;
@@ -734,6 +797,8 @@ export const useEditor = ({
     selectedObjects,
     strokeDashArray,
     fontFamily,
+    canvasHistory,
+    setHistoryIndex,
   ]);
 
   const init = useCallback(
