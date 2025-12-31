@@ -32,6 +32,22 @@ export const extractBodyErrorMessage = (body: unknown): string | null => {
   }
   const record = body as Record<string, unknown>;
 
+  const extractIssues = (value: unknown): string | null => {
+    if (!Array.isArray(value)) {
+      return null;
+    }
+    for (const item of value) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const message = (item as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim().length > 0) {
+        return message.trim();
+      }
+    }
+    return null;
+  };
+
   const directError = record.error;
   if (typeof directError === "string" && directError.trim().length > 0) {
     return directError;
@@ -39,6 +55,11 @@ export const extractBodyErrorMessage = (body: unknown): string | null => {
 
   if (directError && typeof directError === "object") {
     const errorRecord = directError as Record<string, unknown>;
+    const issuesMessage = extractIssues(errorRecord.issues);
+    if (issuesMessage) {
+      return issuesMessage;
+    }
+
     const message = errorRecord.message;
     if (typeof message === "string" && message.trim().length > 0) {
       return message;
@@ -53,6 +74,11 @@ export const extractBodyErrorMessage = (body: unknown): string | null => {
     if (typeof title === "string" && title.trim().length > 0) {
       return title;
     }
+  }
+
+  const topLevelIssues = extractIssues(record.issues);
+  if (topLevelIssues) {
+    return topLevelIssues;
   }
 
   const message = record.message;

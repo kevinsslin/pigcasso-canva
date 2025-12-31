@@ -15,6 +15,50 @@ const normalizeType = (type: string | undefined | null) => {
   return type;
 };
 
+const normalizeFontWeight = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    const parsed = Number.parseInt(trimmed, 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+    if (trimmed === "normal") return 400;
+    if (trimmed === "bold") return 700;
+    if (trimmed === "bolder") return 800;
+    if (trimmed === "lighter") return 300;
+  }
+  return null;
+};
+
+const MAX_SNAPSHOT_TEXT = 500;
+const MAX_SNAPSHOT_URL = 500;
+
+const sanitizeText = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_SNAPSHOT_TEXT
+    ? trimmed.slice(0, MAX_SNAPSHOT_TEXT)
+    : trimmed;
+};
+
+const sanitizeSrc = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) {
+    return null;
+  }
+  if (trimmed.length > MAX_SNAPSHOT_URL) {
+    return null;
+  }
+  return trimmed;
+};
+
 const getWorkspace = (canvas: fabric.Canvas) => {
   const workspace = canvas
     .getObjects()
@@ -99,40 +143,77 @@ export const buildCanvasSnapshot = (editor: Editor): CanvasSnapshot => {
   const background = typeof workspace.fill === "string" ? workspace.fill : null;
 
   const objects = getNonWorkspaceObjects(editor.canvas).map((obj, index) => {
-    const type = obj.type ?? "unknown";
-    const text = isTextObject(obj) ? ((obj as fabric.Textbox).text ?? null) : null;
-    const src = obj.type === "image" ? ((obj as fabric.Image).getSrc() ?? null) : null;
-
-    return {
+    const spec: CanvasSnapshot["objects"][number] = {
       id: `o${index}`,
       index,
-      type,
-      name: typeof obj.name === "string" ? obj.name : null,
-      text: typeof text === "string" && text.trim() ? text : null,
-      src,
-      left: typeof obj.left === "number" ? obj.left : null,
-      top: typeof obj.top === "number" ? obj.top : null,
-      width: typeof obj.width === "number" ? obj.width : null,
-      height: typeof obj.height === "number" ? obj.height : null,
-      scaleX: typeof obj.scaleX === "number" ? obj.scaleX : null,
-      scaleY: typeof obj.scaleY === "number" ? obj.scaleY : null,
-      angle: typeof obj.angle === "number" ? obj.angle : null,
-      fill: typeof (obj as unknown as { fill?: unknown }).fill === "string"
-        ? ((obj as unknown as { fill: string }).fill ?? null)
-        : null,
-      fontSize: isTextObject(obj)
-        ? (((obj as fabric.Textbox).fontSize as number | undefined) ?? null)
-        : null,
-      fontWeight: isTextObject(obj)
-        ? (((obj as fabric.Textbox).fontWeight as number | undefined) ?? null)
-        : null,
-      fontFamily: isTextObject(obj)
-        ? (((obj as fabric.Textbox).fontFamily as string | undefined) ?? null)
-        : null,
-      textAlign: isTextObject(obj)
-        ? (((obj as fabric.Textbox).textAlign as string | undefined) ?? null)
-        : null,
+      type: obj.type ?? "unknown",
     };
+
+    if (typeof obj.name === "string" && obj.name.trim()) {
+      spec.name = obj.name.trim().slice(0, 64);
+    }
+
+    const text = isTextObject(obj) ? sanitizeText((obj as fabric.Textbox).text) : null;
+    if (text) {
+      spec.text = text;
+    }
+
+    const src = obj.type === "image" ? sanitizeSrc((obj as fabric.Image).getSrc()) : null;
+    if (src) {
+      spec.src = src;
+    }
+
+    if (typeof obj.left === "number" && Number.isFinite(obj.left)) {
+      spec.left = obj.left;
+    }
+    if (typeof obj.top === "number" && Number.isFinite(obj.top)) {
+      spec.top = obj.top;
+    }
+    if (typeof obj.width === "number" && Number.isFinite(obj.width)) {
+      spec.width = obj.width;
+    }
+    if (typeof obj.height === "number" && Number.isFinite(obj.height)) {
+      spec.height = obj.height;
+    }
+    if (typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX)) {
+      spec.scaleX = obj.scaleX;
+    }
+    if (typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY)) {
+      spec.scaleY = obj.scaleY;
+    }
+    if (typeof obj.angle === "number" && Number.isFinite(obj.angle)) {
+      spec.angle = obj.angle;
+    }
+
+    const fill = (obj as unknown as { fill?: unknown }).fill;
+    if (typeof fill === "string" && fill.trim()) {
+      spec.fill = fill.trim().slice(0, 64);
+    }
+
+    if (isTextObject(obj)) {
+      const textbox = obj as fabric.Textbox;
+      const fontSize = textbox.fontSize;
+      if (typeof fontSize === "number" && Number.isFinite(fontSize)) {
+        spec.fontSize = fontSize;
+      }
+
+      const fontWeight = normalizeFontWeight(textbox.fontWeight);
+      if (fontWeight !== null) {
+        spec.fontWeight = fontWeight;
+      }
+
+      const fontFamily = textbox.fontFamily;
+      if (typeof fontFamily === "string" && fontFamily.trim()) {
+        spec.fontFamily = fontFamily.trim().slice(0, 64);
+      }
+
+      const textAlign = textbox.textAlign;
+      if (typeof textAlign === "string" && textAlign.trim()) {
+        spec.textAlign = textAlign.trim().slice(0, 16);
+      }
+    }
+
+    return spec;
   });
 
   return {
