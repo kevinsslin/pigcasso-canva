@@ -60,7 +60,7 @@ export default function TemplatePage({
           This template may have been unpublished or the link is invalid.
         </p>
         <div className="mt-6">
-          <Button variant="secondary" onClick={() => router.push("/")}>
+          <Button variant="secondary" onClick={() => router.push("/app")}>
             Back to dashboard
           </Button>
         </div>

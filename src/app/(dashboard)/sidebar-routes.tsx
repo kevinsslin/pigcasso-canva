@@ -62,7 +62,7 @@ export const SidebarRoutes = () => {
         </>
       )}
       <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem href="/" icon={Home} label="Home" isActive={pathname === "/"} />
+        <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} />
         <SidebarItem
           href="/creator-hub"
           icon={LayoutGrid}

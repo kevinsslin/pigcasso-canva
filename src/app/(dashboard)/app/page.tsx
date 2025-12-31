@@ -4,12 +4,12 @@ import { Loader } from "lucide-react";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 
-import { Banner } from "./banner";
-import { PresetsSection } from "./presets-section";
-import { ProjectsSection } from "./projects-section";
+import { Banner } from "../banner";
+import { PresetsSection } from "../presets-section";
+import { ProjectsSection } from "../projects-section";
 
-export default function Home() {
-  const { ready, authenticated } = useRequireAuth("/");
+export default function AppHomePage() {
+  const { ready, authenticated } = useRequireAuth("/app");
 
   if (!ready || !authenticated) {
     return (
@@ -26,4 +26,5 @@ export default function Home() {
       <ProjectsSection />
     </div>
   );
-};
+}
+

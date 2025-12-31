@@ -14,7 +14,7 @@ const SignInPage = () => {
   useEffect(() => {
     if (ready && authenticated) {
       const redirect = searchParams?.get("redirect");
-      const nextPath = redirect && redirect.startsWith("/") ? redirect : "/";
+      const nextPath = redirect && redirect.startsWith("/") ? redirect : "/app";
       router.replace(nextPath);
     }
   }, [authenticated, ready, router, searchParams]);

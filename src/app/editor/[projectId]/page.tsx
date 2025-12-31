@@ -43,7 +43,7 @@ const EditorProjectIdPage = ({
           {error?.message || "Failed to fetch project"}
         </p>
         <Button asChild variant="secondary">
-          <Link href="/">
+          <Link href="/app">
             Back to Home
           </Link>
         </Button>

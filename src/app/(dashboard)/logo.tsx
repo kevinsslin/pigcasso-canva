@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export const Logo = () => {
   return (
-    <Link href="/">
+    <Link href="/app">
       <div className="flex items-center gap-x-3 hover:opacity-90 transition h-[68px] px-5">
         <div className="size-10 rounded-full bg-gradient-to-tr from-primary to-cyan-400 flex items-center justify-center overflow-hidden shadow-lg">
           <Image src="/logo-pig.png" alt="Pigcasso" width={40} height={40} />

@@ -59,6 +59,11 @@ const config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        soft: "0 4px 20px -2px rgb(0 0 0 / 0.05)",
+        glow: "0 0 18px hsl(var(--primary) / 0.25)",
+        neon: "0 0 20px rgb(34 211 238 / 0.25)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

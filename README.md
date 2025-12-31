@@ -29,6 +29,9 @@ bun dev
 
 Open `http://localhost:3000`.
 
+- Public landing page: `/`
+- App (requires Privy auth): `/app`
+
 ### Minimal `.env.local`
 
 To get the basic flow working (Privy login → dashboard → editor), start with:
