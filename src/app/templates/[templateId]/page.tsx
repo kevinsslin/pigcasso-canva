@@ -8,7 +8,10 @@ import { toast } from "sonner";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useGetTemplate } from "@/features/projects/api/use-get-template";
+import { useGetTemplateUsage } from "@/features/projects/api/use-get-template-usage";
 import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
+import { useGetTemplateToken } from "@/features/printr/api/use-get-template-token";
+import { useGetPrintrDeployments } from "@/features/printr/api/use-get-printr-deployments";
 
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +32,14 @@ export default function TemplatePage({
   const templateQuery = useGetTemplate(params.templateId, {
     enabled: ready && authenticated,
   });
+  const usage = useGetTemplateUsage(params.templateId, {
+    enabled: ready && authenticated,
+  });
   const remix = useRemixTemplate();
+  const token = useGetTemplateToken(params.templateId, { enabled: ready && authenticated });
+  const deployments = useGetPrintrDeployments(token.data?.printrTokenId ?? null, {
+    enabled: Boolean(token.data?.txHash),
+  });
 
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -70,6 +80,9 @@ export default function TemplatePage({
 
   const data = templateQuery.data.data;
   const locked = templateQuery.data.locked ?? false;
+  const printrTokenId = token.data?.printrTokenId ?? null;
+  const mantleDeployment = deployments.data?.deployments?.find((d) => d.chain_id === "eip155:5000") ?? null;
+  const remixCount = usage.data?.remixCount ?? null;
 
   const onRemix = () => {
     remix.mutate(
@@ -99,6 +112,12 @@ export default function TemplatePage({
           <h1 className="text-2xl font-semibold">{data.name}</h1>
           <div className="text-sm text-muted-foreground mt-1">
             {data.width}×{data.height}
+            {typeof remixCount === "number" ? (
+              <>
+                {" "}
+                · {remixCount} remix{remixCount === 1 ? "" : "es"}
+              </>
+            ) : null}
             {data.creatorWallet ? (
               <>
                 {" "}
@@ -152,6 +171,61 @@ export default function TemplatePage({
         ) : (
           <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
             No preview available
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border p-4 space-y-2">
+        <div className="text-sm font-medium">Template Token</div>
+        {printrTokenId ? (
+          <>
+            <div className="text-xs text-muted-foreground break-all">
+              Token ID: <span className="font-mono">{printrTokenId}</span>
+            </div>
+            {token.data?.status ? (
+              <div className="text-xs text-muted-foreground">
+                Status: {token.data.status}
+              </div>
+            ) : null}
+            {mantleDeployment?.contract_address ? (
+              <div className="text-xs text-muted-foreground">
+                Contract:{" "}
+                <a
+                  className="underline font-mono"
+                  href={`https://explorer.mantle.xyz/address/${mantleDeployment.contract_address}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {mantleDeployment.contract_address}
+                </a>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button asChild variant="secondary">
+                <a
+                  href={`https://printr.money/token/${encodeURIComponent(printrTokenId)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View on Printr
+                </a>
+              </Button>
+              {mantleDeployment?.contract_address ? (
+                <Button asChild variant="outline">
+                  <a
+                    href={`https://explorer.mantle.xyz/address/${mantleDeployment.contract_address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View on explorer
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            No token launched for this template yet.
           </div>
         )}
       </div>

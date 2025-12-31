@@ -176,3 +176,81 @@ export const aiDailyUsage = pgTable(
     ),
   }),
 );
+
+export const templateTokens = pgTable(
+  "template_token",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    templateProjectId: text("templateProjectId")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    creatorUserId: text("creatorUserId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    printrTokenId: text("printrTokenId").notNull(),
+    creatorAccount: text("creatorAccount").notNull(),
+    name: text("name").notNull(),
+    symbol: text("symbol").notNull(),
+    description: text("description").notNull(),
+    imageUrl: text("imageUrl"),
+    externalLinks: text("externalLinks"),
+    chains: text("chains").notNull(),
+    initialBuy: text("initialBuy").notNull(),
+    quote: text("quote").notNull(),
+    payload: text("payload").notNull(),
+    status: text("status").notNull().default("created"),
+    txHash: text("txHash"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    templateUnique: uniqueIndex("template_token_template_unique").on(
+      table.templateProjectId,
+    ),
+    printrTokenUnique: uniqueIndex("template_token_printr_token_unique").on(
+      table.printrTokenId,
+    ),
+  }),
+);
+
+export const templateTokensRelations = relations(templateTokens, ({ one }) => ({
+  template: one(projects, {
+    fields: [templateTokens.templateProjectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [templateTokens.creatorUserId],
+    references: [users.id],
+  }),
+}));
+
+export const templateUsageEvents = pgTable("template_usage_event", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  templateProjectId: text("templateProjectId")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  metadata: text("metadata"),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+});
+
+export const templateUsageEventsRelations = relations(
+  templateUsageEvents,
+  ({ one }) => ({
+    template: one(projects, {
+      fields: [templateUsageEvents.templateProjectId],
+      references: [projects.id],
+    }),
+    user: one(users, {
+      fields: [templateUsageEvents.userId],
+      references: [users.id],
+    }),
+  }),
+);

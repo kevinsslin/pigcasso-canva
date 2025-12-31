@@ -77,12 +77,13 @@
 
 我們把 template 變成可交易的 asset，並透過 Printr 作為 launchpad/市場，提供「內外盤」與 meme/現金流敘事：
 
-- [ ] Template Token：每個 template/creator 可 launch 一個 fungible token（在 Printr）
+- [x] Template Token：每個 template/creator 可 launch 一個 fungible token（在 Printr）
 - [ ] 交易市場（Printr）：提供價格發現（內外盤、volume、holders、chart）+ 基礎交易/資訊呈現
 - [ ] Stake-to-Use / Pay-to-Use：用戶要使用 template 需 stake token（解鎖/折抵/credits）或直接付費（roadmap）
-- [ ] Usage → Cashflow：記錄 template 使用事件與現金流（off-chain 先做），回饋給 creator 與 token 敘事（roadmap）
-- [ ] Creator Launch Flow：Creator Hub 內發起 launch（連接 Printr API；UI 先做 Coming soon）
-- [ ] Template Directory：模板列表顯示 token 資訊（價格/持有人/使用量等；UI 先做 Coming soon）
+- [x] Usage events：記錄 template 使用事件（Phase 1 先記 `remix`）
+- [ ] Usage → Cashflow：把 usage events 轉成可定價/可分潤的現金流敘事（roadmap）
+- [x] Creator Launch Flow：Creator Hub 內發起 launch（連接 Printr API）
+- [x] Template Directory：模板列表/詳情顯示 token 資訊（token id + deployments；價格/持有人待 Printr API）
 
 ---
 
@@ -373,22 +374,22 @@ MVP 不做付費與分潤，只做：
 
 - 目前 templates 其實是 `project.isTemplate=true`；建議擴充 `project` 加上 `isPublicTemplate`、`parentProjectId`、`creatorWallet` 之類欄位，或新增一張 `templates` 表（視工期選最短路徑）。
 
-### 7.7 Launchpad 整合（Printr）（Roadmap）
+### 7.7 Launchpad 整合（Printr）
 
-Hackathon MVP 先不做 Printr 的「實際交易/launch」；但 PRD 需要先把概念與 user flow 設計清楚，避免後續重構。
+Phase 1 已支援 Printr 的 token 建立與部署流程（quote → create → sign tx → deployments status），但不包含 trading/market data UI（待 Printr API 擴充）。
 
 Printr 在本產品中的定位（兩條線）：
 
 1. **Launch Kit（Design Pack）**：把設計輸出成可以直接給 Launchpad 專案使用的「Launch Kit Pack」（尺寸、檔名、欄位結構），並可對接 Printr 專案資料（ticker、時間、連結）。
 2. **Template Token Launchpad**：Creator 可把 template 資產 launch 成 token，讓市場用「meme + 使用現金流」去 price discovery；用戶使用 template 時可 stake token 或付費。
 
-MVP 實作策略（best practice）：
+實作策略（best practice）：
 
-- UI 可以先出「Coming soon」入口，避免把「缺少環境」曝露給 user。
-- 任何交易/launch 都必須透過 Printr（我們不自建 AMM）；本 repo 只做：
-  - template 資產化的資料模型（metadata、usage events）
+- UI：Creator Hub 提供 Launchpad；若 Printr 未配置則顯示「暫時不可用」（不暴露缺少環境細節）
+- 任何交易/launch 都必須透過 Printr（我們不自建 AMM）；本 repo 專注在：
+  - template 資產化資料模型（`template_token`、`template_usage_event`）
   - Printr API 的安全 server-side proxy（避免把 key 放在 client）
-  - gating/credits UX（stake-to-use 先做 stub）
+  - stake-to-use / pay-to-use 的 policy 入口（先做 UX stub，等待合約/API）
 
 ---
 
@@ -568,7 +569,7 @@ Phase 2（上鏈）可選方向（擇一）：
 
 最小落地（Phase 1 / Phase 2）：
 
-- Phase 1（先做）：UI + 資料管線（usage events）+ Printr integration stub（Coming soon）
+- Phase 1（已完成）：UI + 資料管線（usage events）+ Printr integration（quote/create/sign/poll）
 - Phase 2（再做）：stake-to-use + credits + 付費/分潤（需對齊 Printr API / 合約）
 
 需要跟產品/Printr 對齊的關鍵問題（待定）：
@@ -633,5 +634,5 @@ Phase 2（上鏈）可選方向（擇一）：
 - AI 用量：Free（Generate 5/day、Remove BG 5/day）；Pro 額度可調
 - AI provider：Gemini-only（不讓 user 選 provider）
 - Template hub：所有互動都要求 Privy login（free mode 也一樣）
-- Printr：放 roadmap（MVP UI 不出現）
-- Printr（Template Token Launchpad）：MVP 先出入口與敘事（Coming soon），實際 launch/交易待 Printr API 與合約規格對齊後上線
+- Printr：Creator Hub 內提供 Launchpad（Pro-gated），並透過 server-side proxy 保護 API token
+- Printr（Template Token Launchpad）：Phase 1 已支援 quote/create/sign/poll；交易/市場資訊待 Printr API 擴充後上線

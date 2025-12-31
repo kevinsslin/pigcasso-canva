@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Crown } from "lucide-react";
+import { Coins, Crown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ interface TemplateCardProps {
   width: number;
   height: number;
   isPro: boolean | null;
+  hasToken?: boolean;
 };
 
 export const TemplateCard = ({
@@ -23,6 +24,7 @@ export const TemplateCard = ({
   height,
   width,
   isPro,
+  hasToken,
 }: TemplateCardProps) => {
   return (
     <button
@@ -52,6 +54,11 @@ export const TemplateCard = ({
             <Crown className="size-5 fill-yellow-500 text-yellow-500" />
           </div>
         )}
+        {hasToken ? (
+          <div className="absolute top-2 left-2 h-10 w-10 flex items-center justify-center bg-black/50 rounded-full z-10">
+            <Coins className="size-5 text-white" />
+          </div>
+        ) : null}
         <div className="opacity-0 group-hover:opacity-100 transition absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl backdrop-filter backdrop-blur-sm">
           <p className="text-white font-medium">
             Open in editor

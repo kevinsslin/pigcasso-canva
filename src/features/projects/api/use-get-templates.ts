@@ -16,6 +16,10 @@ export type TemplateListItem = {
   parentProjectId: string | null;
   publishedAt: string | null;
   updatedAt: string | null;
+  token: {
+    printrTokenId: string | null;
+    status: string | null;
+  };
 };
 
 export type ResponseType = {

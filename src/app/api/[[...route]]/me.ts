@@ -9,6 +9,7 @@ import { requireAuth } from "@/server/hono-auth";
 import { getAiLimitsForUser, getAiUsageRowForToday } from "@/server/ai-usage";
 import { getProStatusForUser } from "@/server/token-gating";
 import { hasUnsplashConfigured } from "@/lib/unsplash";
+import { hasPrintrConfigured } from "@/server/printr";
 
 const updateMeSchema = z
   .object({
@@ -70,6 +71,9 @@ const app = new Hono()
           },
           unsplash: {
             configured: hasUnsplashConfigured(),
+          },
+          printr: {
+            configured: hasPrintrConfigured(),
           },
         },
         pro,

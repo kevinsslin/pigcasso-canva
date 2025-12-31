@@ -26,6 +26,9 @@ export type ResponseType = {
       unsplash: {
         configured: boolean;
       };
+      printr: {
+        configured: boolean;
+      };
     };
     pro: {
       isPro: boolean;

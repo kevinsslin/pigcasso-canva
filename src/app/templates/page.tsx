@@ -82,6 +82,7 @@ export default function TemplatesIndexPage() {
               width={template.width}
               height={template.height}
               isPro={template.isPro}
+              hasToken={Boolean(template.token?.printrTokenId)}
             />
           ))}
         </div>

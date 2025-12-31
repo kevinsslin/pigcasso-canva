@@ -127,6 +127,7 @@ export const TemplatesSection = () => {
             width={template.width}
             height={template.height}
             isPro={template.isPro}
+            hasToken={Boolean(template.token?.printrTokenId)}
           />
         ))}
       </div>
