@@ -57,14 +57,15 @@
 
 ### V2（Web3-native：內容資產 / 一鍵上鏈 NFT）
 
-- [ ] Export as Asset：把 design（PNG + source JSON + metadata）打包成可上鏈資產
+- [x] Export as Asset：把 design（PNG + source JSON + metadata）打包成可上鏈資產
 - [ ] NFT 管理頁面（Creator/Collector dashboard）
-  - [x] `/nfts`：NFT 入口（Assets/Collections 統一資訊架構；目前 Coming soon）
+  - [x] `/nfts`：NFT 入口（Assets/Collections 統一資訊架構）
   - [ ] `/nfts/assets/:id`：NFT 詳情（預覽、metadata、provenance、remix lineage、操作：view on explorer、refresh、re-mint）
   - [ ] `/nfts/collections/:id`（若採用 factory）：collection/series 詳情與管理
   - [ ] Mint 偏好設定：不分 Web2/Web3，整合在 `/settings`（Account / Preferences）
-- [ ] IPFS：上傳 image + metadata + source（可選 pinning provider）
-- [ ] One-click Mint：Editor 內一鍵鑄造 NFT（預設 Mint 到 Privy embedded wallet，可選 external）
+- [x] IPFS：上傳 image + metadata + source（Pinata JWT）
+- [x] One-click Mint：Editor 內一鍵鑄造 NFT（預設 Mint 到 Privy embedded wallet，可選 external）
+- [x] Factory pattern：獨立 `pigcasso-nft-factory` repo（Foundry + tests + deploy script）
 - [ ] Provenance：creator / parent template / remix lineage 上鏈或可驗證（含 attribution）
 - [ ] Royalties / licensing：版權條款、授權模式、royalty 設定（先 off-chain，再上鏈）
 - [ ] Launchpad：把「一鍵 mint」延伸成 Pigcasso NFT launchpad / creator hub

@@ -10,6 +10,7 @@ import { getAiLimitsForUser, getAiUsageRowForToday } from "@/server/ai-usage";
 import { getProStatusForUser } from "@/server/token-gating";
 import { hasUnsplashConfigured } from "@/lib/unsplash";
 import { hasPrintrConfigured } from "@/server/printr";
+import { hasIpfsConfigured } from "@/server/ipfs";
 
 const updateMeSchema = z
   .object({
@@ -74,6 +75,9 @@ const app = new Hono()
           },
           printr: {
             configured: hasPrintrConfigured(),
+          },
+          ipfs: {
+            configured: hasIpfsConfigured(),
           },
         },
         pro,

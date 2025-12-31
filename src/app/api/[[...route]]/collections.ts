@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftCollections } from "@/db/schema";
@@ -89,6 +89,47 @@ const app = new Hono()
       }
 
       return c.json({ data: created });
+    },
+  )
+  .patch(
+    "/:id",
+    requireAuth,
+    zValidator("param", z.object({ id: z.string().min(1) })),
+    zValidator(
+      "json",
+      z
+        .object({
+          address: z
+            .string()
+            .trim()
+            .regex(/^0x[0-9a-fA-F]{40}$/, "Invalid address")
+            .optional(),
+          contractUri: z.string().trim().url().nullable().optional(),
+        })
+        .refine((value) => Object.keys(value).length > 0, {
+          message: "No changes provided",
+        }),
+    ),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { id } = c.req.valid("param");
+      const values = c.req.valid("json");
+
+      const [updated] = await db
+        .update(nftCollections)
+        .set({
+          ...(values.address !== undefined ? { address: values.address } : {}),
+          ...(values.contractUri !== undefined ? { contractUri: values.contractUri } : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(nftCollections.id, id), eq(nftCollections.userId, auth.id)))
+        .returning();
+
+      if (!updated) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      return c.json({ data: updated });
     },
   );
 

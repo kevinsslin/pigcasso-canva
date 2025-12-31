@@ -4,9 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
-import { nftAssets, projects } from "@/db/schema";
+import { nftAssets, projectPages, projects } from "@/db/schema";
 import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
+import { HttpError } from "@/server/http-error";
+import { hasIpfsConfigured, pinFileFromUrlToIpfs, pinJsonToIpfs } from "@/server/ipfs";
 
 const app = new Hono()
   .get(
@@ -27,6 +29,7 @@ const app = new Hono()
         .select({
           id: nftAssets.id,
           projectId: nftAssets.projectId,
+          projectPageId: nftAssets.projectPageId,
           chainId: nftAssets.chainId,
           status: nftAssets.status,
           collectionAddress: nftAssets.collectionAddress,
@@ -40,9 +43,13 @@ const app = new Hono()
           updatedAt: nftAssets.updatedAt,
           projectName: projects.name,
           projectThumbnailUrl: projects.thumbnailUrl,
+          pageIndex: projectPages.index,
+          pageName: projectPages.name,
+          pageThumbnailUrl: projectPages.thumbnailUrl,
         })
         .from(nftAssets)
         .innerJoin(projects, eq(projects.id, nftAssets.projectId))
+        .leftJoin(projectPages, eq(projectPages.id, nftAssets.projectPageId))
         .where(and(eq(nftAssets.userId, auth.id), eq(projects.userId, auth.id)))
         .orderBy(desc(nftAssets.createdAt))
         .limit(limit)
@@ -61,13 +68,14 @@ const app = new Hono()
       "json",
       z.object({
         projectId: z.string().min(1),
+        projectPageId: z.string().min(1).optional(),
         name: z.string().trim().max(120).optional(),
         description: z.string().trim().max(500).optional(),
       }),
     ),
     async (c) => {
       const auth = c.get("authUser");
-      const { projectId, name, description } = c.req.valid("json");
+      const { projectId, projectPageId, name, description } = c.req.valid("json");
 
       const [project] = await db
         .select({ id: projects.id })
@@ -83,6 +91,7 @@ const app = new Hono()
         .values({
           userId: auth.id,
           projectId,
+          projectPageId: projectPageId ?? null,
           chainId: MANTLE_CHAIN_ID,
           status: "draft",
           name: name?.trim() || null,
@@ -97,6 +106,194 @@ const app = new Hono()
       }
 
       return c.json({ data: created });
+    },
+  )
+  .post(
+    "/export",
+    requireAuth,
+    zValidator(
+      "json",
+      z.object({
+        projectId: z.string().min(1),
+        projectPageId: z.string().min(1),
+        imageUrl: z.string().trim().url(),
+        sourceJson: z.string().trim().min(1).optional(),
+        name: z.string().trim().max(120).optional(),
+        description: z.string().trim().max(500).optional(),
+      }),
+    ),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { projectId, projectPageId, imageUrl, sourceJson, name, description } =
+        c.req.valid("json");
+
+      if (!hasIpfsConfigured()) {
+        return c.json({ error: "IPFS pinning is currently unavailable." }, 501);
+      }
+
+      const [project] = await db
+        .select({
+          id: projects.id,
+          name: projects.name,
+        })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.userId, auth.id)));
+
+      if (!project) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const [page] = await db
+        .select({
+          id: projectPages.id,
+          index: projectPages.index,
+          name: projectPages.name,
+          json: projectPages.json,
+        })
+        .from(projectPages)
+        .where(and(eq(projectPages.id, projectPageId), eq(projectPages.projectId, projectId)));
+
+      if (!page) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const now = new Date();
+      const assetName = name?.trim() || `${project.name} · Page ${page.index + 1}`;
+      const assetDescription = description?.trim() || "Created with Pigcasso Canvas.";
+
+      const [asset] = await db
+        .insert(nftAssets)
+        .values({
+          userId: auth.id,
+          projectId,
+          projectPageId,
+          chainId: MANTLE_CHAIN_ID,
+          status: "draft",
+          name: assetName,
+          description: assetDescription,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
+      if (!asset) {
+        return c.json({ error: "Failed to create asset" }, 400);
+      }
+
+      const imagePinned = await pinFileFromUrlToIpfs({
+        url: imageUrl,
+        name: `pigcasso-${asset.id}.png`,
+      });
+
+      const inputJson = sourceJson ?? page.json;
+      let canvasJson: unknown;
+      try {
+        canvasJson = JSON.parse(inputJson);
+      } catch {
+        throw new HttpError(400, "Invalid canvas JSON");
+      }
+
+      const sourcePinned = await pinJsonToIpfs({
+        json: {
+          projectId,
+          projectPageId,
+          pageIndex: page.index,
+          canvas: canvasJson,
+        },
+        name: `pigcasso-${asset.id}-source.json`,
+      });
+
+      const metadata = {
+        name: assetName,
+        description: assetDescription,
+        image: `ipfs://${imagePinned.cid}`,
+        attributes: [
+          { trait_type: "Project", value: project.name },
+          { trait_type: "Page", value: String(page.index + 1) },
+          { trait_type: "Chain", value: "Mantle" },
+        ],
+        properties: {
+          source: `ipfs://${sourcePinned.cid}`,
+          projectId,
+          projectPageId,
+        },
+      };
+
+      const metadataPinned = await pinJsonToIpfs({
+        json: metadata,
+        name: `pigcasso-${asset.id}-metadata.json`,
+      });
+
+      const [updated] = await db
+        .update(nftAssets)
+        .set({
+          imageUri: `ipfs://${imagePinned.cid}`,
+          metadataUri: `ipfs://${metadataPinned.cid}`,
+          status: "prepared",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(nftAssets.id, asset.id), eq(nftAssets.userId, auth.id)))
+        .returning();
+
+      return c.json({ data: updated ?? asset });
+    },
+  )
+  .patch(
+    "/:id",
+    requireAuth,
+    zValidator("param", z.object({ id: z.string().min(1) })),
+    zValidator(
+      "json",
+      z
+        .object({
+          status: z.string().trim().min(1).optional(),
+          collectionId: z.string().min(1).nullable().optional(),
+          collectionAddress: z
+            .string()
+            .trim()
+            .regex(/^0x[0-9a-fA-F]{40}$/, "Invalid address")
+            .nullable()
+            .optional(),
+          tokenId: z
+            .string()
+            .trim()
+            .regex(/^[0-9]+$/, "Token ID must be numeric")
+            .nullable()
+            .optional(),
+          txHash: z
+            .string()
+            .trim()
+            .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash")
+            .nullable()
+            .optional(),
+          metadataUri: z.string().trim().min(1).nullable().optional(),
+          imageUri: z.string().trim().min(1).nullable().optional(),
+          name: z.string().trim().max(120).nullable().optional(),
+          description: z.string().trim().max(500).nullable().optional(),
+        })
+        .refine((value) => Object.keys(value).length > 0, {
+          message: "No changes provided",
+        }),
+    ),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { id } = c.req.valid("param");
+      const values = c.req.valid("json");
+
+      const [updated] = await db
+        .update(nftAssets)
+        .set({
+          ...values,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(nftAssets.id, id), eq(nftAssets.userId, auth.id)))
+        .returning();
+
+      if (!updated) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      return c.json({ data: updated });
     },
   );
 

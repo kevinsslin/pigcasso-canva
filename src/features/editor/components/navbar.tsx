@@ -23,6 +23,8 @@ import { ActiveTool, Editor } from "@/features/editor/types";
 import { Logo } from "@/features/editor/components/logo";
 import { ExportPackDialog } from "@/features/editor/components/export-pack-dialog";
 import { PublishTemplateDialog } from "@/features/editor/components/publish-template-dialog";
+import { ExportNftDialog } from "@/features/editor/components/export-nft-dialog";
+import type { PageBarItem } from "@/features/editor/components/pages-bar";
 
 import { cn } from "@/lib/utils";
 import { Hint } from "@/components/hint";
@@ -46,6 +48,7 @@ import {
 interface NavbarProps {
   id: string;
   projectName: string;
+  activePage?: PageBarItem | null;
   editor: Editor | undefined;
   activeTool: ActiveTool;
   onChangeActiveTool: (tool: ActiveTool) => void;
@@ -54,6 +57,7 @@ interface NavbarProps {
 export const Navbar = ({
   id,
   projectName,
+  activePage,
   editor,
   activeTool,
   onChangeActiveTool,
@@ -61,6 +65,7 @@ export const Navbar = ({
   const updateProjectMutation = useUpdateProject(id);
   const [packOpen, setPackOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [nftOpen, setNftOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [name, setName] = useState(projectName);
   const [draftName, setDraftName] = useState(projectName);
@@ -180,6 +185,14 @@ export const Navbar = ({
         projectId={id}
         projectName={name}
       />
+      <ExportNftDialog
+        open={nftOpen}
+        onOpenChange={setNftOpen}
+        editor={editor}
+        projectId={id}
+        projectName={name}
+        activePage={activePage ?? null}
+      />
       <div className="w-full flex items-center gap-x-1 h-full">
         <Button
           type="button"
@@ -221,6 +234,18 @@ export const Navbar = ({
                 <p>Publish as template</p>
                 <p className="text-xs text-muted-foreground">
                   Create a share link and enable remix
+                </p>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setNftOpen(true)}
+              className="flex items-center gap-x-2"
+            >
+              <CiFileOn className="size-8" />
+              <div>
+                <p>Export as NFT</p>
+                <p className="text-xs text-muted-foreground">
+                  Upload + pin to IPFS, then mint on Mantle
                 </p>
               </div>
             </DropdownMenuItem>

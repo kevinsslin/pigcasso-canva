@@ -29,6 +29,9 @@ export type ResponseType = {
       printr: {
         configured: boolean;
       };
+      ipfs: {
+        configured: boolean;
+      };
     };
     pro: {
       isPro: boolean;

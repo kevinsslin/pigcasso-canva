@@ -49,6 +49,12 @@ bun dev
 
 - `PRINTR_API_TOKEN=...`
 
+要啟用 NFT export（IPFS + Mantle mint）：
+
+- `PINATA_JWT=...`（Pinata JWT）
+- `NEXT_PUBLIC_NFT_FACTORY_ADDRESS=0x...`（Mantle 上的 factory）
+- （可選）`NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/`
+
 ---
 
 ## 系統架構（High-level）

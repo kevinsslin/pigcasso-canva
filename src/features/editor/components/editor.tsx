@@ -205,6 +205,11 @@ export const Editor = ({ initialData }: EditorProps) => {
     [pages],
   );
 
+  const activePageForNavbar = useMemo(
+    () => pagesForBar.find((page) => page.id === activePageId) ?? null,
+    [activePageId, pagesForBar],
+  );
+
   const loadPage = useCallback(
     (pageId: string) => {
       if (!editor) {
@@ -346,6 +351,7 @@ export const Editor = ({ initialData }: EditorProps) => {
       <Navbar
         id={initialData.id}
         projectName={initialData.name || "project"}
+        activePage={activePageForNavbar}
         editor={editor}
         activeTool={activeTool}
         onChangeActiveTool={onChangeActiveTool}
