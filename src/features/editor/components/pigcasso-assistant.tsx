@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GripVertical, Mic, MicOff, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { fabric } from "fabric";
@@ -72,6 +72,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const pendingVoiceTranscriptRef = useRef("");
   const sendMessageRef = useRef<(text: string) => void>(() => {});
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const suppressBubbleClickRef = useRef(false);
   const dragStateRef = useRef<{
     kind: "bubble" | "header";
@@ -176,6 +177,64 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     containerRef.current.style.bottom = "auto";
   };
 
+  const getBubbleRect = () => containerRef.current?.getBoundingClientRect() ?? null;
+
+  const computePanelPlacement = (
+    bubbleRect: DOMRect,
+    panelSize: { w: number; h: number },
+  ) => {
+    const margin = 12;
+    const gap = 12;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    const spaceLeft = bubbleRect.left - margin;
+    const spaceRight = viewportW - (bubbleRect.left + bubbleRect.width) - margin;
+    const preferLeft = spaceLeft >= panelSize.w + gap || spaceLeft >= spaceRight;
+    const side = preferLeft ? "left" : "right";
+
+    const x =
+      side === "left"
+        ? bubbleRect.left - gap - panelSize.w
+        : bubbleRect.left + bubbleRect.width + gap;
+
+    const bottomAligned = bubbleRect.top + bubbleRect.height - panelSize.h;
+
+    const clampedX = Math.min(
+      Math.max(x, margin),
+      Math.max(margin, viewportW - panelSize.w - margin),
+    );
+    const clampedY = Math.min(
+      Math.max(bottomAligned, margin),
+      Math.max(margin, viewportH - panelSize.h - margin),
+    );
+
+    return { x: clampedX, y: clampedY, side };
+  };
+
+  const applyPanelPositionToDom = () => {
+    if (!open || !panelRef.current) {
+      return;
+    }
+
+    const bubbleRect = getBubbleRect();
+    if (!bubbleRect) {
+      return;
+    }
+
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const { x, y, side } = computePanelPlacement(bubbleRect, {
+      w: panelRect.width,
+      h: panelRect.height,
+    });
+
+    panelRef.current.style.left = `${x}px`;
+    panelRef.current.style.top = `${y}px`;
+    panelRef.current.style.right = "auto";
+    panelRef.current.style.bottom = "auto";
+    panelRef.current.dataset.side = side;
+  };
+
   const getViewportMargins = () => {
     const margin = 12;
     const isMobile = window.innerWidth < 1024;
@@ -218,6 +277,39 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       if (!prev) return prev;
       return clampToViewport(prev, { w: rect.width, h: rect.height });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    applyPanelPositionToDom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onResize = () => applyPanelPositionToDom();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !("ResizeObserver" in window)) {
+      return;
+    }
+    if (!panelRef.current) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => applyPanelPositionToDom());
+    observer.observe(panelRef.current);
+
+    return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -310,6 +402,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
 
     state.lastPos = next;
     applyPositionToDom(next);
+    applyPanelPositionToDom();
   };
 
   const onDragEnd = (e: React.PointerEvent<HTMLElement>) => {
@@ -617,15 +710,14 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   ];
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed z-[60]"
-      style={position ? { left: position.x, top: position.y } : { right: 16, bottom: 16 }}
-    >
+    <>
       <ConfirmDialog />
 
       {open ? (
-        <div className="w-[min(340px,calc(100vw-24px))] h-[min(460px,calc(100dvh-220px))] bg-white border rounded-2xl shadow-xl overflow-hidden flex flex-col mb-3">
+        <div
+          ref={panelRef}
+          className="fixed z-[60] w-[min(340px,calc(100vw-24px))] h-[min(460px,calc(100dvh-220px))] bg-white border rounded-2xl shadow-2xl overflow-hidden flex flex-col motion-safe:animate-[pigcasso-enter_220ms_ease-out_0ms_both]"
+        >
           <div className="px-3 py-2 border-b flex items-center gap-2">
             <div
               className="flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none touch-none"
@@ -844,34 +936,46 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
         </div>
       ) : null}
 
-      <Button
-        type="button"
-        onClick={() => {
-          if (suppressBubbleClickRef.current) {
-            suppressBubbleClickRef.current = false;
-            return;
-          }
-          setOpen((prev) => !prev);
-        }}
-        onPointerDown={(e) => {
-          if (open) {
-            return;
-          }
-          startDrag(e, "bubble");
-        }}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragEnd}
-        onPointerCancel={onDragEnd}
-        className="rounded-full h-16 w-16 p-0 shadow-xl bg-white border border-border hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none touch-none"
+      <div
+        ref={containerRef}
+        className="fixed z-[61]"
+        style={position ? { left: position.x, top: position.y } : { right: 16, bottom: 16 }}
       >
-        <Image
-          src="/logo-pig.png"
-          alt="Pigcasso Assistant"
-          width={52}
-          height={52}
-          className="rounded-full"
-        />
-      </Button>
-    </div>
+        <Button
+          type="button"
+          onClick={() => {
+            if (suppressBubbleClickRef.current) {
+              suppressBubbleClickRef.current = false;
+              return;
+            }
+            setOpen((prev) => !prev);
+          }}
+          onPointerDown={(e) => {
+            if (open) {
+              return;
+            }
+            startDrag(e, "bubble");
+          }}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className={cn(
+            "relative z-0 rounded-full h-[72px] w-[72px] p-0 bg-white/92 backdrop-blur border border-white/70 shadow-2xl shadow-pink-500/20 cursor-grab active:cursor-grabbing select-none touch-none",
+            "before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-br before:from-primary/25 before:to-cyan-400/25 before:blur-md before:opacity-80 before:-z-10",
+            "after:content-[''] after:absolute after:inset-1.5 after:rounded-full after:ring-1 after:ring-white/80 after:opacity-90",
+            open ? "ring-2 ring-primary/35 shadow-glow" : "hover:shadow-glow",
+          )}
+          aria-label={open ? "Close Pigcasso Assistant" : "Open Pigcasso Assistant"}
+        >
+          <Image
+            src="/logo-pig.png"
+            alt="Pigcasso Assistant"
+            width={60}
+            height={60}
+            className="rounded-full"
+          />
+        </Button>
+      </div>
+    </>
   );
 };
