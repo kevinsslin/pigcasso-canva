@@ -70,6 +70,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const pendingVoiceTranscriptRef = useRef("");
+  const voiceErrorRef = useRef(false);
   const sendMessageRef = useRef<(text: string) => void>(() => {});
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -112,21 +113,56 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     recognition.maxAlternatives = 1;
     recognition.lang = navigator.language || "en-US";
 
-    recognition.onresult = (event: any) => {
-      let nextTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        nextTranscript += event.results[i][0]?.transcript ?? "";
-      }
-      pendingVoiceTranscriptRef.current = nextTranscript.trim();
-      setInput(nextTranscript.trim());
+    recognition.onstart = () => {
+      voiceErrorRef.current = false;
+      setListening(true);
     };
 
-    recognition.onerror = () => {
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result?.[0]?.transcript ?? "";
+        if (!transcript) continue;
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const combined = `${finalTranscript}${interimTranscript}`.trim();
+      pendingVoiceTranscriptRef.current = combined;
+      setInput(combined);
+    };
+
+    recognition.onerror = (event: any) => {
+      voiceErrorRef.current = true;
       setListening(false);
+      const code = typeof event?.error === "string" ? event.error : "";
+      if (code === "no-speech") {
+        toast.message("No speech detected.");
+        return;
+      }
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        toast.error("Microphone permission blocked. Please allow mic access and try again.");
+        return;
+      }
+      if (code) {
+        toast.error(`Voice input error: ${code}`);
+        return;
+      }
+      toast.error("Voice input failed.");
     };
 
     recognition.onend = () => {
       setListening(false);
+      if (voiceErrorRef.current) {
+        pendingVoiceTranscriptRef.current = "";
+        return;
+      }
       const transcript = pendingVoiceTranscriptRef.current.trim();
       pendingVoiceTranscriptRef.current = "";
       if (transcript) {
@@ -137,6 +173,28 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
 
     recognitionRef.current = recognition;
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      return;
+    }
+    try {
+      recognition.abort?.();
+    } catch {
+      try {
+        recognition.stop?.();
+      } catch {
+        // ignore
+      }
+    }
+    pendingVoiceTranscriptRef.current = "";
+    voiceErrorRef.current = false;
+    setListening(false);
+  }, [listening, open]);
 
   useEffect(() => {
     try {
