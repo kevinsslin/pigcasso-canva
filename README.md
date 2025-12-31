@@ -5,6 +5,7 @@ Web3-native, Canva-like editor built on Next.js: Fabric.js canvas editor, projec
 Product scope and implementation notes:
 - `docs/PRD.md`
 - `docs/foundamental.md`
+- `docs/integrations/printr.md`
 - Open questions: `docs/QUESTIONS.md`
 
 ## Tech Stack

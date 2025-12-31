@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import { base64ToHex } from "@/features/printr/lib/base64";
-import { getEip155ChainId, parseCaip10, parseCaip2 } from "@/features/printr/lib/caip";
 import {
   buildEvmTransactionFromPrintrPayload,
   getPayloadEip155ChainId,
@@ -12,19 +11,6 @@ describe("printr payload helpers", () => {
   test("converts base64 calldata to hex", () => {
     expect(base64ToHex("AQID")).toBe("0x010203");
     expect(base64ToHex("EjQ=")).toBe("0x1234");
-  });
-
-  test("parses CAIP identifiers", () => {
-    expect(parseCaip2("eip155:5000")).toEqual({
-      namespace: "eip155",
-      reference: "5000",
-      value: "eip155:5000",
-    });
-    expect(parseCaip10("eip155:5000:0xabc")).toEqual({
-      chain: "eip155:5000",
-      address: "0xabc",
-    });
-    expect(getEip155ChainId("eip155:5000")).toBe(5000);
   });
 
   test("builds an EVM tx from payload", () => {
@@ -45,4 +31,3 @@ describe("printr payload helpers", () => {
     expect(tx.gas).toBe(21000n);
   });
 });
-

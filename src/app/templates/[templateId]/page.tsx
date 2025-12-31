@@ -10,16 +10,11 @@ import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useGetTemplate } from "@/features/projects/api/use-get-template";
 import { useGetTemplateUsage } from "@/features/projects/api/use-get-template-usage";
 import { useRemixTemplate } from "@/features/projects/api/use-remix-template";
-import { useGetTemplateToken } from "@/features/printr/api/use-get-template-token";
 import { useGetPrintrDeployments } from "@/features/printr/api/use-get-printr-deployments";
+import { buildPrintrTokenUrl, MANTLE_CAIP2, MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
+import { shortHash } from "@/features/printr/lib/format";
 
 import { Button } from "@/components/ui/button";
-
-const shortAddress = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return trimmed;
-  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
-};
 
 export default function TemplatePage({
   params,
@@ -36,9 +31,9 @@ export default function TemplatePage({
     enabled: ready && authenticated,
   });
   const remix = useRemixTemplate();
-  const token = useGetTemplateToken(params.templateId, { enabled: ready && authenticated });
-  const deployments = useGetPrintrDeployments(token.data?.printrTokenId ?? null, {
-    enabled: Boolean(token.data?.txHash),
+  const printrTokenId = templateQuery.data?.data.token?.printrTokenId ?? null;
+  const deployments = useGetPrintrDeployments(printrTokenId, {
+    enabled: ready && authenticated && Boolean(printrTokenId),
   });
 
   const shareUrl = useMemo(() => {
@@ -80,8 +75,10 @@ export default function TemplatePage({
 
   const data = templateQuery.data.data;
   const locked = templateQuery.data.locked ?? false;
-  const printrTokenId = token.data?.printrTokenId ?? null;
-  const mantleDeployment = deployments.data?.deployments?.find((d) => d.chain_id === "eip155:5000") ?? null;
+  const tokenStatus = data.token?.status ?? null;
+  const mantleDeployment =
+    deployments.data?.deployments?.find((deployment) => deployment.chain_id === MANTLE_CAIP2) ??
+    null;
   const remixCount = usage.data?.remixCount ?? null;
 
   const onRemix = () => {
@@ -121,7 +118,7 @@ export default function TemplatePage({
             {data.creatorWallet ? (
               <>
                 {" "}
-                · Created by {shortAddress(data.creatorWallet)}
+                · Created by {shortHash(data.creatorWallet)}
               </>
             ) : null}
             {data.parentProjectId ? (
@@ -132,7 +129,7 @@ export default function TemplatePage({
                   className="underline"
                   href={`/templates/${data.parentProjectId}`}
                 >
-                  {shortAddress(data.parentProjectId)}
+                  {shortHash(data.parentProjectId)}
                 </a>
               </>
             ) : null}
@@ -182,9 +179,9 @@ export default function TemplatePage({
             <div className="text-xs text-muted-foreground break-all">
               Token ID: <span className="font-mono">{printrTokenId}</span>
             </div>
-            {token.data?.status ? (
+            {tokenStatus ? (
               <div className="text-xs text-muted-foreground">
-                Status: {token.data.status}
+                Status: {tokenStatus}
               </div>
             ) : null}
             {mantleDeployment?.contract_address ? (
@@ -192,18 +189,18 @@ export default function TemplatePage({
                 Contract:{" "}
                 <a
                   className="underline font-mono"
-                  href={`https://explorer.mantle.xyz/address/${mantleDeployment.contract_address}`}
+                  href={`${MANTLE_EXPLORER_BASE_URL}/address/${mantleDeployment.contract_address}`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {mantleDeployment.contract_address}
+                  {shortHash(mantleDeployment.contract_address)}
                 </a>
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2 pt-2">
               <Button asChild variant="secondary">
                 <a
-                  href={`https://printr.money/token/${encodeURIComponent(printrTokenId)}`}
+                  href={buildPrintrTokenUrl(printrTokenId)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -213,7 +210,7 @@ export default function TemplatePage({
               {mantleDeployment?.contract_address ? (
                 <Button asChild variant="outline">
                   <a
-                    href={`https://explorer.mantle.xyz/address/${mantleDeployment.contract_address}`}
+                    href={`${MANTLE_EXPLORER_BASE_URL}/address/${mantleDeployment.contract_address}`}
                     target="_blank"
                     rel="noreferrer"
                   >
