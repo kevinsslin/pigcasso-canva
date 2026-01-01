@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fabric } from "fabric";
 import { createPublicClient, createWalletClient, custom, erc721Abi, parseEventLogs, zeroAddress } from "viem";
@@ -73,7 +73,18 @@ type ExportedAsset = {
   imageUri: string | null;
 };
 
-type ToastId = ReturnType<typeof toast.loading>;
+type MintView = "configure" | "progress";
+
+type MintStepKey = "ipfs" | "collection" | "mint";
+type MintStepStatus = "pending" | "active" | "done" | "skipped" | "error";
+
+type MintStepsState = Record<MintStepKey, { status: MintStepStatus; detail?: string }>;
+
+const getInitialMintSteps = (): MintStepsState => ({
+  ipfs: { status: "pending" },
+  collection: { status: "pending" },
+  mint: { status: "pending" },
+});
 
 type ExportNftDialogProps = {
   open: boolean;
@@ -107,6 +118,14 @@ export const ExportNftDialog = ({
   const [tokenDescription, setTokenDescription] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const [mintView, setMintView] = useState<MintView>("configure");
+  const [mintSteps, setMintSteps] = useState<MintStepsState>(() => getInitialMintSteps());
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<{
+    collectionAddress: `0x${string}`;
+    txHash: `0x${string}`;
+    tokenId: string | null;
+  } | null>(null);
 
   const [collectionMode, setCollectionMode] = useState<"auto" | "existing" | "new">("auto");
   const [selectedCollectionAddress, setSelectedCollectionAddress] = useState("");
@@ -117,6 +136,7 @@ export const ExportNftDialog = ({
   const [newCollectionMaxSupply, setNewCollectionMaxSupply] = useState("10000");
   const [newCollectionContractUri, setNewCollectionContractUri] = useState("");
 
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [exportedAsset, setExportedAsset] = useState<ExportedAsset | null>(null);
 
@@ -143,6 +163,11 @@ export const ExportNftDialog = ({
       setTokenDescription("");
       setShowAdvanced(false);
       setIsMinting(false);
+      setMintView("configure");
+      setMintSteps(getInitialMintSteps());
+      setMintError(null);
+      setMintResult(null);
+      setLocalPreviewUrl(null);
       setCollectionMode("auto");
       setSelectedCollectionAddress("");
       setSelectedCollectionRecordId(null);
@@ -159,6 +184,32 @@ export const ExportNftDialog = ({
     const pageLabel = activePage ? `Page ${activePage.index + 1}` : "NFT";
     setTokenName(`${projectName} · ${pageLabel}`);
   }, [activePage, open, projectName]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!editor || !activePage) {
+      setLocalPreviewUrl(null);
+      return;
+    }
+
+    try {
+      setLocalPreviewUrl(makeWorkspacePngDataUrl(editor, 0.75));
+    } catch {
+      setLocalPreviewUrl(null);
+    }
+  }, [activePage, editor, open]);
+
+  const setMintStep = (key: MintStepKey, patch: Partial<MintStepsState[MintStepKey]>) => {
+    setMintSteps((current) => ({
+      ...current,
+      [key]: { ...current[key], ...patch },
+    }));
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && isMinting) return;
+    onOpenChange(nextOpen);
+  };
 
   const collectionsList = useMemo(() => collections.data?.data ?? [], [collections.data?.data]);
 
@@ -238,7 +289,11 @@ export const ExportNftDialog = ({
     return address as `0x${string}`;
   };
 
-  const exportToIpfs = async (toastId: ToastId) => {
+  const exportToIpfs = async ({
+    onProgress,
+  }: {
+    onProgress?: (detail: string) => void;
+  }) => {
     if (!editor || !activePage) {
       throw new Error("Select a page to mint.");
     }
@@ -261,7 +316,7 @@ export const ExportNftDialog = ({
       throw new Error("Missing auth token. Please sign in again.");
     }
 
-    toast.loading("Uploading image…", { id: toastId });
+    onProgress?.("Uploading image…");
     const uploaded = await uploadFiles("nftUploader", {
       files: [file],
       headers: { Authorization: `Bearer ${token}` },
@@ -277,7 +332,7 @@ export const ExportNftDialog = ({
     }
 
     setUploadedImageUrl(url);
-    toast.loading("Pinning to IPFS…", { id: toastId });
+    onProgress?.("Pinning metadata to IPFS…");
 
     const sourceJson = JSON.stringify(editor.canvas.toJSON(JSON_KEYS));
 
@@ -304,12 +359,13 @@ export const ExportNftDialog = ({
   const resolveOrCreateCollection = async ({
     walletClient,
     publicClient,
-    toastId,
+    onProgress,
   }: {
     walletClient: Awaited<ReturnType<typeof ensureClients>>["walletClient"];
     publicClient: Awaited<ReturnType<typeof ensureClients>>["publicClient"];
-    toastId: ToastId;
+    onProgress?: (detail: string) => void;
   }) => {
+    let deployed = false;
     if (collectionMode === "new") {
       const defaults = getAutoCollectionDefaults();
       const name = newCollectionName.trim() || defaults.name;
@@ -319,7 +375,8 @@ export const ExportNftDialog = ({
       const maxSupply = Number.isFinite(supplyParsed) && supplyParsed > 0 ? BigInt(supplyParsed) : defaults.maxSupply;
       const contractUri = newCollectionContractUri.trim();
 
-      toast.loading("Deploying collection…", { id: toastId });
+      onProgress?.("Deploying collection…");
+      deployed = true;
       const address = await deployCollectionOnChain({
         walletClient,
         publicClient,
@@ -340,7 +397,7 @@ export const ExportNftDialog = ({
       setSelectedCollectionRecordId(record.data.id);
       setCollectionMode("existing");
 
-      return { address, recordId: record.data.id };
+      return { address, recordId: record.data.id, deployed };
     }
 
     if (collectionMode === "existing") {
@@ -349,16 +406,17 @@ export const ExportNftDialog = ({
         throw new Error("Invalid collection address.");
       }
       if (trimmed && isEvmAddress(trimmed)) {
-        return { address: trimmed as `0x${string}`, recordId: selectedCollectionRecordId };
+        return { address: trimmed as `0x${string}`, recordId: selectedCollectionRecordId, deployed };
       }
     }
 
     if (defaultCollection) {
-      return { address: defaultCollection.address, recordId: defaultCollection.id };
+      return { address: defaultCollection.address, recordId: defaultCollection.id, deployed };
     }
 
     const defaults = getAutoCollectionDefaults();
-    toast.loading("Deploying collection…", { id: toastId });
+    onProgress?.("Deploying collection…");
+    deployed = true;
     const address = await deployCollectionOnChain({
       walletClient,
       publicClient,
@@ -376,7 +434,7 @@ export const ExportNftDialog = ({
     setSelectedCollectionRecordId(record.data.id);
     setCollectionMode("existing");
 
-    return { address, recordId: record.data.id };
+    return { address, recordId: record.data.id, deployed };
   };
 
   const onMintNow = async () => {
@@ -397,21 +455,49 @@ export const ExportNftDialog = ({
       return;
     }
 
-    const toastId = toast.loading("Preparing…");
+    const alreadyExported = Boolean(exportedAsset?.metadataUri);
+    setMintView("progress");
+    setMintError(null);
+    setMintResult(null);
+    setMintSteps(() => ({
+      ipfs: alreadyExported ? { status: "done", detail: "Already pinned to IPFS." } : { status: "active", detail: "Preparing export…" },
+      collection: { status: "pending" },
+      mint: { status: "pending" },
+    }));
     setIsMinting(true);
 
+    let currentStep: MintStepKey = alreadyExported ? "collection" : "ipfs";
+
     try {
-      const asset = exportedAsset?.metadataUri ? exportedAsset : await exportToIpfs(toastId);
+      const asset = alreadyExported
+        ? exportedAsset
+        : await exportToIpfs({
+            onProgress: (detail) => setMintStep("ipfs", { status: "active", detail }),
+          });
       if (!asset?.metadataUri) {
         throw new Error("Missing token URI. Please try again.");
       }
 
-      toast.loading("Connecting wallet…", { id: toastId });
+      if (!alreadyExported) {
+        setMintStep("ipfs", { status: "done", detail: "Pinned to IPFS." });
+      }
+
+      currentStep = "collection";
+      setMintStep("collection", { status: "active", detail: "Connecting wallet…" });
       const { walletClient, publicClient } = await ensureClients();
 
-      const collection = await resolveOrCreateCollection({ walletClient, publicClient, toastId });
+      const collection = await resolveOrCreateCollection({
+        walletClient,
+        publicClient,
+        onProgress: (detail) => setMintStep("collection", { status: "active", detail }),
+      });
+      setMintStep("collection", {
+        status: "done",
+        detail: collection.deployed ? `Deployed ${collection.address}` : `Using ${collection.address}`,
+      });
 
-      toast.loading("Minting NFT…", { id: toastId });
+      currentStep = "mint";
+      setMintStep("mint", { status: "active", detail: "Minting NFT…" });
       const hash = await walletClient.writeContract({
         address: collection.address,
         abi: pigcassoCollectionAbi,
@@ -419,7 +505,7 @@ export const ExportNftDialog = ({
         args: [walletClient.account.address, asset.metadataUri],
       });
 
-      toast.loading("Waiting for confirmation…", { id: toastId });
+      setMintStep("mint", { status: "active", detail: "Waiting for confirmation…" });
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       const transfer = parseEventLogs({
@@ -439,7 +525,7 @@ export const ExportNftDialog = ({
 
       const tokenId = transfer ? transfer.args.tokenId.toString() : null;
 
-      toast.loading("Finalizing…", { id: toastId });
+      setMintStep("mint", { status: "active", detail: "Finalizing…" });
       await updateAsset.mutateAsync({
         id: asset.id,
         values: {
@@ -451,19 +537,20 @@ export const ExportNftDialog = ({
         },
       });
 
-      toast.success("NFT minted.", { id: toastId, duration: 3500 });
-      onOpenChange(false);
+      setMintResult({ collectionAddress: collection.address, txHash: hash, tokenId });
+      setMintStep("mint", { status: "done", detail: tokenId ? `Minted token #${tokenId}.` : "NFT minted." });
+      toast.success("NFT minted.", { duration: 3500 });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to mint", {
-        id: toastId,
-        duration: 5000,
-      });
+      const message = error instanceof Error ? error.message : "Failed to mint";
+      setMintError(message);
+      setMintStep(currentStep, { status: "error", detail: message });
+      toast.error(message, { duration: 5000 });
     } finally {
       setIsMinting(false);
     }
   };
 
-  const previewUrl = ipfsToHttpUrl(exportedAsset?.imageUri) ?? uploadedImageUrl;
+  const previewUrl = ipfsToHttpUrl(exportedAsset?.imageUri) ?? uploadedImageUrl ?? localPreviewUrl;
 
   const collectionLabel =
     collectionMode === "existing" && isEvmAddress(selectedCollectionAddress.trim())
@@ -481,35 +568,152 @@ export const ExportNftDialog = ({
     !updateAsset.isPending &&
     !createCollectionRecord.isPending;
 
+  const mintStepList = [
+    { key: "ipfs" as const, label: "Upload to IPFS" },
+    { key: "collection" as const, label: "Prepare collection" },
+    { key: "mint" as const, label: "Mint" },
+  ];
+
+  const renderStepIcon = (status: MintStepStatus, stepNumber: number) => {
+    if (status === "active") {
+      return (
+        <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center">
+          <Loader2 className="size-4 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (status === "done") {
+      return <CheckCircle2 className="size-6 text-green-500" />;
+    }
+    if (status === "skipped") {
+      return <CheckCircle2 className="size-6 text-muted-foreground" />;
+    }
+    if (status === "error") {
+      return <AlertTriangle className="size-6 text-destructive" />;
+    }
+    return (
+      <div className="size-6 rounded-full border flex items-center justify-center text-xs font-medium text-muted-foreground">
+        {stepNumber}
+      </div>
+    );
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Mint as NFT</DialogTitle>
-          <DialogDescription>Upload → IPFS → mint on Mantle, in one click.</DialogDescription>
+          <DialogDescription>
+            {mintView === "configure"
+              ? "Review details, then mint. We’ll only upload to IPFS after you confirm."
+              : "Keep this window open while we complete the steps below."}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="rounded-xl border p-3 text-sm">
-            <div className="font-medium">{projectName}</div>
-            <div className="text-xs text-muted-foreground">
-              {activePage ? `Page ${activePage.index + 1}` : "Select a page"}
+        {mintView === "progress" ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border p-3 text-sm">
+              <div className="font-medium">{projectName}</div>
+              <div className="text-xs text-muted-foreground">
+                {activePage ? `Page ${activePage.index + 1}` : "Select a page"}
+              </div>
             </div>
-          </div>
 
-          <div className="grid gap-2">
-            <div className="text-sm font-medium">NFT title</div>
-            <Input
-              value={tokenName}
-              onChange={(e) => {
-                tokenNameTouchedRef.current = true;
-                setTokenName(e.target.value);
-              }}
-              placeholder="Give your NFT a name (optional)"
-              maxLength={120}
-              disabled={isMinting}
-            />
+            <div className="rounded-xl border p-3 space-y-3">
+              <div className="text-sm font-medium">Progress</div>
+              <ol className="space-y-3">
+                {mintStepList.map((step, index) => {
+                  const state = mintSteps[step.key];
+                  return (
+                    <li key={step.key} className="flex items-start gap-3">
+                      {renderStepIcon(state.status, index + 1)}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{step.label}</div>
+                        {state.detail ? (
+                          <div className="text-xs text-muted-foreground break-words">{state.detail}</div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+
+            {previewUrl ? (
+              <div className="rounded-xl border overflow-hidden bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt="NFT preview" className="w-full h-auto" />
+              </div>
+            ) : null}
+
+            {exportedAsset?.metadataUri ? (
+              <div className="rounded-lg border p-3 text-xs space-y-1">
+                <div className="font-medium">Token URI</div>
+                <div className="font-mono break-all">{exportedAsset.metadataUri}</div>
+              </div>
+            ) : null}
+
+            {mintResult ? (
+              <div className="rounded-lg border p-3 text-xs space-y-1">
+                <div className="font-medium">Mint result</div>
+                <div className="font-mono break-all">Collection: {mintResult.collectionAddress}</div>
+                <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
+                <div className="font-mono break-all">Token ID: {mintResult.tokenId ?? "Unknown"}</div>
+              </div>
+            ) : null}
+
+            {mintError ? (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-xs text-destructive">
+                {mintError}
+              </div>
+            ) : null}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (isMinting) return;
+                  if (mintResult) {
+                    onOpenChange(false);
+                    return;
+                  }
+                  setMintView("configure");
+                }}
+                disabled={isMinting}
+              >
+                {mintResult ? "Close" : "Back"}
+              </Button>
+              {!isMinting && !mintResult && mintError ? (
+                <Button type="button" onClick={onMintNow} disabled={!canMintNow}>
+                  Retry
+                </Button>
+              ) : null}
+            </DialogFooter>
           </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div className="rounded-xl border p-3 text-sm">
+                <div className="font-medium">{projectName}</div>
+                <div className="text-xs text-muted-foreground">
+                  {activePage ? `Page ${activePage.index + 1}` : "Select a page"}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">NFT title</div>
+                <Input
+                  value={tokenName}
+                  onChange={(e) => {
+                    tokenNameTouchedRef.current = true;
+                    setTokenName(e.target.value);
+                  }}
+                  placeholder="Give your NFT a name (optional)"
+                  maxLength={120}
+                  disabled={isMinting}
+                />
+              </div>
 
           <div className="flex items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground">
@@ -678,7 +882,7 @@ export const ExportNftDialog = ({
             </div>
           ) : (
             <div className="rounded-xl border bg-muted/30 p-6 text-xs text-muted-foreground text-center">
-              Preview appears after upload starts.
+              Preview is unavailable right now.
             </div>
           )}
 
@@ -687,17 +891,19 @@ export const ExportNftDialog = ({
               NFT export is temporarily unavailable. Ask an admin to configure IPFS.
             </div>
           ) : null}
-        </div>
+            </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button type="button" onClick={onMintNow} disabled={!canMintNow}>
-            {isMinting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
-            Mint NFT
-          </Button>
-        </DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isMinting}>
+                Close
+              </Button>
+              <Button type="button" onClick={onMintNow} disabled={!canMintNow}>
+                {isMinting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+                Mint NFT
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
