@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader, MessageCircle, Send, TriangleAlert, Twitter } from "lucide-react";
 import { toast } from "sonner";
-import { usePrivy } from "@privy-io/react-auth";
+import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
@@ -28,22 +28,14 @@ type SocialProvider = "twitter" | "discord" | "telegram";
 
 export default function SettingsPage() {
   const { ready, authenticated } = useRequireAuth("/settings");
-  const {
-    logout,
-    user: privyUser,
-    linkTwitter,
-    linkDiscord,
-    linkTelegram,
-    unlinkTwitter,
-    unlinkDiscord,
-    unlinkTelegram,
-  } = usePrivy();
+  const { logout, unlinkTwitter, unlinkDiscord, unlinkTelegram } = usePrivy();
   const me = useMe({ enabled: ready && authenticated });
   const updateMe = useUpdateMe();
 
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
+  const [linkingSocial, setLinkingSocial] = useState<SocialProvider | null>(null);
   const [unlinkingSocial, setUnlinkingSocial] = useState<SocialProvider | null>(null);
   const avatarUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -85,6 +77,32 @@ export default function SettingsPage() {
   useEffect(() => {
     return () => clearAvatarUploadTimeout();
   }, []);
+
+  const { linkTwitter, linkDiscord, linkTelegram } = useLinkAccount({
+    onSuccess: ({ linkMethod }) => {
+      setLinkingSocial(null);
+      if (linkMethod === "twitter") {
+        toast.success("Linked X.");
+      } else if (linkMethod === "discord") {
+        toast.success("Linked Discord.");
+      } else if (linkMethod === "telegram") {
+        toast.success("Linked Telegram.");
+      }
+      void me.refetch();
+    },
+    onError: (_error, details) => {
+      setLinkingSocial(null);
+      if (details.linkMethod === "twitter") {
+        toast.error("Failed to link X.");
+      } else if (details.linkMethod === "discord") {
+        toast.error("Failed to link Discord.");
+      } else if (details.linkMethod === "telegram") {
+        toast.error("Failed to link Telegram.");
+      } else {
+        toast.error("Failed to link account.");
+      }
+    },
+  });
 
   if (!ready || !authenticated) {
     return (
@@ -151,31 +169,37 @@ export default function SettingsPage() {
   const avatarUrl = image.trim() ? image.trim() : null;
   const avatarUploadEnabled = uploadthingConfigured && !updateMe.isPending && !uploadingAvatar;
 
-  const twitterAccount = privyUser?.twitter ?? null;
-  const discordAccount = privyUser?.discord ?? null;
-  const telegramAccount = privyUser?.telegram ?? null;
+  const twitterAccount = meUser?.socials.twitter ?? null;
+  const discordAccount = meUser?.socials.discord ?? null;
+  const telegramAccount = meUser?.socials.telegram ?? null;
 
   const onConnectTwitter = () => {
     try {
+      setLinkingSocial("twitter");
       linkTwitter();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to connect X");
+      toast.error(error instanceof Error ? error.message : "Failed to link X");
+      setLinkingSocial(null);
     }
   };
 
   const onConnectDiscord = () => {
     try {
+      setLinkingSocial("discord");
       linkDiscord();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to connect Discord");
+      toast.error(error instanceof Error ? error.message : "Failed to link Discord");
+      setLinkingSocial(null);
     }
   };
 
   const onConnectTelegram = () => {
     try {
+      setLinkingSocial("telegram");
       linkTelegram();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to connect Telegram");
+      toast.error(error instanceof Error ? error.message : "Failed to link Telegram");
+      setLinkingSocial(null);
     }
   };
 
@@ -184,9 +208,10 @@ export default function SettingsPage() {
     setUnlinkingSocial("twitter");
     try {
       await unlinkTwitter(twitterAccount.subject);
-      toast.success("Disconnected X.");
+      toast.success("Unlinked X.");
+      await me.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to disconnect X");
+      toast.error(error instanceof Error ? error.message : "Failed to unlink X");
     } finally {
       setUnlinkingSocial(null);
     }
@@ -197,9 +222,10 @@ export default function SettingsPage() {
     setUnlinkingSocial("discord");
     try {
       await unlinkDiscord(discordAccount.subject);
-      toast.success("Disconnected Discord.");
+      toast.success("Unlinked Discord.");
+      await me.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to disconnect Discord");
+      toast.error(error instanceof Error ? error.message : "Failed to unlink Discord");
     } finally {
       setUnlinkingSocial(null);
     }
@@ -210,9 +236,10 @@ export default function SettingsPage() {
     setUnlinkingSocial("telegram");
     try {
       await unlinkTelegram(telegramAccount.telegramUserId);
-      toast.success("Disconnected Telegram.");
+      toast.success("Unlinked Telegram.");
+      await me.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to disconnect Telegram");
+      toast.error(error instanceof Error ? error.message : "Failed to unlink Telegram");
     } finally {
       setUnlinkingSocial(null);
     }
@@ -441,7 +468,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Social connections</CardTitle>
+          <CardTitle>Social links</CardTitle>
           <CardDescription>
             Link your social accounts for cross-channel attribution and future rewards.
           </CardDescription>
@@ -455,7 +482,7 @@ export default function SettingsPage() {
               <div>
                 <div className="text-sm font-medium">X</div>
                 <div className="text-xs text-muted-foreground">
-                  {twitterAccount?.username ? `@${twitterAccount.username}` : twitterAccount ? "Connected" : "Not connected"}
+                  {twitterAccount?.username ? `@${twitterAccount.username}` : twitterAccount ? "Linked" : "Not linked"}
                 </div>
               </div>
             </div>
@@ -469,11 +496,12 @@ export default function SettingsPage() {
                 {unlinkingSocial === "twitter" ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
-                Disconnect
+                Unlink
               </Button>
             ) : (
-              <Button type="button" onClick={onConnectTwitter}>
-                Connect
+              <Button type="button" onClick={onConnectTwitter} disabled={linkingSocial === "twitter"}>
+                {linkingSocial === "twitter" ? <Loader className="mr-2 size-4 animate-spin" /> : null}
+                Link
               </Button>
             )}
           </div>
@@ -486,7 +514,7 @@ export default function SettingsPage() {
               <div>
                 <div className="text-sm font-medium">Discord</div>
                 <div className="text-xs text-muted-foreground">
-                  {discordAccount?.username ? `@${discordAccount.username}` : discordAccount ? "Connected" : "Not connected"}
+                  {discordAccount?.username ? `@${discordAccount.username}` : discordAccount ? "Linked" : "Not linked"}
                 </div>
               </div>
             </div>
@@ -500,11 +528,12 @@ export default function SettingsPage() {
                 {unlinkingSocial === "discord" ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
-                Disconnect
+                Unlink
               </Button>
             ) : (
-              <Button type="button" onClick={onConnectDiscord}>
-                Connect
+              <Button type="button" onClick={onConnectDiscord} disabled={linkingSocial === "discord"}>
+                {linkingSocial === "discord" ? <Loader className="mr-2 size-4 animate-spin" /> : null}
+                Link
               </Button>
             )}
           </div>
@@ -517,7 +546,7 @@ export default function SettingsPage() {
               <div>
                 <div className="text-sm font-medium">Telegram</div>
                 <div className="text-xs text-muted-foreground">
-                  {telegramAccount?.username ? `@${telegramAccount.username}` : telegramAccount ? "Connected" : "Not connected"}
+                  {telegramAccount?.username ? `@${telegramAccount.username}` : telegramAccount ? "Linked" : "Not linked"}
                 </div>
               </div>
             </div>
@@ -531,11 +560,12 @@ export default function SettingsPage() {
                 {unlinkingSocial === "telegram" ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
-                Disconnect
+                Unlink
               </Button>
             ) : (
-              <Button type="button" onClick={onConnectTelegram}>
-                Connect
+              <Button type="button" onClick={onConnectTelegram} disabled={linkingSocial === "telegram"}>
+                {linkingSocial === "telegram" ? <Loader className="mr-2 size-4 animate-spin" /> : null}
+                Link
               </Button>
             )}
           </div>
