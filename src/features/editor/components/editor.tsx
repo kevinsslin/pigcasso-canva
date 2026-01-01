@@ -355,10 +355,13 @@ export const Editor = ({ initialData }: EditorProps) => {
     [confirmDelete, deletePageMutation, initialData.id, loadPage, pages],
   );
 
+  const initialLoadRef = useRef(false);
   useEffect(() => {
     if (!editor) return;
+    if (initialLoadRef.current) return;
     const meta = pages.find((page) => page.id === activePageIdRef.current);
     if (!meta) return;
+    initialLoadRef.current = true;
     editor.loadPage({
       json: pageJsonRef.current.get(meta.id) ?? "",
       width: meta.width,
