@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fabric } from "fabric";
@@ -103,6 +103,7 @@ export const ExportNftDialog = ({
   const ipfsConfigured = me.data?.data.integrations.ipfs.configured === true;
 
   const [tokenName, setTokenName] = useState("");
+  const tokenNameTouchedRef = useRef(false);
   const [tokenDescription, setTokenDescription] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
@@ -138,6 +139,7 @@ export const ExportNftDialog = ({
       setUploadedImageUrl(null);
       setExportedAsset(null);
       setTokenName("");
+      tokenNameTouchedRef.current = false;
       setTokenDescription("");
       setShowAdvanced(false);
       setIsMinting(false);
@@ -153,8 +155,9 @@ export const ExportNftDialog = ({
 
   useEffect(() => {
     if (!open) return;
+    if (tokenNameTouchedRef.current) return;
     const pageLabel = activePage ? `Page ${activePage.index + 1}` : "NFT";
-    setTokenName((prev) => (prev ? prev : `${projectName} · ${pageLabel}`));
+    setTokenName(`${projectName} · ${pageLabel}`);
   }, [activePage, open, projectName]);
 
   const collectionsList = useMemo(() => collections.data?.data ?? [], [collections.data?.data]);
@@ -498,7 +501,10 @@ export const ExportNftDialog = ({
             <div className="text-sm font-medium">NFT title</div>
             <Input
               value={tokenName}
-              onChange={(e) => setTokenName(e.target.value)}
+              onChange={(e) => {
+                tokenNameTouchedRef.current = true;
+                setTokenName(e.target.value);
+              }}
               placeholder="Give your NFT a name (optional)"
               maxLength={120}
               disabled={isMinting}
