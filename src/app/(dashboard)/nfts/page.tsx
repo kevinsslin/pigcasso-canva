@@ -13,6 +13,8 @@ import { MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+const OPENSEA_MANTLE_BASE_URL = "https://opensea.io/assets/mantle";
+
 const shortHash = (value: string, head = 6, tail = 4) => {
   const trimmed = value.trim();
   if (trimmed.length <= head + tail) return trimmed;
@@ -74,6 +76,11 @@ export default function NftsPage() {
                       ? `${MANTLE_EXPLORER_BASE_URL}/token/${asset.collectionAddress}?a=${asset.tokenId}`
                       : null;
 
+                  const openseaLink =
+                    asset.collectionAddress && asset.tokenId
+                      ? `${OPENSEA_MANTLE_BASE_URL}/${asset.collectionAddress}/${asset.tokenId}`
+                      : null;
+
                   const txLink = asset.txHash
                     ? `${MANTLE_EXPLORER_BASE_URL}/tx/${asset.txHash}`
                     : null;
@@ -125,6 +132,16 @@ export default function NftsPage() {
                               rel="noreferrer"
                             >
                               View token <ExternalLink className="size-3" />
+                            </a>
+                          ) : null}
+                          {openseaLink ? (
+                            <a
+                              className="inline-flex items-center gap-1 underline underline-offset-4"
+                              href={openseaLink}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              OpenSea <ExternalLink className="size-3" />
                             </a>
                           ) : null}
                           {txLink ? (

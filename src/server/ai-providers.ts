@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import { HttpError } from "@/server/http-error";
 import { normalizeGeminiError } from "@/server/ai-errors";
+import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
 export type AiProvider = "gemini";
 
@@ -82,14 +83,30 @@ const parseDataUrl = (dataUrl: string) => {
   };
 };
 
-const fetchUrlAsBase64 = async (url: string) => {
-  const res = await fetch(url);
+const MAX_REMOTE_IMAGE_BYTES = 15_000_000;
+
+const fetchUrlAsBase64 = async (input: string) => {
+  const remote = assertSafeRemoteUrl(input, "Invalid image URL");
+
+  const res = await fetch(remote.toString());
+  assertSafeRemoteUrl(res.url, "Invalid image URL");
   if (!res.ok) {
-    throw new Error(`Failed to fetch image: ${res.status}`);
+    throw new HttpError(502, `Failed to fetch image: ${res.status}`);
+  }
+
+  const contentLengthRaw = res.headers.get("content-length");
+  if (contentLengthRaw) {
+    const contentLength = Number(contentLengthRaw);
+    if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new HttpError(413, "Image too large");
+    }
   }
 
   const mimeType = res.headers.get("content-type") || "image/png";
   const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+    throw new HttpError(413, "Image too large");
+  }
 
   return {
     mimeType,

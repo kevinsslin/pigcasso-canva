@@ -1,5 +1,6 @@
 import { HttpError } from "@/server/http-error";
 import { readApiResponse } from "@/lib/api-response";
+import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
 const PINATA_JSON_ENDPOINT = "https://api.pinata.cloud/pinning/pinJSONToIPFS";
 const PINATA_FILE_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
@@ -14,36 +15,6 @@ const requireIpfsConfigured = () => {
   if (!hasIpfsConfigured()) {
     throw new HttpError(501, "IPFS pinning is currently unavailable.");
   }
-};
-
-const isAllowedRemoteHost = (hostname: string) => {
-  const host = hostname.toLowerCase();
-  return (
-    host === "ufs.sh" ||
-    host.endsWith(".ufs.sh") ||
-    host === "utfs.io" ||
-    host === "images.unsplash.com" ||
-    host === "lh3.googleusercontent.com"
-  );
-};
-
-const assertSafeRemoteUrl = (value: string) => {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new HttpError(400, "Invalid image URL");
-  }
-
-  if (url.protocol !== "https:") {
-    throw new HttpError(400, "Image URL must use https");
-  }
-
-  if (!isAllowedRemoteHost(url.hostname)) {
-    throw new HttpError(400, "Unsupported image host");
-  }
-
-  return url;
 };
 
 const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback: string }) => {
@@ -92,11 +63,20 @@ export const pinFileFromUrlToIpfs = async (params: {
   name: string;
   mimeType?: string;
 }): Promise<{ cid: string }> => {
-  const remote = assertSafeRemoteUrl(params.url);
+  const remote = assertSafeRemoteUrl(params.url, "Invalid image URL");
 
   const res = await fetch(remote.toString());
+  assertSafeRemoteUrl(res.url, "Invalid image URL");
   if (!res.ok) {
     throw new HttpError(502, "Failed to fetch image");
+  }
+
+  const contentLengthRaw = res.headers.get("content-length");
+  if (contentLengthRaw) {
+    const contentLength = Number(contentLengthRaw);
+    if (Number.isFinite(contentLength) && contentLength > MAX_FILE_BYTES) {
+      throw new HttpError(413, "Image too large");
+    }
   }
 
   const buffer = await res.arrayBuffer();
@@ -106,10 +86,9 @@ export const pinFileFromUrlToIpfs = async (params: {
 
   const fileType = params.mimeType ?? res.headers.get("content-type") ?? "application/octet-stream";
   const blob = new Blob([buffer], { type: fileType });
-  const file = new File([blob], params.name, { type: fileType });
 
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", blob, params.name);
   form.append("pinataMetadata", JSON.stringify({ name: params.name }));
 
   const response = await pinataFetch<{ IpfsHash: string }>({
@@ -127,4 +106,3 @@ export const pinFileFromUrlToIpfs = async (params: {
 
   return { cid: response.IpfsHash };
 };
-

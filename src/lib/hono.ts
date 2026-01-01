@@ -5,7 +5,9 @@ import { AppType } from "@/app/api/[[...route]]/route";
 import { getAuthToken } from "@/lib/auth-token";
 import { dispatchUnauthorizedEvent } from "@/lib/auth-events";
 
-export const client = hc<AppType>(process.env.NEXT_PUBLIC_APP_URL!, {
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "";
+
+export const client = hc<AppType>(baseUrl, {
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
     const token = await getAuthToken({
       maxWaitMs: 2000,
