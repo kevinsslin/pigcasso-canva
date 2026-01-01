@@ -28,6 +28,18 @@ export const useLoadState = ({
 
       suppressSaveRef.current = true;
       canvas.loadFromJSON(data, () => {
+        const workspace = canvas
+          .getObjects()
+          .find((object) => object.name === "clip") as fabric.Rect | undefined;
+        if (workspace) {
+          workspace.set({
+            selectable: false,
+            hasControls: false,
+            evented: false,
+          });
+          workspace.sendToBack();
+        }
+
         const currentState = JSON.stringify(
           canvas.toJSON(JSON_KEYS),
         );

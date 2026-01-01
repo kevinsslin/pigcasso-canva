@@ -30,7 +30,6 @@ import { useHotkeys } from "@/features/editor/hooks/use-hotkeys";
 import { useClipboard } from "@/features/editor/hooks/use-clipboard";
 import { useAutoResize } from "@/features/editor/hooks/use-auto-resize";
 import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
-import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 
 type BaseEditor = Omit<Editor, "loadPage">;
@@ -647,8 +646,6 @@ export const useEditor = ({
   const [strokeWidth, setStrokeWidth] = useState(STROKE_WIDTH);
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
 
-  useWindowEvents();
-
   const { 
     save, 
     canRedo, 
@@ -736,6 +733,7 @@ export const useEditor = ({
               fill: "white",
               selectable: false,
               hasControls: false,
+              evented: false,
               shadow: new fabric.Shadow({
                 color: "rgba(0,0,0,0.8)",
                 blur: 5,
@@ -769,6 +767,21 @@ export const useEditor = ({
           }
 
           canvas.loadFromJSON(data, () => {
+            const workspace = canvas
+              .getObjects()
+              .find((object) => object.name === "clip") as fabric.Rect | undefined;
+
+            if (workspace) {
+              workspace.set({
+                selectable: false,
+                hasControls: false,
+                evented: false,
+                width: params.width,
+                height: params.height,
+              });
+              workspace.sendToBack();
+            }
+
             const currentState = JSON.stringify(canvas.toJSON(JSON_KEYS));
             canvasHistory.current = [currentState];
             setHistoryIndex(0);
@@ -826,6 +839,7 @@ export const useEditor = ({
         fill: "white",
         selectable: false,
         hasControls: false,
+        evented: false,
         shadow: new fabric.Shadow({
           color: "rgba(0,0,0,0.8)",
           blur: 5,

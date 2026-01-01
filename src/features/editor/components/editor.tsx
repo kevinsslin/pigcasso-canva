@@ -93,7 +93,8 @@ export const Editor = ({ initialData }: EditorProps) => {
             },
           });
         },
-        500,
+        1200,
+        { maxWait: 5000 },
       ),
     [initialData.id, updatePageMutation],
   );
@@ -108,6 +109,28 @@ export const Editor = ({ initialData }: EditorProps) => {
       savePageNetwork.cancel();
     };
   }, [savePageNetwork]);
+
+  useEffect(() => {
+    const flush = () => {
+      flushSaveRef.current?.();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    };
+
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const onSaveCallback = useCallback(
     (values: { json: string; height: number; width: number }) => {
@@ -378,7 +401,6 @@ export const Editor = ({ initialData }: EditorProps) => {
             editor={editor}
             activeTool={activeTool}
             onChangeActiveTool={onChangeActiveTool}
-            key={JSON.stringify(editor?.canvas.getActiveObject())}
           />
           <div className="flex-1 bg-muted relative overflow-hidden" ref={containerRef}>
             <canvas ref={canvasRef} />

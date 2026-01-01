@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { 
   FaBold, 
@@ -45,30 +45,38 @@ export const Toolbar = ({
   activeTool,
   onChangeActiveTool,
 }: ToolbarProps) => {
-  const initialFillColor = editor?.getActiveFillColor();
-  const initialStrokeColor = editor?.getActiveStrokeColor();
-  const initialFontFamily = editor?.getActiveFontFamily();
-  const initialFontWeight = editor?.getActiveFontWeight() || FONT_WEIGHT;
-  const initialFontStyle = editor?.getActiveFontStyle();
-  const initialFontLinethrough = editor?.getActiveFontLinethrough();
-  const initialFontUnderline = editor?.getActiveFontUnderline();
-  const initialTextAlign = editor?.getActiveTextAlign();
-  const initialFontSize = editor?.getActiveFontSize() || FONT_SIZE
-
-  const [properties, setProperties] = useState({
-    fillColor: initialFillColor,
-    strokeColor: initialStrokeColor,
-    fontFamily: initialFontFamily,
-    fontWeight: initialFontWeight,
-    fontStyle: initialFontStyle,
-    fontLinethrough: initialFontLinethrough,
-    fontUnderline: initialFontUnderline,
-    textAlign: initialTextAlign,
-    fontSize: initialFontSize,
-  });
-
-  const selectedObject = editor?.selectedObjects[0];
+  const selectedObject = editor?.selectedObjects[0] ?? null;
   const selectedObjectType = editor?.selectedObjects[0]?.type;
+
+  const [properties, setProperties] = useState(() => ({
+    fillColor: editor?.getActiveFillColor(),
+    strokeColor: editor?.getActiveStrokeColor(),
+    fontFamily: editor?.getActiveFontFamily(),
+    fontWeight: editor?.getActiveFontWeight() || FONT_WEIGHT,
+    fontStyle: editor?.getActiveFontStyle(),
+    fontLinethrough: editor?.getActiveFontLinethrough(),
+    fontUnderline: editor?.getActiveFontUnderline(),
+    textAlign: editor?.getActiveTextAlign(),
+    fontSize: editor?.getActiveFontSize() || FONT_SIZE,
+  }));
+
+  useEffect(() => {
+    if (!editor || !selectedObject) {
+      return;
+    }
+
+    setProperties({
+      fillColor: editor.getActiveFillColor(),
+      strokeColor: editor.getActiveStrokeColor(),
+      fontFamily: editor.getActiveFontFamily(),
+      fontWeight: editor.getActiveFontWeight() || FONT_WEIGHT,
+      fontStyle: editor.getActiveFontStyle(),
+      fontLinethrough: editor.getActiveFontLinethrough(),
+      fontUnderline: editor.getActiveFontUnderline(),
+      textAlign: editor.getActiveTextAlign(),
+      fontSize: editor.getActiveFontSize() || FONT_SIZE,
+    });
+  }, [editor, selectedObject]);
 
   const isText = isTextType(selectedObjectType);
   const isImage = selectedObjectType === "image";
