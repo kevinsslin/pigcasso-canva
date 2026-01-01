@@ -8,6 +8,7 @@ import { projects, templateTokens } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
 import { requirePro } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
+import { normalizeDbError } from "@/server/db-errors";
 import { printrFetchJson, hasPrintrConfigured, toCaip10Account } from "@/server/printr";
 
 const caip2ChainSchema = z.string().regex(/^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$/);
@@ -284,11 +285,13 @@ const app = new Hono()
         throw new HttpError(400, "No creator wallet connected");
       }
 
-      const homeChain = body.chains[0];
-      const creatorAccount = toCaip10Account({
-        chain: homeChain,
-        address: creatorAddress,
-      });
+      const creatorAccounts = body.chains.map((chain) =>
+        toCaip10Account({
+          chain,
+          address: creatorAddress,
+        }),
+      );
+      const creatorAccount = creatorAccounts[0];
 
       const imageUrl = body.imageUrl ?? template.thumbnailUrl;
       if (!imageUrl) {
@@ -305,7 +308,7 @@ const app = new Hono()
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            creator_accounts: [creatorAccount],
+            creator_accounts: creatorAccounts,
             name: body.name,
             symbol: body.symbol,
             description: body.description,
@@ -319,31 +322,51 @@ const app = new Hono()
         fallbackMessage: "Failed to create Printr token",
       });
 
-      const parsedPrintrResponse = printrPrintResponseSchema.parse(printrResponse);
+      let parsedPrintrResponse: z.infer<typeof printrPrintResponseSchema>;
+      try {
+        parsedPrintrResponse = printrPrintResponseSchema.parse(printrResponse);
+      } catch (error) {
+        console.error("Invalid Printr response for template token creation", {
+          templateId: body.templateId,
+          printrTokenId:
+            typeof (printrResponse as { token_id?: unknown } | null)?.token_id === "string"
+              ? (printrResponse as { token_id: string }).token_id
+              : null,
+        });
+        throw new HttpError(502, "Printr returned an unexpected response.");
+      }
 
-      const [created] = await db
-        .insert(templateTokens)
-        .values({
-          templateProjectId: body.templateId,
-          creatorUserId: auth.id,
-          printrTokenId: parsedPrintrResponse.token_id,
-          creatorAccount,
-          name: body.name,
-          symbol: body.symbol,
-          description: body.description,
-          imageUrl,
-          externalLinks: body.external_links
-            ? JSON.stringify(body.external_links)
-            : null,
-          chains: JSON.stringify(body.chains),
-          initialBuy: JSON.stringify(body.initial_buy),
-          quote: JSON.stringify(parsedPrintrResponse.quote),
-          payload: JSON.stringify(parsedPrintrResponse.payload),
-          status: "created",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
+      let created: typeof templateTokens.$inferSelect | undefined;
+      try {
+        [created] = await db
+          .insert(templateTokens)
+          .values({
+            templateProjectId: body.templateId,
+            creatorUserId: auth.id,
+            printrTokenId: parsedPrintrResponse.token_id,
+            creatorAccount,
+            name: body.name,
+            symbol: body.symbol,
+            description: body.description,
+            imageUrl,
+            externalLinks: body.external_links
+              ? JSON.stringify(body.external_links)
+              : null,
+            chains: JSON.stringify(body.chains),
+            initialBuy: JSON.stringify(body.initial_buy),
+            quote: JSON.stringify(parsedPrintrResponse.quote),
+            payload: JSON.stringify(parsedPrintrResponse.payload),
+            status: "created",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+      } catch (error) {
+        throw normalizeDbError(error, {
+          fallbackMessage: "Failed to save template token launch record.",
+          uniqueViolationMessage: "Token already launched for this template.",
+        });
+      }
 
       if (!created) {
         throw new HttpError(500, "Failed to save launch record");

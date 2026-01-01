@@ -1,5 +1,6 @@
 import { HttpError } from "@/server/http-error";
 import { readApiResponse } from "@/lib/api-response";
+import { getApiErrorStatus } from "@/lib/api-error";
 
 const DEFAULT_PRINTR_API_URL = "https://api-preview.printr.money/v0";
 
@@ -8,7 +9,17 @@ export const getPrintrApiUrl = () => {
   return value && value.length > 0 ? value : DEFAULT_PRINTR_API_URL;
 };
 
-export const getPrintrApiToken = () => process.env.PRINTR_API_TOKEN?.trim() ?? "";
+const normalizeBearerToken = (value: string) => {
+  const trimmed = value.trim();
+  const withoutQuotes = trimmed.replace(/^"|"$/g, "");
+  return withoutQuotes.replace(/^Bearer\s+/i, "").trim();
+};
+
+export const getPrintrApiToken = () => {
+  const raw = process.env.PRINTR_API_TOKEN?.trim() ?? "";
+  if (!raw) return "";
+  return normalizeBearerToken(raw);
+};
 
 export const hasPrintrConfigured = () => Boolean(getPrintrApiToken());
 
@@ -38,14 +49,23 @@ export const printrFetchJson = async <T>(params: {
     headers,
   });
 
-  return await readApiResponse<T>(
-    res,
-    params.fallbackMessage ?? "Printr request failed",
-  );
+  try {
+    return await readApiResponse<T>(
+      res,
+      params.fallbackMessage ?? "Printr request failed",
+    );
+  } catch (error) {
+    const status = getApiErrorStatus(error);
+    if (!status) {
+      throw error;
+    }
+
+    const message = error instanceof Error && error.message ? error.message : "Printr request failed";
+    throw new HttpError(status >= 500 ? 502 : status, message);
+  }
 };
 
 export const toCaip10Account = (params: {
   chain: string;
   address: string;
 }) => `${params.chain}:${params.address}`;
-
