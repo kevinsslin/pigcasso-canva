@@ -48,6 +48,17 @@ const getWalletAddresses = (privyUser: User) => {
   };
 };
 
+const getSocialAccounts = (privyUser: User) => {
+  return {
+    twitterSubject: privyUser.twitter?.subject ?? null,
+    twitterUsername: privyUser.twitter?.username ?? null,
+    discordSubject: privyUser.discord?.subject ?? null,
+    discordUsername: privyUser.discord?.username ?? null,
+    telegramUserId: privyUser.telegram?.telegramUserId ?? null,
+    telegramUsername: privyUser.telegram?.username ?? null,
+  };
+};
+
 export const getOrCreateUserFromPrivyToken = async (
   token: string,
 ): Promise<AuthUser> => {
@@ -80,6 +91,7 @@ export const getOrCreateUserFromPrivyToken = async (
   const { embeddedWalletAddress, externalWalletAddress, externalWalletAddresses } =
     getWalletAddresses(privyUser);
   const email = privyUser.email?.address ?? null;
+  const socials = getSocialAccounts(privyUser);
 
   let existingUser: (typeof users.$inferSelect) | undefined;
   try {
@@ -104,6 +116,7 @@ export const getOrCreateUserFromPrivyToken = async (
         .values({
           privyUserId: privyUser.id,
           email,
+          ...socials,
           embeddedWalletAddress,
           externalWalletAddress,
         })
@@ -131,6 +144,12 @@ export const getOrCreateUserFromPrivyToken = async (
 
   const shouldUpdate =
     (email && existingUser.email !== email) ||
+    existingUser.twitterSubject !== socials.twitterSubject ||
+    existingUser.twitterUsername !== socials.twitterUsername ||
+    existingUser.discordSubject !== socials.discordSubject ||
+    existingUser.discordUsername !== socials.discordUsername ||
+    existingUser.telegramUserId !== socials.telegramUserId ||
+    existingUser.telegramUsername !== socials.telegramUsername ||
     existingUser.embeddedWalletAddress !== embeddedWalletAddress ||
     existingUser.externalWalletAddress !== externalWalletAddress;
 
@@ -140,6 +159,7 @@ export const getOrCreateUserFromPrivyToken = async (
         .update(users)
         .set({
           ...(email ? { email } : {}),
+          ...socials,
           embeddedWalletAddress,
           externalWalletAddress,
           updatedAt: new Date(),

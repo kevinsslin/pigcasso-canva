@@ -35,6 +35,12 @@ const app = new Hono()
         name: users.name,
         image: users.image,
         bio: users.bio,
+        twitterSubject: users.twitterSubject,
+        twitterUsername: users.twitterUsername,
+        discordSubject: users.discordSubject,
+        discordUsername: users.discordUsername,
+        telegramUserId: users.telegramUserId,
+        telegramUsername: users.telegramUsername,
       })
       .from(users)
       .where(eq(users.id, authUser.id));
@@ -60,6 +66,17 @@ const app = new Hono()
           name: dbUser?.name ?? null,
           image: dbUser?.image ?? null,
           bio: dbUser?.bio ?? null,
+          socials: {
+            twitter: dbUser?.twitterSubject
+              ? { subject: dbUser.twitterSubject, username: dbUser.twitterUsername ?? null }
+              : null,
+            discord: dbUser?.discordSubject
+              ? { subject: dbUser.discordSubject, username: dbUser.discordUsername ?? null }
+              : null,
+            telegram: dbUser?.telegramUserId
+              ? { telegramUserId: dbUser.telegramUserId, username: dbUser.telegramUsername ?? null }
+              : null,
+          },
           wallets: {
             embedded: authUser.embeddedWalletAddress,
             external: authUser.externalWalletAddress,
@@ -143,6 +160,12 @@ const app = new Hono()
           name: users.name,
           image: users.image,
           bio: users.bio,
+          twitterSubject: users.twitterSubject,
+          twitterUsername: users.twitterUsername,
+          discordSubject: users.discordSubject,
+          discordUsername: users.discordUsername,
+          telegramUserId: users.telegramUserId,
+          telegramUsername: users.telegramUsername,
           embeddedWalletAddress: users.embeddedWalletAddress,
           externalWalletAddress: users.externalWalletAddress,
         });
@@ -160,6 +183,17 @@ const app = new Hono()
             name: updated.name,
             image: updated.image,
             bio: updated.bio,
+            socials: {
+              twitter: updated.twitterSubject
+                ? { subject: updated.twitterSubject, username: updated.twitterUsername ?? null }
+                : null,
+              discord: updated.discordSubject
+                ? { subject: updated.discordSubject, username: updated.discordUsername ?? null }
+                : null,
+              telegram: updated.telegramUserId
+                ? { telegramUserId: updated.telegramUserId, username: updated.telegramUsername ?? null }
+                : null,
+            },
             wallets: {
               embedded: updated.embeddedWalletAddress,
               external: updated.externalWalletAddress,

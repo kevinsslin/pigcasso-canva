@@ -13,6 +13,11 @@ export type ResponseType = {
       name: string | null;
       image: string | null;
       bio: string | null;
+      socials: {
+        twitter: { subject: string; username: string | null } | null;
+        discord: { subject: string; username: string | null } | null;
+        telegram: { telegramUserId: string; username: string | null } | null;
+      };
       wallets: {
         embedded: string | null;
         external: string | null;

@@ -9,8 +9,10 @@ import assistant from "./assistant";
 import assets from "./assets";
 import collections from "./collections";
 import images from "./images";
+import leaderboards from "./leaderboards";
 import me from "./me";
 import printr from "./printr";
+import projectHubs from "./project-hubs";
 import projects from "./projects";
 import templates from "./templates";
 import tokenGating from "./token-gating";
@@ -46,8 +48,10 @@ const routes = app
   .route("/assets", assets)
   .route("/collections", collections)
   .route("/images", images)
+  .route("/leaderboards", leaderboards)
   .route("/me", me)
   .route("/printr", printr)
+  .route("/project-hubs", projectHubs)
   .route("/projects", projects)
   .route("/templates", templates)
   .route("/token-gating", tokenGating);

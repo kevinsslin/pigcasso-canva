@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Home, LayoutGrid, RefreshCw, Settings, Wallet } from "lucide-react";
+import { Crown, FolderOpen, Home, LayoutGrid, RefreshCw, Settings, Trophy, Wallet } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -17,10 +17,12 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { isLoading, isPro } = usePro({ enabled: ready && authenticated });
   const refreshMutation = useRefreshTokenGating();
 
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const isNftsActive =
     pathname === "/nfts" || pathname === "/assets" || pathname === "/collections";
   const isCreatorHubActive = pathname === "/creator-hub";
+  const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
+  const isLeaderboardsActive = pathname === "/leaderboards";
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -63,6 +65,20 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
       )}
       <ul className="flex flex-col gap-y-1 px-3">
         <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} onClick={onNavigate} />
+        <SidebarItem
+          href="/projects"
+          icon={FolderOpen}
+          label="Projects"
+          isActive={isProjectsActive}
+          onClick={onNavigate}
+        />
+        <SidebarItem
+          href="/leaderboards"
+          icon={Trophy}
+          label="Leaderboards"
+          isActive={isLeaderboardsActive}
+          onClick={onNavigate}
+        />
         <SidebarItem
           href="/creator-hub"
           icon={LayoutGrid}
