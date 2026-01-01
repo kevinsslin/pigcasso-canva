@@ -20,6 +20,12 @@ export const users = pgTable("user", {
   email: text("email"),
   image: text("image"),
   bio: text("bio"),
+  twitterSubject: text("twitterSubject"),
+  twitterUsername: text("twitterUsername"),
+  discordSubject: text("discordSubject"),
+  discordUsername: text("discordUsername"),
+  telegramUserId: text("telegramUserId"),
+  telegramUsername: text("telegramUsername"),
   embeddedWalletAddress: text("embeddedWalletAddress"),
   externalWalletAddress: text("externalWalletAddress"),
   isPro: boolean("isPro").notNull().default(false),
@@ -32,8 +38,41 @@ export const users = pgTable("user", {
 
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
+  projectHubs: many(projectHubs),
   nftCollections: many(nftCollections),
   nftAssets: many(nftAssets),
+}));
+
+export const projectHubs = pgTable(
+  "project_hub",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    ownerId: text("ownerId").references(() => users.id, { onDelete: "set null" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    logoUrl: text("logoUrl"),
+    bannerUrl: text("bannerUrl"),
+    websiteUrl: text("websiteUrl"),
+    xUrl: text("xUrl"),
+    discordUrl: text("discordUrl"),
+    telegramUrl: text("telegramUrl"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    slugUnique: uniqueIndex("project_hub_slug_unique").on(table.slug),
+  }),
+);
+
+export const projectHubsRelations = relations(projectHubs, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [projectHubs.ownerId],
+    references: [users.id],
+  }),
+  templates: many(projects),
 }));
 
 export const projects = pgTable("project", {
@@ -46,6 +85,10 @@ export const projects = pgTable("project", {
     .references(() => users.id, {
       onDelete: "cascade",
     }),
+  projectHubId: text("projectHubId").references(() => projectHubs.id, {
+    onDelete: "set null",
+  }),
+  templateCategory: text("templateCategory"),
   height: integer("height").notNull(),
   width: integer("width").notNull(),
   thumbnailUrl: text("thumbnailUrl"),
@@ -63,6 +106,10 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   user: one(users, {
     fields: [projects.userId],
     references: [users.id],
+  }),
+  hub: one(projectHubs, {
+    fields: [projects.projectHubId],
+    references: [projectHubs.id],
   }),
   pages: many(projectPages),
   nftAssets: many(nftAssets),
