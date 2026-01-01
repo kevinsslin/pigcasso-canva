@@ -7,7 +7,20 @@ const PINATA_FILE_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
 
 const MAX_FILE_BYTES = 15_000_000;
 
-const getPinataJwt = () => process.env.PINATA_JWT?.trim() ?? "";
+const getPinataJwt = () => {
+  const raw = process.env.PINATA_JWT?.trim() ?? "";
+  if (!raw) return "";
+
+  const withoutBearer = raw.replace(/^bearer\s+/i, "");
+  if (
+    (withoutBearer.startsWith('"') && withoutBearer.endsWith('"')) ||
+    (withoutBearer.startsWith("'") && withoutBearer.endsWith("'"))
+  ) {
+    return withoutBearer.slice(1, -1).trim();
+  }
+
+  return withoutBearer.trim();
+};
 
 export const hasIpfsConfigured = () => Boolean(getPinataJwt());
 
