@@ -77,9 +77,19 @@ export const RemoveBgSidebar = ({
     mutation.mutate({
       image: imageSrc,
     }, {
-      onSuccess: ({ data }) => {
-        editor?.addImage(data);
-        toast.success("Background removed.", { id: toastId, duration: 2000 });
+      onSuccess: async ({ data }) => {
+        if (!editor) {
+          toast.error("Canvas is not ready yet.", { id: toastId, duration: 3000 });
+          return;
+        }
+
+        toast.loading("Adding image to canvas…", { id: toastId, duration: Infinity });
+        try {
+          await editor.addImage(data);
+          toast.success("Background removed.", { id: toastId, duration: 2000 });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to add image", { id: toastId, duration: 4000 });
+        }
       },
       onError: (err) => {
         const status = getApiErrorStatus(err);

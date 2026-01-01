@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import { HttpError } from "@/server/http-error";
 import { normalizeGeminiError } from "@/server/ai-errors";
+import { pickGeminiAspectRatio, type CanvasSize } from "@/server/gemini-image-config";
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
 export type AiProvider = "gemini";
@@ -117,31 +118,72 @@ const fetchUrlAsBase64 = async (input: string) => {
 const toDataUrl = (mimeType: string, base64: string) =>
   `data:${mimeType};base64,${base64}`;
 
-export const generateImage = async (params: { prompt: string }) => {
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRetryableImageError = (error: HttpError) => {
+  return (
+    error.status === 500 ||
+    error.status === 502 ||
+    error.status === 503 ||
+    error.status === 504
+  );
+};
+
+const getRetryDelayMs = (attemptIndex: number) => {
+  const base = 400;
+  return base * attemptIndex;
+};
+
+export const generateImage = async (params: { prompt: string; canvas?: CanvasSize }) => {
   const ai = getGeminiClient();
 
-  let response: unknown;
-  try {
-    response = await ai.models.generateContent({
-      model: GEMINI_IMAGE_MODEL,
-      contents: params.prompt,
-      config: {
-        responseModalities: ["IMAGE"],
-      },
-    });
-  } catch (error) {
-    throw normalizeGeminiError(error, {
-      model: GEMINI_IMAGE_MODEL,
-      operation: "generateImage",
-    });
+  const aspectRatio = pickGeminiAspectRatio(params.canvas);
+
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let response: unknown;
+    try {
+      response = await ai.models.generateContent({
+        model: GEMINI_IMAGE_MODEL,
+        contents: params.prompt,
+        config: {
+          responseModalities: ["IMAGE"],
+          imageConfig: aspectRatio
+            ? {
+                aspectRatio,
+              }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      const normalized = normalizeGeminiError(error, {
+        model: GEMINI_IMAGE_MODEL,
+        operation: "generateImage",
+      });
+      if (attempt < maxAttempts && isRetryableImageError(normalized)) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw normalized;
+    }
+
+    const image = extractInlineImage(response);
+    if (!image) {
+      const noImageError = new HttpError(502, "No image generated");
+      if (attempt < maxAttempts) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw noImageError;
+    }
+
+    return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
   }
 
-  const image = extractInlineImage(response);
-  if (!image) {
-    throw new HttpError(502, "No image generated");
-  }
-
-  return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
+  throw new HttpError(502, "No image generated");
 };
 
 export const removeBackground = async (params: { image: string }) => {
@@ -149,36 +191,51 @@ export const removeBackground = async (params: { image: string }) => {
 
   const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
 
-  let response: unknown;
-  try {
-    response = await ai.models.generateContent({
-      model: GEMINI_IMAGE_MODEL,
-      contents: [
-        { text: "Remove the background and return a transparent PNG." },
-        {
-          inlineData: {
-            mimeType: inline.mimeType,
-            data: inline.base64,
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let response: unknown;
+    try {
+      response = await ai.models.generateContent({
+        model: GEMINI_IMAGE_MODEL,
+        contents: [
+          { text: "Remove the background and return a transparent PNG." },
+          {
+            inlineData: {
+              mimeType: inline.mimeType,
+              data: inline.base64,
+            },
           },
+        ],
+        config: {
+          responseModalities: ["IMAGE"],
         },
-      ],
-      config: {
-        responseModalities: ["IMAGE"],
-      },
-    });
-  } catch (error) {
-    throw normalizeGeminiError(error, {
-      model: GEMINI_IMAGE_MODEL,
-      operation: "removeBackground",
-    });
+      });
+    } catch (error) {
+      const normalized = normalizeGeminiError(error, {
+        model: GEMINI_IMAGE_MODEL,
+        operation: "removeBackground",
+      });
+      if (attempt < maxAttempts && isRetryableImageError(normalized)) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw normalized;
+    }
+
+    const image = extractInlineImage(response);
+    if (!image) {
+      const noImageError = new HttpError(502, "No image generated");
+      if (attempt < maxAttempts) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw noImageError;
+    }
+
+    return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
   }
 
-  const image = extractInlineImage(response);
-  if (!image) {
-    throw new HttpError(502, "No image generated");
-  }
-
-  return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
+  throw new HttpError(502, "No image generated");
 };
 
 export const getAssistantModel = () => GEMINI_ASSISTANT_MODEL;

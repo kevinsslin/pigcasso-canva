@@ -54,14 +54,30 @@ export const AiSidebar = ({
       return;
     }
 
+    if (!editor) {
+      toast.error("Canvas is not ready yet.");
+      return;
+    }
+
+    const workspace = editor.getWorkspace();
+    const canvasSize =
+      workspace && typeof workspace.width === "number" && typeof workspace.height === "number"
+        ? { width: workspace.width, height: workspace.height }
+        : undefined;
+
     const toastId = "pigcasso:ai-generate-image";
     toast.loading("Generating image…", { id: toastId, duration: Infinity });
 
-    mutation.mutate({ prompt: value }, {
-      onSuccess: ({ data }) => {
-        editor?.addImage(data);
-        setValue("");
-        toast.success("Image added to canvas.", { id: toastId, duration: 2000 });
+    mutation.mutate({ prompt: value, canvas: canvasSize }, {
+      onSuccess: async ({ data }) => {
+        toast.loading("Adding image to canvas…", { id: toastId, duration: Infinity });
+        try {
+          await editor.addImage(data);
+          setValue("");
+          toast.success("Image added to canvas.", { id: toastId, duration: 2000 });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to add image", { id: toastId, duration: 4000 });
+        }
       },
       onError: (err) => {
         const status = getApiErrorStatus(err);

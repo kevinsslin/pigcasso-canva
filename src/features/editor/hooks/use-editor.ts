@@ -210,34 +210,68 @@ const buildEditor = ({
         }
       });
     },
-    addImage: (value: string) => {
+    addImage: async (value: string) => {
       const workspace = getWorkspace();
 
-      const load = (crossOrigin?: string) => {
-        const img = new Image();
-        if (crossOrigin) {
-          img.crossOrigin = crossOrigin;
+      const fitToWorkspace = (image: fabric.Image) => {
+        if (!workspace || typeof workspace.width !== "number" || typeof workspace.height !== "number") {
+          return;
         }
 
-        img.onload = () => {
-          const image = new fabric.Image(img);
+        const targetW = workspace.width;
+        const targetH = workspace.height;
+        const imgW = image.width ?? 0;
+        const imgH = image.height ?? 0;
+        if (!imgW || !imgH || !targetW || !targetH) {
+          return;
+        }
 
-          image.scaleToWidth(workspace?.width || 0);
-          image.scaleToHeight(workspace?.height || 0);
+        const scale = Math.min(targetW / imgW, targetH / imgH);
+        if (!Number.isFinite(scale) || scale <= 0) {
+          return;
+        }
 
-          addToCanvas(image);
-        };
-
-        img.onerror = () => {
-          if (crossOrigin) {
-            load(undefined);
-          }
-        };
-
-        img.src = value;
+        image.set({
+          scaleX: scale,
+          scaleY: scale,
+        });
       };
 
-      load("anonymous");
+      const load = (crossOrigin?: string): Promise<void> =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          if (crossOrigin) {
+            img.crossOrigin = crossOrigin;
+          }
+
+          const timeout = window.setTimeout(() => {
+            reject(new Error("Image load timed out"));
+          }, 12_000);
+
+          img.onload = () => {
+            window.clearTimeout(timeout);
+            const image = new fabric.Image(img);
+            fitToWorkspace(image);
+            addToCanvas(image);
+            resolve();
+          };
+
+          img.onerror = () => {
+            window.clearTimeout(timeout);
+            reject(new Error("Failed to load image"));
+          };
+
+          img.src = value;
+        });
+
+      try {
+        await load("anonymous");
+      } catch (error) {
+        if ((error as Error)?.message && (error as Error).message.includes("timed out")) {
+          throw error;
+        }
+        await load(undefined);
+      }
     },
     delete: () => {
       canvas.getActiveObjects().forEach((object) => canvas.remove(object));

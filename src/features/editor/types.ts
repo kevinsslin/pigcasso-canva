@@ -225,7 +225,7 @@ export interface Editor {
   onCopy: () => void;
   onPaste: () => void;
   changeImageFilter: (value: string) => void;
-  addImage: (value: string) => void;
+  addImage: (value: string) => Promise<void>;
   delete: () => void;
   changeFontSize: (value: number) => void;
   getActiveFontSize: () => number;

@@ -152,12 +152,9 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
         throw new Error("Upload finished but no URL was returned.");
       }
 
-      editor.addImage(url);
-
-      toast.success("Upload complete.", {
-        id: UPLOAD_IMAGE_TOAST_ID,
-        duration: 3000,
-      });
+      toast.loading("Adding image to canvas…", { id: UPLOAD_IMAGE_TOAST_ID, duration: Infinity });
+      await editor.addImage(url);
+      toast.success("Upload complete.", { id: UPLOAD_IMAGE_TOAST_ID, duration: 3000 });
     } catch (err) {
       if (abortController.signal.aborted) {
         return;
@@ -264,10 +261,33 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
             <div className="grid grid-cols-2 gap-4">
               {images.map((image) => {
                   const previewSrc = image?.urls?.small || image?.urls?.thumb;
+                  const regularSrc = image?.urls?.regular;
 
                   return (
                     <button
-                      onClick={() => editor?.addImage(image.urls.regular)}
+                      onClick={() => {
+                        if (!regularSrc) return;
+                        if (!editor) return;
+
+                        toast.loading("Adding image to canvas…", {
+                          id: "pigcasso:add-image",
+                          duration: Infinity,
+                        });
+
+                        editor.addImage(regularSrc)
+                          .then(() => {
+                            toast.success("Image added.", {
+                              id: "pigcasso:add-image",
+                              duration: 2000,
+                            });
+                          })
+                          .catch((error) => {
+                            toast.error(error instanceof Error ? error.message : "Failed to add image", {
+                              id: "pigcasso:add-image",
+                              duration: 4000,
+                            });
+                          });
+                      }}
                       key={image.id}
                       className="relative w-full h-[100px] group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
                     >

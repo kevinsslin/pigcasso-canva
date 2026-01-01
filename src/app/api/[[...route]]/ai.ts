@@ -60,11 +60,17 @@ const app = new Hono()
       "json",
       z.object({
         prompt: z.string(),
+        canvas: z
+          .object({
+            width: z.number().positive(),
+            height: z.number().positive(),
+          })
+          .optional(),
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { prompt } = c.req.valid("json");
+      const { prompt, canvas } = c.req.valid("json");
 
       const proStatus = await getProStatusForUser({
         userId: authUser.id,
@@ -92,7 +98,7 @@ const app = new Hono()
         );
       }
 
-      const result = await generateImage({ prompt });
+      const result = await generateImage({ prompt, canvas });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
