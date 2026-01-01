@@ -8,7 +8,8 @@ describe("buildPrintrTokenUrl", () => {
     delete process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE;
 
     try {
-      expect(buildPrintrTokenUrl("123")).toBe("https://app.printr.money/token/123");
+      expect(buildPrintrTokenUrl("123")).toBe("https://app.printr.money/trade/123");
+      expect(buildPrintrTokenUrl("0xABC")).toBe("https://app.printr.money/trade/0xabc");
     } finally {
       if (previous === undefined) {
         delete process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE;
@@ -24,6 +25,7 @@ describe("buildPrintrTokenUrl", () => {
 
     try {
       expect(buildPrintrTokenUrl("abc")).toBe("https://example.com/tokens/abc");
+      expect(buildPrintrTokenUrl("0xABC")).toBe("https://example.com/tokens/0xabc");
     } finally {
       if (previous === undefined) {
         delete process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE;
@@ -33,4 +35,3 @@ describe("buildPrintrTokenUrl", () => {
     }
   });
 });
-
