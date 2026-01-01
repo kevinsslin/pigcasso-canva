@@ -8,12 +8,11 @@ import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useListNftAssets } from "@/features/nfts/api/use-list-assets";
 import { useListNftCollections } from "@/features/nfts/api/use-list-collections";
 import { ipfsToHttpUrl } from "@/features/nfts/ipfs";
+import { buildNftMarketplaceUrl, getNftMarketplaceLabel } from "@/features/nfts/marketplace";
 import { MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-const OPENSEA_MANTLE_BASE_URL = "https://opensea.io/assets/mantle";
 
 const shortHash = (value: string, head = 6, tail = 4) => {
   const trimmed = value.trim();
@@ -76,9 +75,12 @@ export default function NftsPage() {
                       ? `${MANTLE_EXPLORER_BASE_URL}/token/${asset.collectionAddress}?a=${asset.tokenId}`
                       : null;
 
-                  const openseaLink =
+                  const marketplaceLink =
                     asset.collectionAddress && asset.tokenId
-                      ? `${OPENSEA_MANTLE_BASE_URL}/${asset.collectionAddress}/${asset.tokenId}`
+                      ? buildNftMarketplaceUrl({
+                          collectionAddress: asset.collectionAddress,
+                          tokenId: asset.tokenId,
+                        })
                       : null;
 
                   const txLink = asset.txHash
@@ -134,14 +136,14 @@ export default function NftsPage() {
                               View token <ExternalLink className="size-3" />
                             </a>
                           ) : null}
-                          {openseaLink ? (
+                          {marketplaceLink ? (
                             <a
                               className="inline-flex items-center gap-1 underline underline-offset-4"
-                              href={openseaLink}
+                              href={marketplaceLink}
                               target="_blank"
                               rel="noreferrer"
                             >
-                              OpenSea <ExternalLink className="size-3" />
+                              {getNftMarketplaceLabel()} <ExternalLink className="size-3" />
                             </a>
                           ) : null}
                           {txLink ? (

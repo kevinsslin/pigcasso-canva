@@ -19,12 +19,15 @@ NEXT_PUBLIC_NFT_FACTORY_ADDRESS=0x...
 
 # optional
 NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
+NEXT_PUBLIC_NFT_MARKETPLACE_URL_TEMPLATE=
+NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
 ```
 
 注意：
 
 - `PINATA_JWT` 僅能存在 server-side（不可暴露到 client）。
 - `NEXT_PUBLIC_NFT_FACTORY_ADDRESS` 會進入 client bundle（公開的合約地址可接受）。
+- `NEXT_PUBLIC_NFT_MARKETPLACE_URL_TEMPLATE` 是可選的 marketplace link（Mantle 不一定支援 OpenSea）。
 
 ## 3) API（Hono /api）
 
@@ -73,4 +76,3 @@ Contracts repo：`../pigcasso-nft-factory`
 - Tests：`test/PigcassoNFTFactory.t.sol`
 
 部署完成後，把 factory address 填到本 repo 的 `NEXT_PUBLIC_NFT_FACTORY_ADDRESS`。
-
