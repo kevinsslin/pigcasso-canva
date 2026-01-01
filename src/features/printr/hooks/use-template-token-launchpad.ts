@@ -7,6 +7,7 @@ import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
 import { useGetMyTemplates } from "@/features/projects/api/use-get-my-templates";
 import { useCreateTemplateToken } from "@/features/printr/api/use-create-template-token";
+import { useDeleteTemplateToken } from "@/features/printr/api/use-delete-template-token";
 import { useGetPrintrDeployments } from "@/features/printr/api/use-get-printr-deployments";
 import { useGetTemplateToken } from "@/features/printr/api/use-get-template-token";
 import { useUpdateTemplateToken } from "@/features/printr/api/use-update-template-token";
@@ -54,6 +55,7 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
   });
 
   const createToken = useCreateTemplateToken();
+  const deleteToken = useDeleteTemplateToken();
   const updateToken = useUpdateTemplateToken();
 
   const deployments = useGetPrintrDeployments(
@@ -71,8 +73,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
   const [x, setX] = useState("");
   const [telegram, setTelegram] = useState("");
   const [initialBuyMode, setInitialBuyMode] = useState<InitialBuyMode>("supply_percent");
-  const [supplyPercent, setSupplyPercent] = useState(10);
-  const [spendUsd, setSpendUsd] = useState(500);
+  const [supplyPercent, setSupplyPercent] = useState(0);
+  const [spendUsd, setSpendUsd] = useState(0);
   const [spendNative, setSpendNative] = useState("0");
   const [graduationThreshold, setGraduationThreshold] = useState<69000 | 250000>(69000);
   const [quote, setQuote] = useState<QuoteState>(null);
@@ -88,6 +90,11 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       setWebsite("");
       setX("");
       setTelegram("");
+      setInitialBuyMode("supply_percent");
+      setSupplyPercent(0);
+      setSpendUsd(0);
+      setSpendNative("0");
+      setGraduationThreshold(69000);
       setQuote(null);
       setChains([MANTLE_CAIP2]);
       return;
@@ -96,6 +103,11 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setName(selectedTemplate.name);
     setSymbol(deriveTemplateTokenSymbol(selectedTemplate.name));
     setDescription(`Template token for “${selectedTemplate.name}”.`);
+    setInitialBuyMode("supply_percent");
+    setSupplyPercent(0);
+    setSpendUsd(0);
+    setSpendNative("0");
+    setGraduationThreshold(69000);
     setQuote(null);
     setChains([MANTLE_CAIP2]);
   }, [selectedTemplate]);
@@ -237,6 +249,39 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       toast.error(error instanceof Error ? error.message : "Failed to create token", {
         id: toastId,
         duration: 4000,
+      });
+    }
+  };
+
+  const onResetDraft = async () => {
+    if (!canLaunch) return;
+    if (!selectedTemplate) {
+      toast.error("Select a template first.");
+      return;
+    }
+
+    if (!templateToken.data) {
+      toast.error("Create a token first.");
+      return;
+    }
+
+    if (templateToken.data.txHash) {
+      toast.error("Cannot reset after deployment transaction is submitted.");
+      return;
+    }
+
+    const toastId = toast.loading("Resetting token draft…");
+    try {
+      await deleteToken.mutateAsync({ templateId: selectedTemplate.id });
+      setQuote(null);
+      toast.success("Draft reset. You can update settings and create a new draft.", {
+        id: toastId,
+        duration: 3500,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reset token draft", {
+        id: toastId,
+        duration: 5000,
       });
     }
   };
@@ -397,6 +442,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     onGetQuote,
     createToken,
     onCreateToken,
+    deleteToken,
+    onResetDraft,
     updateToken,
     onSignDeployment,
     printrTokenId,

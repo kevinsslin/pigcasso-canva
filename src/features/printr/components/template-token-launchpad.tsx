@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -65,6 +66,8 @@ export const TemplateTokenLaunchpad = () => {
     onGetQuote,
     createToken,
     onCreateToken,
+    deleteToken,
+    onResetDraft,
     updateToken,
     onSignDeployment,
     printrTokenId,
@@ -375,26 +378,57 @@ export const TemplateTokenLaunchpad = () => {
                       ? "Spend USD"
                       : "Spend native (atomic)"}
                 </Label>
-                <Input
-                  value={
-                    initialBuyMode === "supply_percent"
-                      ? String(supplyPercent)
-                      : initialBuyMode === "spend_usd"
-                        ? String(spendUsd)
-                        : spendNative
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (initialBuyMode === "supply_percent") {
-                      setSupplyPercent(Number(value));
-                    } else if (initialBuyMode === "spend_usd") {
-                      setSpendUsd(Number(value));
-                    } else {
-                      setSpendNative(value);
-                    }
-                  }}
-                  disabled={!canLaunch}
-                />
+                {initialBuyMode === "supply_percent" ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        value={[Number.isFinite(supplyPercent) ? supplyPercent : 0]}
+                        min={0}
+                        max={69}
+                        step={0.1}
+                        onValueChange={(value) => setSupplyPercent(value[0] ?? 0)}
+                        disabled={!canLaunch}
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        max={69}
+                        step={0.1}
+                        className="w-24"
+                        value={String(supplyPercent)}
+                        onChange={(e) => {
+                          const value = Number.parseFloat(e.target.value);
+                          setSupplyPercent(Number.isFinite(value) ? value : 0);
+                        }}
+                        disabled={!canLaunch}
+                      />
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      0%–69% (0% = no initial buy)
+                    </div>
+                  </div>
+                ) : initialBuyMode === "spend_usd" ? (
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={String(spendUsd)}
+                    onChange={(e) => {
+                      const value = Number.parseFloat(e.target.value);
+                      setSpendUsd(Number.isFinite(value) ? value : 0);
+                    }}
+                    disabled={!canLaunch}
+                  />
+                ) : (
+                  <Input
+                    value={spendNative}
+                    onChange={(e) => setSpendNative(e.target.value)}
+                    disabled={!canLaunch}
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Graduation threshold</Label>
@@ -476,6 +510,23 @@ export const TemplateTokenLaunchpad = () => {
                 <Loader className="size-4 mr-2 animate-spin" />
               ) : null}
               Create token
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onResetDraft}
+              disabled={
+                !canLaunch ||
+                !templateToken.data ||
+                deleteToken.isPending ||
+                templateToken.data.status !== "created" ||
+                Boolean(templateToken.data.txHash)
+              }
+            >
+              {deleteToken.isPending ? (
+                <Loader className="size-4 mr-2 animate-spin" />
+              ) : null}
+              Reset draft
             </Button>
             <Button
               type="button"

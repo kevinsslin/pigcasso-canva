@@ -18,12 +18,12 @@ const bigintStringSchema = z.string().regex(/^[0-9]+$/);
 const initialBuySchema = z.union([
   z
     .object({
-      supply_percent: z.coerce.number().min(0.01).max(69),
+      supply_percent: z.coerce.number().min(0).max(69),
     })
     .strict(),
   z
     .object({
-      spend_usd: z.coerce.number().positive(),
+      spend_usd: z.coerce.number().min(0),
     })
     .strict(),
   z
@@ -430,6 +430,36 @@ const app = new Hono()
       }
 
       return c.json({ data: updated });
+    },
+  )
+  .delete(
+    "/template-tokens/:templateId",
+    requireAuth,
+    zValidator("param", z.object({ templateId: z.string().min(1) })),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { templateId } = c.req.valid("param");
+
+      const [existing] = await db
+        .select()
+        .from(templateTokens)
+        .where(eq(templateTokens.templateProjectId, templateId));
+
+      if (!existing || existing.creatorUserId !== auth.id) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      if (existing.txHash) {
+        return c.json({ error: "Cannot reset after deployment transaction is submitted" }, 409);
+      }
+
+      if (existing.status !== "created") {
+        return c.json({ error: "Cannot reset after deployment has started" }, 409);
+      }
+
+      await db.delete(templateTokens).where(eq(templateTokens.id, existing.id));
+
+      return c.json({ ok: true });
     },
   )
   .post("/print/quote", requireAuth, zValidator("json", quoteSchema), async (c) => {

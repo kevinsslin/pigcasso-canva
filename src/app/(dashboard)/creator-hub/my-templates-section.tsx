@@ -12,6 +12,7 @@ import { useMe } from "@/features/auth/api/use-me";
 import { useRefreshTokenGating } from "@/features/auth/api/use-refresh-token-gating";
 import { useGetMyTemplates, type MyTemplateListItem } from "@/features/projects/api/use-get-my-templates";
 import { useCreateTemplateToken } from "@/features/printr/api/use-create-template-token";
+import { useDeleteTemplateToken } from "@/features/printr/api/use-delete-template-token";
 import type { TemplateTokenRecord } from "@/features/printr/api/use-get-template-token";
 import { useUpdateTemplateToken } from "@/features/printr/api/use-update-template-token";
 import { buildPrintrTokenUrl, MANTLE_CAIP2 } from "@/features/printr/constants";
@@ -32,6 +33,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 
 type KnownTemplateTokenStatus = "created" | "signed" | "live" | "failed";
@@ -108,12 +110,17 @@ export const MyTemplatesSection = () => {
   const refreshTokenGating = useRefreshTokenGating();
 
   const createToken = useCreateTemplateToken();
+  const deleteToken = useDeleteTemplateToken();
   const updateToken = useUpdateTemplateToken();
 
   const [creatingTemplateId, setCreatingTemplateId] = useState<string | null>(null);
   const [signingTemplateId, setSigningTemplateId] = useState<string | null>(null);
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [launchTemplate, setLaunchTemplate] = useState<MyTemplateListItem | null>(null);
+  const [launchMode, setLaunchMode] = useState<"create" | "update">("create");
+  const [launchExistingRecord, setLaunchExistingRecord] = useState<TemplateTokenRecord | null>(
+    null,
+  );
 
   const [launchName, setLaunchName] = useState("");
   const [launchSymbol, setLaunchSymbol] = useState("");
@@ -124,8 +131,8 @@ export const MyTemplatesSection = () => {
   const [launchChains, setLaunchChains] = useState<string[]>([MANTLE_CAIP2]);
   const [launchGraduationThreshold, setLaunchGraduationThreshold] = useState<69000 | 250000>(69000);
   const [launchInitialBuyMode, setLaunchInitialBuyMode] = useState<InitialBuyMode>("supply_percent");
-  const [launchSupplyPercent, setLaunchSupplyPercent] = useState(10);
-  const [launchSpendUsd, setLaunchSpendUsd] = useState(500);
+  const [launchSupplyPercent, setLaunchSupplyPercent] = useState(0);
+  const [launchSpendUsd, setLaunchSpendUsd] = useState(0);
   const [launchSpendNative, setLaunchSpendNative] = useState("0");
   const [launchCreatorAddress, setLaunchCreatorAddress] = useState("");
   const [launchQuote, setLaunchQuote] = useState<QuoteState>(null);
@@ -171,8 +178,13 @@ export const MyTemplatesSection = () => {
     setLaunchCreatorAddress((current) => (current ? current : defaultAddress));
   }, [meUser?.wallets.embedded, meUser?.wallets.external]);
 
-  const openLaunchDialog = (template: MyTemplateListItem) => {
+  const openLaunchDialog = (
+    template: MyTemplateListItem,
+    mode: "create" | "update" = "create",
+  ) => {
     setLaunchTemplate(template);
+    setLaunchMode(mode);
+    setLaunchExistingRecord(null);
     setLaunchDialogOpen(true);
   };
 
@@ -190,11 +202,75 @@ export const MyTemplatesSection = () => {
     setLaunchChains([MANTLE_CAIP2]);
     setLaunchGraduationThreshold(69000);
     setLaunchInitialBuyMode("supply_percent");
-    setLaunchSupplyPercent(10);
-    setLaunchSpendUsd(500);
+    setLaunchSupplyPercent(0);
+    setLaunchSpendUsd(0);
     setLaunchSpendNative("0");
     setLaunchQuote(null);
+    setLaunchExistingRecord(null);
   }, [launchTemplateId, launchTemplateName]);
+
+  useEffect(() => {
+    if (!launchDialogOpen) return;
+    if (!launchTemplateId) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const record = await fetchTemplateToken(launchTemplateId);
+        if (cancelled) return;
+
+        setLaunchExistingRecord(record);
+        if (!record) return;
+
+        setLaunchName(record.name ?? "");
+        setLaunchSymbol(record.symbol ?? "");
+        setLaunchDescription(record.description ?? "");
+
+        if (record.chains?.length) {
+          setLaunchChains(record.chains);
+        }
+
+        const creator = parseCaip10(record.creatorAccount);
+        if (creator?.address) {
+          setLaunchCreatorAddress(creator.address);
+        }
+
+        const initialBuy = record.initialBuy;
+        if (initialBuy && typeof initialBuy === "object") {
+          if ("supply_percent" in initialBuy) {
+            const value = Number((initialBuy as { supply_percent?: unknown }).supply_percent);
+            setLaunchInitialBuyMode("supply_percent");
+            setLaunchSupplyPercent(Number.isFinite(value) ? value : 0);
+          } else if ("spend_usd" in initialBuy) {
+            const value = Number((initialBuy as { spend_usd?: unknown }).spend_usd);
+            setLaunchInitialBuyMode("spend_usd");
+            setLaunchSpendUsd(Number.isFinite(value) ? value : 0);
+          } else if ("spend_native" in initialBuy) {
+            const value = (initialBuy as { spend_native?: unknown }).spend_native;
+            setLaunchInitialBuyMode("spend_native");
+            setLaunchSpendNative(typeof value === "string" ? value : "0");
+          }
+        }
+
+        const externalLinks = record.externalLinks;
+        if (externalLinks && typeof externalLinks === "object") {
+          const links = externalLinks as { website?: unknown; x?: unknown; telegram?: unknown };
+          setLaunchWebsite(typeof links.website === "string" ? links.website : "");
+          setLaunchX(typeof links.x === "string" ? links.x : "");
+          setLaunchTelegram(typeof links.telegram === "string" ? links.telegram : "");
+        }
+      } catch {
+        if (!cancelled) {
+          setLaunchExistingRecord(null);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [launchDialogOpen, launchTemplateId]);
 
   const launchHomeChain = launchChains[0] ?? MANTLE_CAIP2;
 
@@ -340,49 +416,73 @@ export const MyTemplatesSection = () => {
     }
 
     setCreatingTemplateId(template.id);
-    setSigningTemplateId(template.id);
-    const toastId = toast.loading("Launching template token…", {
+    const toastId = toast.loading(launchMode === "update" ? "Updating token draft…" : "Creating token draft…", {
       description: launchName.trim(),
     });
 
     try {
-      let record = await fetchTemplateToken(template.id);
-      if (!record) {
-        await createToken.mutateAsync({
-          templateId: template.id,
-          name: launchName.trim(),
-          symbol: launchSymbol.trim().toUpperCase(),
-          description: launchDescription.trim(),
-          chains: launchChains,
-          initial_buy: buildLaunchInitialBuy(),
-          graduation_threshold_per_chain_usd: launchGraduationThreshold,
-          ...(launchCreatorAddress.trim() ? { creatorAddress: launchCreatorAddress.trim() } : {}),
-          external_links: {
-            ...(launchWebsite.trim() ? { website: launchWebsite.trim() } : {}),
-            ...(launchX.trim() ? { x: launchX.trim() } : {}),
-            ...(launchTelegram.trim() ? { telegram: launchTelegram.trim() } : {}),
-          },
-        });
-
-        record = await fetchTemplateToken(template.id);
+      if (launchMode === "update") {
+        await deleteToken.mutateAsync({ templateId: template.id });
       } else {
-        toast.loading("Token already created. Preparing deployment…", { id: toastId });
+        const record = await fetchTemplateToken(template.id);
+        if (record) {
+          toast.message("Token draft already exists. Sign the deployment from your template card.", {
+            id: toastId,
+            duration: 3500,
+          });
+          setLaunchDialogOpen(false);
+          return;
+        }
       }
 
-      if (!record) {
-        toast.error("Token created, but record is missing.", { id: toastId, duration: 3500 });
-        return;
-      }
+      await createToken.mutateAsync({
+        templateId: template.id,
+        name: launchName.trim(),
+        symbol: launchSymbol.trim().toUpperCase(),
+        description: launchDescription.trim(),
+        chains: launchChains,
+        initial_buy: buildLaunchInitialBuy(),
+        graduation_threshold_per_chain_usd: launchGraduationThreshold,
+        ...(launchCreatorAddress.trim() ? { creatorAddress: launchCreatorAddress.trim() } : {}),
+        external_links: {
+          ...(launchWebsite.trim() ? { website: launchWebsite.trim() } : {}),
+          ...(launchX.trim() ? { x: launchX.trim() } : {}),
+          ...(launchTelegram.trim() ? { telegram: launchTelegram.trim() } : {}),
+        },
+      });
 
-      await signDeploymentRecord(record, { toastId });
+      toast.success("Token draft created. Next: sign the deployment tx.", {
+        id: toastId,
+        duration: 3500,
+      });
       setLaunchDialogOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to launch template token", {
+      toast.error(error instanceof Error ? error.message : "Failed to create template token", {
         id: toastId,
         duration: 5000,
       });
     } finally {
-      setSigningTemplateId(null);
+      setCreatingTemplateId(null);
+    }
+  };
+
+  const onResetLaunchDraft = async (template: MyTemplateListItem) => {
+    setCreatingTemplateId(template.id);
+    const toastId = toast.loading("Resetting token draft…", { description: template.name });
+
+    try {
+      await deleteToken.mutateAsync({ templateId: template.id });
+      toast.success("Draft reset. You can update settings and create a new draft.", {
+        id: toastId,
+        duration: 3500,
+      });
+      openLaunchDialog(template, "create");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reset token draft", {
+        id: toastId,
+        duration: 5000,
+      });
+    } finally {
       setCreatingTemplateId(null);
     }
   };
@@ -432,7 +532,8 @@ export const MyTemplatesSection = () => {
     );
   }
 
-  const busy = createToken.isPending || updateToken.isPending || quoting;
+  const busy =
+    createToken.isPending || deleteToken.isPending || updateToken.isPending || quoting;
 
   return (
     <div className="space-y-4">
@@ -443,6 +544,8 @@ export const MyTemplatesSection = () => {
           if (!open) {
             setLaunchTemplate(null);
             setLaunchQuote(null);
+            setLaunchMode("create");
+            setLaunchExistingRecord(null);
           }
         }}
       >
@@ -456,6 +559,16 @@ export const MyTemplatesSection = () => {
 
           {launchTemplate ? (
             <div className="space-y-6">
+              {launchExistingRecord ? (
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  <div className="font-medium">Draft already exists</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {launchMode === "update"
+                      ? "Updating will reset the draft and generate a new token id."
+                      : "You can sign the deployment from your template card, or reset the draft to change settings."}
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="launch-token-name">Token name</Label>
@@ -511,29 +624,59 @@ export const MyTemplatesSection = () => {
                         ? "Spend USD"
                         : "Spend native (atomic)"}
                   </Label>
-                  <Input
-                    value={
-                      launchInitialBuyMode === "supply_percent"
-                        ? String(launchSupplyPercent)
-                        : launchInitialBuyMode === "spend_usd"
-                          ? String(launchSpendUsd)
-                          : launchSpendNative
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (launchInitialBuyMode === "supply_percent") {
-                        setLaunchSupplyPercent(Number(value));
-                      } else if (launchInitialBuyMode === "spend_usd") {
-                        setLaunchSpendUsd(Number(value));
-                      } else {
-                        setLaunchSpendNative(value);
-                      }
-                    }}
-                    disabled={!canCreate || busy}
-                  />
                   {launchInitialBuyMode === "supply_percent" ? (
-                    <div className="text-[11px] text-muted-foreground">Min 0.01%, max 69%.</div>
-                  ) : null}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[Number.isFinite(launchSupplyPercent) ? launchSupplyPercent : 0]}
+                          min={0}
+                          max={69}
+                          step={0.1}
+                          onValueChange={(value) =>
+                            setLaunchSupplyPercent(value[0] ?? 0)
+                          }
+                          disabled={!canCreate || busy}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          max={69}
+                          step={0.1}
+                          className="w-24"
+                          value={String(launchSupplyPercent)}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value);
+                            setLaunchSupplyPercent(Number.isFinite(value) ? value : 0);
+                          }}
+                          disabled={!canCreate || busy}
+                        />
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        0%–69% (0% = no initial buy)
+                      </div>
+                    </div>
+                  ) : launchInitialBuyMode === "spend_usd" ? (
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={String(launchSpendUsd)}
+                      onChange={(e) => {
+                        const value = Number.parseFloat(e.target.value);
+                        setLaunchSpendUsd(Number.isFinite(value) ? value : 0);
+                      }}
+                      disabled={!canCreate || busy}
+                    />
+                  ) : (
+                    <Input
+                      value={launchSpendNative}
+                      onChange={(e) => setLaunchSpendNative(e.target.value)}
+                      disabled={!canCreate || busy}
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Bonding curve size</Label>
@@ -696,7 +839,7 @@ export const MyTemplatesSection = () => {
               onClick={onLaunchToken}
               disabled={!canCreate || busy || !launchTemplate}
             >
-              Launch token
+              {launchMode === "update" ? "Update draft" : "Create draft"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -747,7 +890,8 @@ export const MyTemplatesSection = () => {
             const status = (template.token?.status ?? null) as TemplateTokenStatus;
             const creating = creatingTemplateId === template.id;
             const signing = signingTemplateId === template.id;
-            const cardBusy = creating || signing || createToken.isPending || updateToken.isPending;
+            const cardBusy =
+              creating || signing || createToken.isPending || deleteToken.isPending || updateToken.isPending;
 
             return (
               <Card key={template.id} className="overflow-hidden">
@@ -813,19 +957,39 @@ export const MyTemplatesSection = () => {
                         type="button"
                         className="rounded-full"
                         disabled={!canCreate || cardBusy}
-                        onClick={() => openLaunchDialog(template)}
+                        onClick={() => openLaunchDialog(template, "create")}
                       >
-                        {creating || signing ? "Launching…" : "Launch token"}
+                        {creating ? "Creating…" : "Create draft"}
                       </Button>
                     ) : status === "created" ? (
-                      <Button
-                        type="button"
-                        className="rounded-full"
-                        disabled={cardBusy}
-                        onClick={() => onSignDeployment(template)}
-                      >
-                        {signing ? "Signing…" : "Sign deployment"}
-                      </Button>
+                      <>
+                        <Button
+                          type="button"
+                          className="rounded-full"
+                          disabled={cardBusy}
+                          onClick={() => onSignDeployment(template)}
+                        >
+                          {signing ? "Signing…" : "Sign deployment"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-full"
+                          disabled={cardBusy}
+                          onClick={() => openLaunchDialog(template, "update")}
+                        >
+                          Edit draft
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="rounded-full"
+                          disabled={cardBusy}
+                          onClick={() => onResetLaunchDraft(template)}
+                        >
+                          Reset
+                        </Button>
+                      </>
                     ) : (
                       <Button
                         type="button"
