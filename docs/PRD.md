@@ -6,6 +6,79 @@
 
 ---
 
+## 0.2) Executive Summary（2026-01）
+
+Pigcasso AI Canvas 讓社群成員用 **Canva-like 畫布** 低門檻產出可用的 **Community Assets**（頭像框、貼紙、節日／活動海報等），並透過 **Twitter/X、Telegram、Discord** 的跨渠道追蹤，把「真實貢獻」沉澱成 **Leaderboard / Mindshare 指標**，最終支援更公平的 **Rewards / Airdrop**，並為未來 Web3 原生變現（發行／交易／分潤）鋪路。
+
+> 我們要做的不是「另一個 Canva」，而是：  
+> **用 Canva-like 創作承載社群資產生產，並用跨渠道追蹤把真實貢獻變成可見的 Leaderboard 與激勵，從而把 Organic Community 帶回 Web3。**
+
+### 兩大產品支柱（Pillars）
+
+**Pillar A：Canva Web App（Create / Monetize / Leaderboards）**
+
+- Create：創作 Community Assets（Avatar templates、stickers、節日/活動模板等），支援可編輯、套模板、多尺寸、快速迭代
+- Monetize（Roadmap）：內容資產化／模板資產化（Printr Template Token、stake-to-use/pay-to-use 等）
+- Leaderboards：在 Web App 內可視化呈現（Project 熱力值、貢獻者榜、素材榜、創作者榜、空投資格等）
+
+**Pillar B：Pig Agent（私域社群的 Community Manager / 記錄員，Roadmap）**
+
+- 進入 Telegram / Discord（需可見全部訊息）
+- 目的：記錄私域中的真實貢獻（答疑、有效回覆、社群互動、貼紙使用、討論度），並導流回 Web App 持續創作與使用
+- 註：本 repo 以 Web App 為主；Agent/bot 的整合與反作弊/算法權重屬後續里程碑
+
+### 核心模組：Projects（KAITO 風格）
+
+- Projects 是合作項目的「社群資產中心 + 貢獻追蹤中心 + 榜單中心」
+- Projects 由團隊在 **B2B 合作後於後台 Onboarding**（Consumer app 不暴露創建）
+
+**Project 內主要功能（Roadmap-to-build）**
+
+- Asset Hub：Avatar Templates / Sticker Hub / Seasonal & Campaign Templates（官方 + 社群投稿）
+- Contribution Tracking（全渠道）：Web App（創作/使用/匯出/投稿）、Telegram、Discord、Twitter/X（具體歸因方法後續定）
+- Leaderboards：Project 內 Top Contributors / Top Assets；全站 Top Projects / Top Creators
+- Rewards/Airdrop：Eligibility 查詢、名單導出（CSV 等）
+
+### Identity
+
+- Auth：Privy（embedded wallet + external wallet）
+- Profile / Settings：可連接 Twitter/X、Discord、Telegram、外部錢包
+- 目的：把多個社交與錢包帳號映射到同一個 entity，便於 **跨渠道歸因** 與 **激勵發放**
+
+### 核心循環（用戶看到的體驗）
+
+```mermaid
+flowchart
+  A[B2B 合作項目方] --> B[團隊後台 Onboard Project]
+  B --> C[官方資產與模板\nAvatar / Seasonal / Campaign]
+  C --> D[用戶在 Pigcasso AI Canvas 創作/二創]
+  D --> E[導出並在 X / TG / Discord 使用]
+  E --> F[Pig Agent + 系統追蹤貢獻與使用]
+  F --> G[Leaderboards / Mindshare]
+  G --> H[Rewards / Airdrop / 榮譽]
+  H --> D
+```
+
+### 資訊架構（IA / Sitemap，Roadmap-to-align）
+
+```mermaid
+flowchart
+  S[Sidebar] --> H[Home]
+  S --> P[Projects List]
+  P --> PD[Project Detail]
+  PD --> O[Overview]
+  PD --> AT[Avatar Templates]
+  PD --> SH[Sticker Hub]
+  PD --> ST[Seasonal/Campaign Templates]
+  PD --> LB1[Project Leaderboards]
+  PD --> AF[Activity Feed]
+  PD --> RW[Rewards/Airdrop]
+  S --> E[Create / Editor]
+  S --> GLB[Global Leaderboards]
+  S --> PS[Profile / Settings]
+  S --> AS[Assets Library]
+```
+
 ## 0) 文件資訊
 
 | 欄位 | 值 |
