@@ -143,16 +143,24 @@ export const ExportNftDialog = ({
   const factoryAddress = getFactoryAddress();
   const factoryConfigured = isEvmAddress(factoryAddress);
 
-  const preferredWalletAddress = me.data?.data.user.wallets.external ?? me.data?.data.user.wallets.embedded;
+  const connectedEthereumWallets = useMemo(
+    () => wallets.filter((wallet) => wallet.type === "ethereum"),
+    [wallets],
+  );
+
+  const externalWalletAddress = me.data?.data.user.wallets.external?.toLowerCase() ?? null;
+  const embeddedWalletAddress = me.data?.data.user.wallets.embedded?.toLowerCase() ?? null;
 
   const preferredWallet = useMemo(() => {
-    if (!preferredWalletAddress) return null;
-    const target = preferredWalletAddress.toLowerCase();
-    return (
-      wallets.find((wallet) => wallet.type === "ethereum" && wallet.address.toLowerCase() === target) ??
-      null
-    );
-  }, [preferredWalletAddress, wallets]);
+    const candidates = [externalWalletAddress, embeddedWalletAddress].filter(Boolean) as string[];
+
+    for (const candidate of candidates) {
+      const match = connectedEthereumWallets.find((wallet) => wallet.address.toLowerCase() === candidate);
+      if (match) return match;
+    }
+
+    return connectedEthereumWallets[0] ?? null;
+  }, [connectedEthereumWallets, embeddedWalletAddress, externalWalletAddress]);
 
   useEffect(() => {
     if (!open) {
@@ -568,6 +576,35 @@ export const ExportNftDialog = ({
     !updateAsset.isPending &&
     !createCollectionRecord.isPending;
 
+  const mintDisabledReasons = useMemo(() => {
+    if (canMintNow) return [];
+
+    const reasons: string[] = [];
+    if (!editor) reasons.push("Editor is still loading. Please wait a moment.");
+    if (!activePage) reasons.push("Select a page to mint.");
+    if (!preferredWallet) reasons.push("Connect an Ethereum wallet to mint.");
+    if (!factoryConfigured) reasons.push("NFT minting is not configured (missing `NEXT_PUBLIC_NFT_FACTORY_ADDRESS`).");
+    if (!ipfsConfigured)
+      reasons.push("IPFS pinning is not configured (missing `PINATA_JWT` or Pinata API key/secret).");
+    if (isMinting) reasons.push("Minting is already in progress.");
+    if (exportAsset.isPending || updateAsset.isPending || createCollectionRecord.isPending) {
+      reasons.push("Please wait for the current request to finish.");
+    }
+
+    return reasons;
+  }, [
+    activePage,
+    canMintNow,
+    createCollectionRecord.isPending,
+    editor,
+    exportAsset.isPending,
+    factoryConfigured,
+    ipfsConfigured,
+    isMinting,
+    preferredWallet,
+    updateAsset.isPending,
+  ]);
+
   const mintStepList = [
     { key: "ipfs" as const, label: "Upload to IPFS" },
     { key: "collection" as const, label: "Prepare collection" },
@@ -886,11 +923,28 @@ export const ExportNftDialog = ({
             </div>
           )}
 
-          {!ipfsConfigured ? (
-            <div className="text-xs text-muted-foreground">
-              NFT export is temporarily unavailable. Ask an admin to configure IPFS.
-            </div>
-          ) : null}
+          <div className="space-y-1 text-xs text-muted-foreground">
+            {preferredWallet ? (
+              <div className="flex items-center justify-between gap-2">
+                <span>Signing wallet</span>
+                <span className="font-mono">{preferredWallet.address}</span>
+              </div>
+            ) : null}
+
+            {mintDisabledReasons.length ? (
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                <div className="flex items-start gap-2 text-foreground">
+                  <AlertTriangle className="mt-0.5 size-4 text-muted-foreground" />
+                  <div className="font-medium">Mint NFT is disabled</div>
+                </div>
+                <ul className="list-disc pl-5 space-y-1">
+                  {mintDisabledReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
