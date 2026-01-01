@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader, TriangleAlert } from "lucide-react";
+import { Loader, MessageCircle, Send, TriangleAlert, Twitter } from "lucide-react";
 import { toast } from "sonner";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -24,16 +24,27 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 const AVATAR_UPLOAD_TOAST_ID = "pigcasso:upload-avatar";
+type SocialProvider = "twitter" | "discord" | "telegram";
 
 export default function SettingsPage() {
   const { ready, authenticated } = useRequireAuth("/settings");
-  const { logout } = usePrivy();
+  const {
+    logout,
+    user: privyUser,
+    linkTwitter,
+    linkDiscord,
+    linkTelegram,
+    unlinkTwitter,
+    unlinkDiscord,
+    unlinkTelegram,
+  } = usePrivy();
   const me = useMe({ enabled: ready && authenticated });
   const updateMe = useUpdateMe();
 
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
+  const [unlinkingSocial, setUnlinkingSocial] = useState<SocialProvider | null>(null);
   const avatarUploadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -139,6 +150,73 @@ export default function SettingsPage() {
   const uploadthingConfigured = integrations?.uploadthing.configured === true;
   const avatarUrl = image.trim() ? image.trim() : null;
   const avatarUploadEnabled = uploadthingConfigured && !updateMe.isPending && !uploadingAvatar;
+
+  const twitterAccount = privyUser?.twitter ?? null;
+  const discordAccount = privyUser?.discord ?? null;
+  const telegramAccount = privyUser?.telegram ?? null;
+
+  const onConnectTwitter = () => {
+    try {
+      linkTwitter();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect X");
+    }
+  };
+
+  const onConnectDiscord = () => {
+    try {
+      linkDiscord();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect Discord");
+    }
+  };
+
+  const onConnectTelegram = () => {
+    try {
+      linkTelegram();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect Telegram");
+    }
+  };
+
+  const onDisconnectTwitter = async () => {
+    if (!twitterAccount) return;
+    setUnlinkingSocial("twitter");
+    try {
+      await unlinkTwitter(twitterAccount.subject);
+      toast.success("Disconnected X.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect X");
+    } finally {
+      setUnlinkingSocial(null);
+    }
+  };
+
+  const onDisconnectDiscord = async () => {
+    if (!discordAccount) return;
+    setUnlinkingSocial("discord");
+    try {
+      await unlinkDiscord(discordAccount.subject);
+      toast.success("Disconnected Discord.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect Discord");
+    } finally {
+      setUnlinkingSocial(null);
+    }
+  };
+
+  const onDisconnectTelegram = async () => {
+    if (!telegramAccount) return;
+    setUnlinkingSocial("telegram");
+    try {
+      await unlinkTelegram(telegramAccount.telegramUserId);
+      toast.success("Disconnected Telegram.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect Telegram");
+    } finally {
+      setUnlinkingSocial(null);
+    }
+  };
 
   const onUploadAvatar = async (file: File) => {
     if (!uploadthingConfigured) {
@@ -357,6 +435,109 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Social connections</CardTitle>
+          <CardDescription>
+            Link your social accounts for cross-channel attribution and future rewards.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-full bg-sky-500/10">
+                <Twitter className="size-4 text-sky-600" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">X</div>
+                <div className="text-xs text-muted-foreground">
+                  {twitterAccount?.username ? `@${twitterAccount.username}` : twitterAccount ? "Connected" : "Not connected"}
+                </div>
+              </div>
+            </div>
+            {twitterAccount ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={unlinkingSocial === "twitter"}
+                onClick={() => void onDisconnectTwitter()}
+              >
+                {unlinkingSocial === "twitter" ? (
+                  <Loader className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Disconnect
+              </Button>
+            ) : (
+              <Button type="button" onClick={onConnectTwitter}>
+                Connect
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-full bg-indigo-500/10">
+                <MessageCircle className="size-4 text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">Discord</div>
+                <div className="text-xs text-muted-foreground">
+                  {discordAccount?.username ? `@${discordAccount.username}` : discordAccount ? "Connected" : "Not connected"}
+                </div>
+              </div>
+            </div>
+            {discordAccount ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={unlinkingSocial === "discord"}
+                onClick={() => void onDisconnectDiscord()}
+              >
+                {unlinkingSocial === "discord" ? (
+                  <Loader className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Disconnect
+              </Button>
+            ) : (
+              <Button type="button" onClick={onConnectDiscord}>
+                Connect
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-full bg-cyan-500/10">
+                <Send className="size-4 text-cyan-600" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">Telegram</div>
+                <div className="text-xs text-muted-foreground">
+                  {telegramAccount?.username ? `@${telegramAccount.username}` : telegramAccount ? "Connected" : "Not connected"}
+                </div>
+              </div>
+            </div>
+            {telegramAccount ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={unlinkingSocial === "telegram"}
+                onClick={() => void onDisconnectTelegram()}
+              >
+                {unlinkingSocial === "telegram" ? (
+                  <Loader className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Disconnect
+              </Button>
+            ) : (
+              <Button type="button" onClick={onConnectTelegram}>
+                Connect
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
