@@ -81,11 +81,13 @@ export const Editor = ({ initialData }: EditorProps) => {
     }
   }, [activeTool]);
 
+  const mutatePage = updatePageMutation.mutate;
+
   const savePageNetwork = useMemo(
     () =>
       debounce(
         (payload: { pageId: string; json: string; width: number; height: number }) => {
-          updatePageMutation.mutate({
+          mutatePage({
             param: { id: initialData.id, pageId: payload.pageId },
             json: {
               json: payload.json,
@@ -97,7 +99,7 @@ export const Editor = ({ initialData }: EditorProps) => {
         1200,
         { maxWait: 5000 },
       ),
-    [initialData.id, updatePageMutation],
+    [initialData.id, mutatePage],
   );
 
   flushSaveRef.current = () => {

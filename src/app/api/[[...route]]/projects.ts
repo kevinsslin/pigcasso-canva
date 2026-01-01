@@ -6,6 +6,7 @@ import { zValidator } from "@hono/zod-validator";
 import { db } from "@/db/drizzle";
 import { projectPages, projects } from "@/db/schema";
 import { requireAuth } from "@/server/hono-auth";
+import { HttpError } from "@/server/http-error";
 import { getProStatusForUser } from "@/server/token-gating";
 
 const listProjectsSchema = z.object({
@@ -341,47 +342,46 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
-      const [existingPage] = await db
-        .select({
-          id: projectPages.id,
-          index: projectPages.index,
-        })
-        .from(projectPages)
-        .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, id)));
+      let updatedPage: (typeof projectPages.$inferSelect) | undefined;
+      try {
+        [updatedPage] = await db
+          .update(projectPages)
+          .set({
+            ...values,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, id)))
+          .returning();
+      } catch (error) {
+        console.error(error);
+        throw new HttpError(500, "Failed to save page");
+      }
 
-      if (!existingPage) {
+      if (!updatedPage) {
         return c.json({ error: "Not found" }, 404);
       }
 
-      const [updatedPage] = await db
-        .update(projectPages)
-        .set({
-          ...values,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, id)))
-        .returning();
-
-      if (!updatedPage) {
-        return c.json({ error: "Failed to update page" }, 400);
-      }
-
       const now = new Date();
-      await db
-        .update(projects)
-        .set({
-          updatedAt: now,
-          ...(existingPage.index === 0
-            ? {
-                ...(values.width !== undefined ? { width: values.width } : {}),
-                ...(values.height !== undefined ? { height: values.height } : {}),
-                ...(values.thumbnailUrl !== undefined
-                  ? { thumbnailUrl: values.thumbnailUrl }
-                  : {}),
-              }
-            : {}),
-        })
-        .where(and(eq(projects.id, id), eq(projects.userId, auth.id)));
+      try {
+        await db
+          .update(projects)
+          .set({
+            updatedAt: now,
+            ...(updatedPage.index === 0
+              ? {
+                  ...(values.width !== undefined ? { width: values.width } : {}),
+                  ...(values.height !== undefined ? { height: values.height } : {}),
+                  ...(values.thumbnailUrl !== undefined
+                    ? { thumbnailUrl: values.thumbnailUrl }
+                    : {}),
+                }
+              : {}),
+          })
+          .where(and(eq(projects.id, id), eq(projects.userId, auth.id)));
+      } catch (error) {
+        console.error(error);
+        throw new HttpError(500, "Failed to save page");
+      }
 
       return c.json({ data: updatedPage });
     },
