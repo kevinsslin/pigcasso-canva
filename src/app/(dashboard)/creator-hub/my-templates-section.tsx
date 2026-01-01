@@ -346,23 +346,29 @@ export const MyTemplatesSection = () => {
     });
 
     try {
-      await createToken.mutateAsync({
-        templateId: template.id,
-        name: launchName.trim(),
-        symbol: launchSymbol.trim().toUpperCase(),
-        description: launchDescription.trim(),
-        chains: launchChains,
-        initial_buy: buildLaunchInitialBuy(),
-        graduation_threshold_per_chain_usd: launchGraduationThreshold,
-        ...(launchCreatorAddress.trim() ? { creatorAddress: launchCreatorAddress.trim() } : {}),
-        external_links: {
-          ...(launchWebsite.trim() ? { website: launchWebsite.trim() } : {}),
-          ...(launchX.trim() ? { x: launchX.trim() } : {}),
-          ...(launchTelegram.trim() ? { telegram: launchTelegram.trim() } : {}),
-        },
-      });
+      let record = await fetchTemplateToken(template.id);
+      if (!record) {
+        await createToken.mutateAsync({
+          templateId: template.id,
+          name: launchName.trim(),
+          symbol: launchSymbol.trim().toUpperCase(),
+          description: launchDescription.trim(),
+          chains: launchChains,
+          initial_buy: buildLaunchInitialBuy(),
+          graduation_threshold_per_chain_usd: launchGraduationThreshold,
+          ...(launchCreatorAddress.trim() ? { creatorAddress: launchCreatorAddress.trim() } : {}),
+          external_links: {
+            ...(launchWebsite.trim() ? { website: launchWebsite.trim() } : {}),
+            ...(launchX.trim() ? { x: launchX.trim() } : {}),
+            ...(launchTelegram.trim() ? { telegram: launchTelegram.trim() } : {}),
+          },
+        });
 
-      const record = await fetchTemplateToken(template.id);
+        record = await fetchTemplateToken(template.id);
+      } else {
+        toast.loading("Token already created. Preparing deployment…", { id: toastId });
+      }
+
       if (!record) {
         toast.error("Token created, but record is missing.", { id: toastId, duration: 3500 });
         return;
