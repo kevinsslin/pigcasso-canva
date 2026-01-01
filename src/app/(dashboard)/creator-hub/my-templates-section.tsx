@@ -6,10 +6,11 @@ import { useMemo, useState } from "react";
 import { useWallets } from "@privy-io/react-auth";
 import { createWalletClient, custom } from "viem";
 import { mantle } from "viem/chains";
-import { CheckCircle2, Coins, ExternalLink, Loader, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, Coins, ExternalLink, Loader, RefreshCw, TriangleAlert, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { useMe } from "@/features/auth/api/use-me";
+import { useRefreshTokenGating } from "@/features/auth/api/use-refresh-token-gating";
 import { useGetMyTemplates, type MyTemplateListItem } from "@/features/projects/api/use-get-my-templates";
 import { useCreateTemplateToken } from "@/features/printr/api/use-create-template-token";
 import type { TemplateTokenRecord } from "@/features/printr/api/use-get-template-token";
@@ -90,6 +91,7 @@ export const MyTemplatesSection = () => {
   const me = useMe();
   const { wallets } = useWallets();
   const myTemplates = useGetMyTemplates({ publicOnly: "true" });
+  const refreshTokenGating = useRefreshTokenGating();
 
   const createToken = useCreateTemplateToken();
   const updateToken = useUpdateTemplateToken();
@@ -97,17 +99,19 @@ export const MyTemplatesSection = () => {
   const [creatingTemplateId, setCreatingTemplateId] = useState<string | null>(null);
   const [signingTemplateId, setSigningTemplateId] = useState<string | null>(null);
 
-  const printrConfigured = me.data?.data.integrations.printr.configured ?? false;
-  const isPro = me.data?.data.pro.isPro ?? false;
-  const canCreate = printrConfigured && isPro;
+  const printrConfigured = me.data?.data.integrations.printr.configured === true;
+  const isPro = me.data?.data.pro.isPro === true;
+  const canCreate = !me.isLoading && !me.isError && printrConfigured && isPro;
 
   const hasTemplates = (myTemplates.data?.length ?? 0) > 0;
 
   const disabledReason = useMemo(() => {
-    if (!printrConfigured) return "Printr integration is not configured.";
+    if (me.isLoading) return "Checking eligibility…";
+    if (me.isError) return "Unable to verify eligibility. Please try again.";
+    if (!printrConfigured) return "Launchpad is temporarily unavailable right now.";
     if (!isPro) return "Pro required to launch template tokens.";
     return null;
-  }, [isPro, printrConfigured]);
+  }, [isPro, me.isError, me.isLoading, printrConfigured]);
 
   const signDeploymentRecord = async (
     record: TemplateTokenRecord,
@@ -271,7 +275,26 @@ export const MyTemplatesSection = () => {
 
       {!canCreate ? (
         <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          {disabledReason ?? "Launch is unavailable right now."}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>{disabledReason ?? "Launch is unavailable right now."}</div>
+            {!me.isLoading && !me.isError && !isPro ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={refreshTokenGating.isPending}
+                onClick={() => refreshTokenGating.mutate()}
+              >
+                <RefreshCw className={cn("mr-2 size-4", refreshTokenGating.isPending && "animate-spin")} />
+                Refresh Pro status
+              </Button>
+            ) : null}
+            {me.isError ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => me.refetch()}>
+                Retry
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

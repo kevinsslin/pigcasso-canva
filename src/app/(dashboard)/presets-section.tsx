@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -104,6 +104,30 @@ export const PresetsSection = () => {
               </Card>
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => router.push("/nfts")}
+            disabled={mutation.isPending || Boolean(transitioning)}
+            className="text-left group"
+          >
+            <Card className="overflow-hidden transition group-hover:shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wallet className="size-4 text-muted-foreground" />
+                  Explore NFTs
+                </CardTitle>
+                <div className="text-xs text-muted-foreground">
+                  View exported assets and collections
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-sm text-muted-foreground">
+                  Export from the editor, pin to IPFS, and mint on Mantle.
+                </div>
+                <div className="mt-3 h-2 w-full rounded-full bg-gradient-to-r from-[#FBE9E8] via-[#F7A9B8] to-[#25D6FF] opacity-80" />
+              </CardContent>
+            </Card>
+          </button>
         </div>
       </div>
     </>
