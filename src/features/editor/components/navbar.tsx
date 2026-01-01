@@ -13,6 +13,7 @@ import {
   MousePointerClick, 
   Pencil,
   Redo2, 
+  Upload,
   Undo2
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuContent,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -207,7 +209,7 @@ export const Navbar = ({
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="ghost" className="px-2">
-              <span className="hidden sm:inline">File</span>
+              <span className="hidden sm:inline">Import</span>
               <MoreHorizontal className="size-4 sm:hidden" />
               <ChevronDown className="size-4 ml-2 hidden sm:inline" />
             </Button>
@@ -219,33 +221,9 @@ export const Navbar = ({
             >
               <CiFileOn className="size-8" />
               <div>
-                <p>Open</p>
+                <p>Import JSON</p>
                 <p className="text-xs text-muted-foreground">
-                  Open a JSON file
-                </p>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setPublishOpen(true)}
-              className="flex items-center gap-x-2"
-            >
-              <CiFileOn className="size-8" />
-              <div>
-                <p>Publish as template</p>
-                <p className="text-xs text-muted-foreground">
-                  Create a share link and enable remix
-                </p>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setNftOpen(true)}
-              className="flex items-center gap-x-2"
-            >
-              <CiFileOn className="size-8" />
-              <div>
-                <p>Export as NFT</p>
-                <p className="text-xs text-muted-foreground">
-                  Upload + pin to IPFS, then mint on Mantle
+                  Load a previously exported file
                 </p>
               </div>
             </DropdownMenuItem>
@@ -308,6 +286,16 @@ export const Navbar = ({
           </div>
         )}
         <div className="ml-auto flex items-center gap-x-4">
+          <Button
+            size="sm"
+            onClick={() => setPublishOpen(true)}
+            className="gap-x-2"
+            aria-label="Publish template"
+          >
+            <Upload className="size-4" />
+            <span className="hidden sm:inline md:hidden">Publish</span>
+            <span className="hidden md:inline">Publish template</span>
+          </Button>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="ghost">
@@ -316,6 +304,17 @@ export const Navbar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-60">
+              <DropdownMenuItem
+                className="flex items-center gap-x-2"
+                onClick={() => setNftOpen(true)}
+              >
+                <CiFileOn className="size-8" />
+                <div>
+                  <p>NFT</p>
+                  <p className="text-xs text-muted-foreground">Mint on Mantle (IPFS + wallet)</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="flex items-center gap-x-2"
                 onClick={() => editor?.saveJson()}
