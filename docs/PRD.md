@@ -36,6 +36,7 @@ Pigcasso AI Canvas 讓社群成員用 **Canva-like 畫布** 低門檻產出可�
 
 - DB：新增 `project_hub`；模板仍使用既有 `project`（template）資料，透過 `project.projectHubId` + `project.templateCategory` 掛到 Project Hub
 - Admin onboarding：設定 `PROJECT_HUB_ADMIN_TOKEN`，使用 `x-admin-token` 呼叫 `/api/project-hubs`（建立 Hub、指派 template 到 Hub + category）
+- Docs：`docs/integrations/project-hubs.md`
 - Category（v1）：`avatar | sticker | seasonal | campaign | other`
 
 **Project 內主要功能（Roadmap-to-build）**

@@ -5,6 +5,7 @@ Web3-native, Canva-like editor built on Next.js: Fabric.js canvas editor, projec
 Product scope and implementation notes:
 - `docs/PRD.md`
 - `docs/foundamental.md`
+- `docs/integrations/project-hubs.md`
 - `docs/integrations/printr.md`
 - Open questions: `docs/QUESTIONS.md`
 
@@ -32,6 +33,8 @@ Open `http://localhost:3000`.
 
 - Public landing page: `/`
 - App (requires Privy auth): `/app`
+- Project hubs (requires Privy auth): `/projects`
+- Global leaderboards (requires Privy auth): `/leaderboards`
 
 ### Minimal `.env.local`
 
@@ -52,6 +55,15 @@ Unsplash is used only for stock image browsing in the editor. Set:
 - `UNSPLASH_ACCESS_KEY=...` (use the Unsplash **Access Key**)
 
 You do not need to add your Unsplash Secret key for this feature.
+
+### Project hubs (B2B onboarding)
+
+Project hubs are **curated** (created by the team after a B2B partnership) and are used to group templates into categories like avatar frames, stickers, and seasonal campaign assets.
+
+- Set `PROJECT_HUB_ADMIN_TOKEN=...` in your server env vars.
+- Use `x-admin-token: $PROJECT_HUB_ADMIN_TOKEN` when calling the admin endpoints.
+
+See `docs/integrations/project-hubs.md`.
 
 ## Database (Drizzle)
 
