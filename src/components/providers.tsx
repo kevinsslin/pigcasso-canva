@@ -3,7 +3,22 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
-import { mantle } from "viem/chains";
+import {
+  arbitrum,
+  avalanche,
+  base,
+  blast,
+  bsc,
+  linea,
+  mainnet,
+  mantle,
+  mode,
+  optimism,
+  polygon,
+  polygonZkEvm,
+  scroll,
+  zora,
+} from "viem/chains";
 
 import { QueryProvider } from "@/components/query-provider";
 import { AUTH_UNAUTHORIZED_EVENT } from "@/lib/auth-events";
@@ -56,7 +71,22 @@ export const Providers = ({ children }: ProvidersProps) => {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
-        supportedChains: [mantle],
+        supportedChains: [
+          mantle,
+          mainnet,
+          base,
+          arbitrum,
+          optimism,
+          polygon,
+          avalanche,
+          bsc,
+          linea,
+          blast,
+          scroll,
+          zora,
+          mode,
+          polygonZkEvm,
+        ],
         defaultChain: mantle,
         embeddedWallets: {
           ethereum: {

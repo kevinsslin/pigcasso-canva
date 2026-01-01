@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useWallets } from "@privy-io/react-auth";
 import { createWalletClient, custom } from "viem";
-import { mantle } from "viem/chains";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
@@ -19,6 +18,7 @@ import {
   isPrintrEvmPayload,
 } from "@/features/printr/lib/payload";
 import { deriveTemplateTokenSymbol } from "@/features/printr/lib/format";
+import { getPrintrEvmChainOption } from "@/features/printr/supported-chains";
 import { readApiResponse } from "@/lib/api-response";
 import { client } from "@/lib/hono";
 
@@ -78,6 +78,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
   const [quote, setQuote] = useState<QuoteState>(null);
   const [quoting, setQuoting] = useState(false);
   const [creatorAddress, setCreatorAddress] = useState("");
+  const [chains, setChains] = useState<string[]>([MANTLE_CAIP2]);
+  const [customChain, setCustomChain] = useState("");
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -88,6 +90,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       setX("");
       setTelegram("");
       setQuote(null);
+      setChains([MANTLE_CAIP2]);
+      setCustomChain("");
       return;
     }
 
@@ -95,12 +99,58 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setSymbol(deriveTemplateTokenSymbol(selectedTemplate.name));
     setDescription(`Template token for “${selectedTemplate.name}”.`);
     setQuote(null);
+    setChains([MANTLE_CAIP2]);
+    setCustomChain("");
   }, [selectedTemplate]);
 
-  const chains = [MANTLE_CAIP2];
   const canLaunch =
     me.data?.data.integrations.printr.configured === true &&
     me.data?.data.pro.isPro === true;
+
+  const tokenLocked = Boolean(templateToken.data);
+  const effectiveChains = templateToken.data?.chains?.length ? templateToken.data.chains : chains;
+  const homeChain = effectiveChains[0] ?? MANTLE_CAIP2;
+
+  const toggleChain = (chainId: string) => {
+    if (tokenLocked) return;
+    setChains((current) => {
+      const alreadySelected = current.includes(chainId);
+      if (alreadySelected) {
+        if (current.length <= 1) return current;
+        const next = current.filter((value) => value !== chainId);
+        return next.length ? next : current;
+      }
+      return [...current, chainId];
+    });
+  };
+
+  const setHomeChain = (chainId: string) => {
+    if (tokenLocked) return;
+    setChains((current) => {
+      if (!current.includes(chainId)) return current;
+      return [chainId, ...current.filter((value) => value !== chainId)];
+    });
+  };
+
+  const addCustomChain = () => {
+    if (tokenLocked) return;
+    const trimmed = customChain.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("eip155:")) {
+      toast.error("Custom chain must be an EVM CAIP-2 id (eip155:…).");
+      return;
+    }
+    if (!/^eip155:\\d+$/.test(trimmed)) {
+      toast.error("Invalid CAIP-2 format. Example: eip155:8453");
+      return;
+    }
+
+    setChains((current) => {
+      if (current.includes(trimmed)) return current;
+      return [...current, trimmed];
+    });
+    setCustomChain("");
+  };
 
   const walletChoices: WalletChoice[] = useMemo(() => {
     const addresses = new Map<string, WalletChoice>();
@@ -143,13 +193,17 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       toast.error("Select a template first.");
       return;
     }
+    if (!effectiveChains.length) {
+      toast.error("Select at least one chain.");
+      return;
+    }
 
     setQuoting(true);
     toast.loading("Fetching quote…", { id: "printr:quote" });
     try {
       const response = await client.api.printr.print.quote.$post({
         json: {
-          chains,
+          chains: effectiveChains,
           initial_buy: buildInitialBuy(),
           graduation_threshold_per_chain_usd: graduationThreshold,
         },
@@ -174,6 +228,10 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       toast.error("Select a template first.");
       return;
     }
+    if (!effectiveChains.length) {
+      toast.error("Select at least one chain.");
+      return;
+    }
 
     if (!name.trim() || !symbol.trim() || !description.trim()) {
       toast.error("Name, symbol, and description are required.");
@@ -187,7 +245,7 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
         name: name.trim(),
         symbol: symbol.trim().toUpperCase(),
         description: description.trim(),
-        chains,
+        chains: effectiveChains,
         initial_buy: buildInitialBuy(),
         graduation_threshold_per_chain_usd: graduationThreshold,
         ...(creatorAddress.trim() ? { creatorAddress: creatorAddress.trim() } : {}),
@@ -229,8 +287,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     }
 
     const chainId = getPayloadEip155ChainId(record.payload);
-    if (chainId !== mantle.id) {
-      toast.error("Only Mantle is supported right now.");
+    if (!chainId) {
+      toast.error("Invalid deployment payload chain.");
       return;
     }
 
@@ -258,12 +316,11 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
 
       const walletClient = createWalletClient({
         account: wallet.address as `0x${string}`,
-        chain: mantle,
         transport: custom(provider),
       });
 
       const tx = buildEvmTransactionFromPrintrPayload(record.payload);
-      const hash = await walletClient.sendTransaction(tx);
+      const hash = await walletClient.sendTransaction({ ...tx, chain: null });
 
       await updateToken.mutateAsync({
         templateId: record.templateProjectId,
@@ -281,9 +338,9 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
   };
 
   const printrTokenId = templateToken.data?.printrTokenId ?? null;
-  const mantleDeployment =
-    deployments.data?.deployments?.find((deployment) => deployment.chain_id === MANTLE_CAIP2) ??
-    null;
+  const homeDeployment =
+    deployments.data?.deployments?.find((deployment) => deployment.chain_id === homeChain) ?? null;
+  const homeChainExplorerBaseUrl = getPrintrEvmChainOption(homeChain)?.explorerBaseUrl ?? null;
   const launchedTemplateId = templateToken.data?.templateProjectId ?? null;
   const launchStatus = templateToken.data?.status ?? null;
   const updateTemplateToken = updateToken.mutate;
@@ -291,12 +348,12 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
 
   useEffect(() => {
     if (!launchedTemplateId) return;
-    if (!mantleDeployment?.status) return;
+    if (!homeDeployment?.status) return;
 
     const nextStatus =
-      mantleDeployment.status === "live"
+      homeDeployment.status === "live"
         ? "live"
-        : mantleDeployment.status === "failed"
+        : homeDeployment.status === "failed"
           ? "failed"
           : null;
     if (!nextStatus) return;
@@ -308,7 +365,7 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       status: nextStatus,
     });
   }, [
-    mantleDeployment?.status,
+    homeDeployment?.status,
     launchStatus,
     launchedTemplateId,
     updatingTemplateToken,
@@ -326,7 +383,9 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setSelectedTemplateId,
     templateToken,
     deployments,
-    mantleDeployment,
+    homeChain,
+    homeDeployment,
+    homeChainExplorerBaseUrl,
     walletChoices,
     creatorAddress,
     setCreatorAddress,
@@ -342,6 +401,13 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setX,
     telegram,
     setTelegram,
+    chains: effectiveChains,
+    tokenLocked,
+    customChain,
+    setCustomChain,
+    toggleChain,
+    setHomeChain,
+    addCustomChain,
     initialBuyMode,
     setInitialBuyMode,
     supplyPercent,
@@ -362,4 +428,3 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     printrTokenId,
   };
 };
-

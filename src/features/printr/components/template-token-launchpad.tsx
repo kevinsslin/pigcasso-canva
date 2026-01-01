@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { ArrowLeftRight, Coins, ExternalLink, Loader, Sparkles } from "lucide-react";
 
-import { buildPrintrTokenUrl, MANTLE_CAIP2, MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
+import { buildPrintrTokenUrl } from "@/features/printr/constants";
 import { shortHash } from "@/features/printr/lib/format";
 import { useTemplateTokenLaunchpad } from "@/features/printr/hooks/use-template-token-launchpad";
+import { PRINTR_EVM_CHAIN_OPTIONS, getPrintrEvmChainOption } from "@/features/printr/supported-chains";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,9 @@ export const TemplateTokenLaunchpad = () => {
     setSelectedTemplateId,
     templateToken,
     deployments,
-    mantleDeployment,
+    homeChain,
+    homeDeployment,
+    homeChainExplorerBaseUrl,
     walletChoices,
     creatorAddress,
     setCreatorAddress,
@@ -51,6 +54,13 @@ export const TemplateTokenLaunchpad = () => {
     setSpendUsd,
     spendNative,
     setSpendNative,
+    chains,
+    tokenLocked,
+    customChain,
+    setCustomChain,
+    toggleChain,
+    setHomeChain,
+    addCustomChain,
     graduationThreshold,
     setGraduationThreshold,
     quote,
@@ -126,16 +136,16 @@ export const TemplateTokenLaunchpad = () => {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-muted-foreground" />
-            Launch a Template Token (Mantle)
-          </CardTitle>
-          <CardDescription>
-            Create an ERC20 template token via Printr. Users will be able to stake-to-use or pay-to-use (roadmap).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="size-4 text-muted-foreground" />
+              Launch a Template Token
+            </CardTitle>
+            <CardDescription>
+              Create an ERC20 template token via Printr. Select one or more chains (first chain is the home chain you sign on).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
           {!me.data?.data.integrations.printr.configured ? (
             <div className="rounded-lg border p-4 text-sm text-muted-foreground">
               Launchpad is temporarily unavailable.
@@ -178,10 +188,92 @@ export const TemplateTokenLaunchpad = () => {
 
             <div className="space-y-2">
               <Label>Chains</Label>
-              <Input value={`Mantle Mainnet (${MANTLE_CAIP2})`} readOnly />
-              <div className="text-xs text-muted-foreground">
-                Multi-chain deployments are supported later (roadmap).
-              </div>
+              {tokenLocked ? (
+                <>
+                  <Input
+                    value={chains
+                      .map((chain) => getPrintrEvmChainOption(chain)?.label ?? chain)
+                      .join(", ")}
+                    readOnly
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Chains are locked after token creation.
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-md border p-3 space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {PRINTR_EVM_CHAIN_OPTIONS.map((option) => {
+                      const checked = chains.includes(option.caip2);
+                      return (
+                        <label
+                          key={option.caip2}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm",
+                            !canLaunch && "opacity-60",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleChain(option.caip2)}
+                            disabled={!canLaunch}
+                          />
+                          <span className="flex-1 font-medium">{option.label}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            {option.caip2}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={customChain}
+                      onChange={(e) => setCustomChain(e.target.value)}
+                      placeholder="Custom chain (eip155:…)"
+                      disabled={!canLaunch}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={addCustomChain}
+                      disabled={!canLaunch || !customChain.trim()}
+                    >
+                      Add
+                    </Button>
+                  </div>
+
+                  {chains.length > 1 ? (
+                    <div className="grid gap-2">
+                      <Label>Home chain</Label>
+                      <select
+                        className={cn(
+                          "w-full h-10 rounded-md border bg-background px-3 text-sm",
+                          !canLaunch && "opacity-60",
+                        )}
+                        value={homeChain}
+                        onChange={(e) => setHomeChain(e.target.value)}
+                        disabled={!canLaunch}
+                      >
+                        {chains.map((chain) => (
+                          <option key={chain} value={chain}>
+                            {(getPrintrEvmChainOption(chain)?.label ?? chain) + ` (${chain})`}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="text-xs text-muted-foreground">
+                        The deployment transaction is signed on the home chain.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      The selected chain is used as the home chain for signing.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -444,17 +536,21 @@ export const TemplateTokenLaunchpad = () => {
                 ) : null}
               </div>
 
-              {mantleDeployment?.contract_address ? (
+              {homeDeployment?.contract_address ? (
                 <div className="text-xs">
                   Contract:{" "}
-                  <a
-                    className="underline font-mono"
-                    href={`${MANTLE_EXPLORER_BASE_URL}/address/${mantleDeployment.contract_address}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {shortHash(mantleDeployment.contract_address)}
-                  </a>
+                  {homeChainExplorerBaseUrl ? (
+                    <a
+                      className="underline font-mono"
+                      href={`${homeChainExplorerBaseUrl}/address/${homeDeployment.contract_address}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortHash(homeDeployment.contract_address)}
+                    </a>
+                  ) : (
+                    <span className="font-mono">{shortHash(homeDeployment.contract_address)}</span>
+                  )}
                 </div>
               ) : null}
 
