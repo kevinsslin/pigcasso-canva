@@ -155,12 +155,27 @@ const toBase64Image = async (input: string): Promise<string> => {
     throw new HttpError(400, "Unsupported image host");
   }
 
-  const res = await fetch(url.toString());
+  let res: Response;
+  try {
+    res = await fetch(url.toString());
+  } catch {
+    throw new HttpError(502, "Failed to fetch image");
+  }
   if (!res.ok) {
     throw new HttpError(502, "Failed to fetch image");
   }
 
-  const buffer = await res.arrayBuffer();
+  const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType && !contentType.startsWith("image/")) {
+    throw new HttpError(400, "Image URL did not return an image");
+  }
+
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await res.arrayBuffer();
+  } catch {
+    throw new HttpError(502, "Failed to read image");
+  }
   if (buffer.byteLength > MAX_IMAGE_BYTES) {
     throw new HttpError(413, "Image too large");
   }
