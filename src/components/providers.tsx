@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
+import { mantle } from "viem/chains";
 
 import { QueryProvider } from "@/components/query-provider";
 import { AUTH_UNAUTHORIZED_EVENT } from "@/lib/auth-events";
@@ -10,7 +11,7 @@ import { setAuthTokenGetter } from "@/lib/auth-token";
 
 interface ProvidersProps {
   children: React.ReactNode;
-};
+}
 
 const PrivyTokenSync = () => {
   const { getAccessToken, logout, ready, authenticated } = usePrivy();
@@ -55,6 +56,8 @@ export const Providers = ({ children }: ProvidersProps) => {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
+        supportedChains: [mantle],
+        defaultChain: mantle,
         embeddedWallets: {
           ethereum: {
             createOnLogin: "all-users",

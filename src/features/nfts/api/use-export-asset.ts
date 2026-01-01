@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
@@ -44,9 +43,6 @@ export const useExportNftAsset = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nfts", "assets"] });
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to export to IPFS");
     },
   });
 };

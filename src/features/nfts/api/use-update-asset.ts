@@ -1,6 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
@@ -37,9 +36,5 @@ export const useUpdateNftAsset = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nfts", "assets"] });
     },
-    onError: (error) => {
-      toast.error(error.message || "Failed to update NFT asset");
-    },
   });
 };
-

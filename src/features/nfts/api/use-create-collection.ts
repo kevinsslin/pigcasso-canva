@@ -1,6 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
@@ -41,9 +40,5 @@ export const useCreateNftCollection = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nfts", "collections"] });
     },
-    onError: (error) => {
-      toast.error(error.message || "Failed to create collection");
-    },
   });
 };
-
