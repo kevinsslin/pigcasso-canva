@@ -34,4 +34,20 @@ describe("buildPrintrTokenUrl", () => {
       }
     }
   });
+
+  test("supports token_id placeholder variants", () => {
+    const previous = process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE;
+    process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE = "https://example.com/tokens/{token_id}";
+
+    try {
+      expect(buildPrintrTokenUrl("abc")).toBe("https://example.com/tokens/abc");
+      expect(buildPrintrTokenUrl("0xABC")).toBe("https://example.com/tokens/0xabc");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE;
+      } else {
+        process.env.NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE = previous;
+      }
+    }
+  });
 });

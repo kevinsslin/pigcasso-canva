@@ -17,17 +17,18 @@ const normalizePrintrTokenId = (tokenId: string) => {
 
 export const buildPrintrTokenUrl = (tokenId: string) => {
   const normalizedTokenId = normalizePrintrTokenId(tokenId);
-  const fallback = DEFAULT_TOKEN_URL_TEMPLATE.replaceAll(
-    "{tokenId}",
-    encodeURIComponent(normalizedTokenId),
-  );
+  const encodedTokenId = encodeURIComponent(normalizedTokenId);
+  const fallback = DEFAULT_TOKEN_URL_TEMPLATE.replaceAll("{tokenId}", encodedTokenId);
 
   const template = getTokenUrlTemplate();
   if (!template) {
     return fallback;
   }
 
-  const url = template.replaceAll("{tokenId}", encodeURIComponent(normalizedTokenId));
+  const url = template.replace(/\{token_?id\}/gi, encodedTokenId);
+  if (url === template) {
+    return fallback;
+  }
 
   try {
     const parsed = new URL(url);
