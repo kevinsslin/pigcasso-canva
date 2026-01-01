@@ -8,6 +8,19 @@ import { projectPages, projects, templateTokens, templateUsageEvents } from "@/d
 import { requireAuth } from "@/server/hono-auth";
 import { getProStatusForUser } from "@/server/token-gating";
 
+const normalizeTemplateToken = (
+  token:
+    | {
+        printrTokenId: string | null;
+        status: string | null;
+      }
+    | null
+    | undefined,
+) => ({
+  printrTokenId: token?.printrTokenId ?? null,
+  status: token?.status ?? null,
+});
+
 const app = new Hono()
   .get(
     "/mine",
@@ -52,7 +65,12 @@ const app = new Hono()
         .where(and(...conditions))
         .orderBy(desc(projects.updatedAt), desc(projects.publishedAt));
 
-      return c.json({ data });
+      return c.json({
+        data: data.map((row) => ({
+          ...row,
+          token: normalizeTemplateToken(row.token),
+        })),
+      });
     },
   )
   .get(
@@ -137,7 +155,10 @@ const app = new Hono()
         .offset((page - 1) * limit);
 
       return c.json({
-        data,
+        data: data.map((row) => ({
+          ...row,
+          token: normalizeTemplateToken(row.token),
+        })),
         nextPage: data.length === limit ? page + 1 : null,
       });
     },

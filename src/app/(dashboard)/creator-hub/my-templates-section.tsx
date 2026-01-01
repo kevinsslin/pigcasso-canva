@@ -284,8 +284,8 @@ export const MyTemplatesSection = () => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {myTemplates.data?.map((template) => {
-            const tokenId = template.token.printrTokenId;
-            const status = template.token.status as TemplateTokenStatus;
+            const tokenId = template.token?.printrTokenId ?? null;
+            const status = (template.token?.status ?? null) as TemplateTokenStatus;
             const creating = creatingTemplateId === template.id;
             const signing = signingTemplateId === template.id;
             const busy = creating || signing || createToken.isPending || updateToken.isPending;

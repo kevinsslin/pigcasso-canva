@@ -162,7 +162,7 @@ export const TemplateTokenLaunchpad = () => {
                 <option value="">Select a template…</option>
                 {myTemplates.data?.map((template) => (
                   <option key={template.id} value={template.id}>
-                    {template.name} {template.token.printrTokenId ? "(launched)" : ""}
+                    {template.name} {template.token?.printrTokenId ? "(launched)" : ""}
                   </option>
                 ))}
               </select>
@@ -476,4 +476,3 @@ export const TemplateTokenLaunchpad = () => {
     </div>
   );
 };
-
