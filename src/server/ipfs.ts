@@ -7,22 +7,52 @@ const PINATA_FILE_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
 
 const MAX_FILE_BYTES = 15_000_000;
 
-const getPinataJwt = () => {
-  const raw = process.env.PINATA_JWT?.trim() ?? "";
-  if (!raw) return "";
+const normalizeSecret = (raw: string | undefined) => {
+  const value = raw?.trim() ?? "";
+  if (!value) return "";
 
-  const withoutBearer = raw.replace(/^bearer\s+/i, "");
   if (
-    (withoutBearer.startsWith('"') && withoutBearer.endsWith('"')) ||
-    (withoutBearer.startsWith("'") && withoutBearer.endsWith("'"))
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
   ) {
-    return withoutBearer.slice(1, -1).trim();
+    return value.slice(1, -1).trim();
   }
 
-  return withoutBearer.trim();
+  return value;
 };
 
-export const hasIpfsConfigured = () => Boolean(getPinataJwt());
+const getPinataJwt = () => {
+  const raw = normalizeSecret(process.env.PINATA_JWT);
+  if (!raw) return "";
+  return raw.replace(/^bearer\s+/i, "").trim();
+};
+
+const getPinataApiKey = () => normalizeSecret(process.env.PINATA_API_KEY);
+
+const getPinataSecretApiKey = () =>
+  normalizeSecret(process.env.PINATA_SECRET_API_KEY ?? process.env.PINATA_API_SECRET);
+
+type PinataAuth =
+  | { type: "jwt"; jwt: string }
+  | { type: "keys"; apiKey: string; secretApiKey: string };
+
+const getPinataAuthOptions = (): PinataAuth[] => {
+  const jwt = getPinataJwt();
+  const apiKey = getPinataApiKey();
+  const secretApiKey = getPinataSecretApiKey();
+
+  const options: PinataAuth[] = [];
+  if (jwt) {
+    options.push({ type: "jwt", jwt });
+  }
+  if (apiKey && secretApiKey) {
+    options.push({ type: "keys", apiKey, secretApiKey });
+  }
+
+  return options;
+};
+
+export const hasIpfsConfigured = () => getPinataAuthOptions().length > 0;
 
 const requireIpfsConfigured = () => {
   if (!hasIpfsConfigured()) {
@@ -30,24 +60,49 @@ const requireIpfsConfigured = () => {
   }
 };
 
-const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback: string }) => {
-  requireIpfsConfigured();
-  const jwt = getPinataJwt();
-  const headers = new Headers(params.init.headers);
-  headers.set("Authorization", `Bearer ${jwt}`);
-
-  const res = await fetch(params.url, {
-    ...params.init,
-    headers,
-  });
-
-  if (res.status === 401 || res.status === 403) {
-    const body = await res.text().catch(() => "");
-    console.error("Pinata auth failed:", res.status, body);
-    throw new HttpError(501, "IPFS pinning is misconfigured.");
+const applyPinataAuthHeaders = (headers: Headers, auth: PinataAuth) => {
+  if (auth.type === "jwt") {
+    headers.set("Authorization", `Bearer ${auth.jwt}`);
+    return;
   }
 
-  return readApiResponse<T>(res, params.fallback);
+  headers.set("pinata_api_key", auth.apiKey);
+  headers.set("pinata_secret_api_key", auth.secretApiKey);
+};
+
+const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback: string }) => {
+  requireIpfsConfigured();
+  const authOptions = getPinataAuthOptions();
+
+  for (let index = 0; index < authOptions.length; index++) {
+    const auth = authOptions[index];
+    const headers = new Headers(params.init.headers);
+    applyPinataAuthHeaders(headers, auth);
+
+    const res = await fetch(params.url, {
+      ...params.init,
+      headers,
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      const body = await res.text().catch(() => "");
+      console.error(`Pinata auth failed (${auth.type}):`, res.status, body);
+      if (index < authOptions.length - 1) {
+        continue;
+      }
+      throw new HttpError(
+        501,
+        "IPFS pinning is misconfigured. Verify PINATA_JWT (or PINATA_API_KEY + PINATA_SECRET_API_KEY).",
+      );
+    }
+
+    return readApiResponse<T>(res, params.fallback);
+  }
+
+  throw new HttpError(
+    501,
+    "IPFS pinning is currently unavailable. Set PINATA_JWT or PINATA_API_KEY + PINATA_SECRET_API_KEY.",
+  );
 };
 
 export const pinJsonToIpfs = async (params: {
