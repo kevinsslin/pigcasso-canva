@@ -56,11 +56,8 @@ export const TemplateTokenLaunchpad = () => {
     setSpendNative,
     chains,
     tokenLocked,
-    customChain,
-    setCustomChain,
     toggleChain,
     setHomeChain,
-    addCustomChain,
     graduationThreshold,
     setGraduationThreshold,
     quote,
@@ -226,23 +223,6 @@ export const TemplateTokenLaunchpad = () => {
                         </label>
                       );
                     })}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={customChain}
-                      onChange={(e) => setCustomChain(e.target.value)}
-                      placeholder="Custom chain (eip155:…)"
-                      disabled={!canLaunch}
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={addCustomChain}
-                      disabled={!canLaunch || !customChain.trim()}
-                    >
-                      Add
-                    </Button>
                   </div>
 
                   {chains.length > 1 ? (

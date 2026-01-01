@@ -122,7 +122,6 @@ export const MyTemplatesSection = () => {
   const [launchX, setLaunchX] = useState("");
   const [launchTelegram, setLaunchTelegram] = useState("");
   const [launchChains, setLaunchChains] = useState<string[]>([MANTLE_CAIP2]);
-  const [launchCustomChain, setLaunchCustomChain] = useState("");
   const [launchGraduationThreshold, setLaunchGraduationThreshold] = useState<69000 | 250000>(69000);
   const [launchInitialBuyMode, setLaunchInitialBuyMode] = useState<InitialBuyMode>("supply_percent");
   const [launchSupplyPercent, setLaunchSupplyPercent] = useState(10);
@@ -189,7 +188,6 @@ export const MyTemplatesSection = () => {
     setLaunchX("");
     setLaunchTelegram("");
     setLaunchChains([MANTLE_CAIP2]);
-    setLaunchCustomChain("");
     setLaunchGraduationThreshold(69000);
     setLaunchInitialBuyMode("supply_percent");
     setLaunchSupplyPercent(10);
@@ -217,25 +215,6 @@ export const MyTemplatesSection = () => {
       if (!current.includes(chainId)) return current;
       return [chainId, ...current.filter((value) => value !== chainId)];
     });
-  };
-
-  const addLaunchCustomChain = () => {
-    const trimmed = launchCustomChain.trim();
-    if (!trimmed) return;
-    if (!trimmed.startsWith("eip155:")) {
-      toast.error("Custom chain must be an EVM CAIP-2 id (eip155:…).");
-      return;
-    }
-    if (!/^eip155:\\d+$/.test(trimmed)) {
-      toast.error("Invalid CAIP-2 format. Example: eip155:8453");
-      return;
-    }
-
-    setLaunchChains((current) => {
-      if (current.includes(trimmed)) return current;
-      return [...current, trimmed];
-    });
-    setLaunchCustomChain("");
   };
 
   const buildLaunchInitialBuy = () => {
@@ -572,10 +551,10 @@ export const MyTemplatesSection = () => {
               <div className="space-y-2">
                 <Label>Chains</Label>
                 <div className="rounded-md border p-3 space-y-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {PRINTR_EVM_CHAIN_OPTIONS.map((option) => {
-                      const checked = launchChains.includes(option.caip2);
-                      return (
+	                  <div className="grid gap-2 sm:grid-cols-2">
+	                    {PRINTR_EVM_CHAIN_OPTIONS.map((option) => {
+	                      const checked = launchChains.includes(option.caip2);
+	                      return (
                         <label
                           key={option.caip2}
                           className={cn(
@@ -595,28 +574,11 @@ export const MyTemplatesSection = () => {
                           </span>
                         </label>
                       );
-                    })}
-                  </div>
+	                    })}
+	                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={launchCustomChain}
-                      onChange={(e) => setLaunchCustomChain(e.target.value)}
-                      placeholder="Custom chain (eip155:…)"
-                      disabled={!canCreate || busy}
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={addLaunchCustomChain}
-                      disabled={!canCreate || busy || !launchCustomChain.trim()}
-                    >
-                      Add
-                    </Button>
-                  </div>
-
-                  {launchChains.length > 1 ? (
-                    <div className="grid gap-2">
+	                  {launchChains.length > 1 ? (
+	                    <div className="grid gap-2">
                       <Label>Home chain</Label>
                       <select
                         className={cn(

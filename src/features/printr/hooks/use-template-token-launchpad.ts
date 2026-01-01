@@ -79,7 +79,6 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
   const [quoting, setQuoting] = useState(false);
   const [creatorAddress, setCreatorAddress] = useState("");
   const [chains, setChains] = useState<string[]>([MANTLE_CAIP2]);
-  const [customChain, setCustomChain] = useState("");
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -91,7 +90,6 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       setTelegram("");
       setQuote(null);
       setChains([MANTLE_CAIP2]);
-      setCustomChain("");
       return;
     }
 
@@ -100,7 +98,6 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setDescription(`Template token for “${selectedTemplate.name}”.`);
     setQuote(null);
     setChains([MANTLE_CAIP2]);
-    setCustomChain("");
   }, [selectedTemplate]);
 
   const canLaunch =
@@ -130,26 +127,6 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
       if (!current.includes(chainId)) return current;
       return [chainId, ...current.filter((value) => value !== chainId)];
     });
-  };
-
-  const addCustomChain = () => {
-    if (tokenLocked) return;
-    const trimmed = customChain.trim();
-    if (!trimmed) return;
-    if (!trimmed.startsWith("eip155:")) {
-      toast.error("Custom chain must be an EVM CAIP-2 id (eip155:…).");
-      return;
-    }
-    if (!/^eip155:\\d+$/.test(trimmed)) {
-      toast.error("Invalid CAIP-2 format. Example: eip155:8453");
-      return;
-    }
-
-    setChains((current) => {
-      if (current.includes(trimmed)) return current;
-      return [...current, trimmed];
-    });
-    setCustomChain("");
   };
 
   const walletChoices: WalletChoice[] = useMemo(() => {
@@ -403,11 +380,8 @@ export const useTemplateTokenLaunchpad = (redirectPath = "/creator-hub/launchpad
     setTelegram,
     chains: effectiveChains,
     tokenLocked,
-    customChain,
-    setCustomChain,
     toggleChain,
     setHomeChain,
-    addCustomChain,
     initialBuyMode,
     setInitialBuyMode,
     supplyPercent,
