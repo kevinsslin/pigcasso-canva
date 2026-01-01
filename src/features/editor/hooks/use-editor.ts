@@ -31,6 +31,7 @@ import { useClipboard } from "@/features/editor/hooks/use-clipboard";
 import { useAutoResize } from "@/features/editor/hooks/use-auto-resize";
 import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
+import { normalizeFabricJson } from "@/features/editor/fabric-json";
 
 type BaseEditor = Omit<Editor, "loadPage">;
 
@@ -111,7 +112,7 @@ const buildEditor = ({
   };
 
   const loadJson = (json: string) => {
-    const data = JSON.parse(json);
+    const data = normalizeFabricJson(JSON.parse(json));
 
     canvas.loadFromJSON(data, () => {
       autoZoom();
@@ -760,7 +761,7 @@ export const useEditor = ({
 
           let data: unknown;
           try {
-            data = JSON.parse(trimmed);
+            data = normalizeFabricJson(JSON.parse(trimmed));
           } catch {
             loadBlank();
             return;

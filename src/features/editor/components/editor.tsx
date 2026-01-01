@@ -46,6 +46,7 @@ const sortPages = (pages: Project["pages"]) =>
   [...pages].sort((a, b) => a.index - b.index);
 
 export const Editor = ({ initialData }: EditorProps) => {
+  const multiPageEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_PAGE === "true";
   const sorted = useMemo(() => sortPages(initialData.pages), [initialData.pages]);
   const initialPage = sorted[0];
 
@@ -405,14 +406,16 @@ export const Editor = ({ initialData }: EditorProps) => {
           <div className="flex-1 bg-muted relative overflow-hidden" ref={containerRef}>
             <canvas ref={canvasRef} />
           </div>
-          <PagesBar
-            pages={pagesForBar}
-            activePageId={activePageId}
-            onSelectPage={onSelectPage}
-            onAddPage={onAddPage}
-            onDeletePage={onDeletePage}
-            disabled={pagesBusy}
-          />
+          {multiPageEnabled ? (
+            <PagesBar
+              pages={pagesForBar}
+              activePageId={activePageId}
+              onSelectPage={onSelectPage}
+              onAddPage={onAddPage}
+              onDeletePage={onDeletePage}
+              disabled={pagesBusy}
+            />
+          ) : null}
           <Footer editor={editor} />
           <PigcassoAssistant editor={editor} />
         </main>

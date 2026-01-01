@@ -2,6 +2,7 @@ import { fabric } from "fabric";
 import { useCallback, useRef, useState } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
+import { normalizeFabricJson } from "@/features/editor/fabric-json";
 
 interface UseHistoryProps {
   canvas: fabric.Canvas | null;
@@ -55,9 +56,7 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
       canvas?.clear().renderAll();
 
       const previousIndex = historyIndex - 1;
-      const previousState = JSON.parse(
-        canvasHistory.current[previousIndex]
-      );
+      const previousState = normalizeFabricJson(JSON.parse(canvasHistory.current[previousIndex]));
 
       canvas?.loadFromJSON(previousState, () => {
         canvas.renderAll();
@@ -73,9 +72,7 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
       canvas?.clear().renderAll();
 
       const nextIndex = historyIndex + 1;
-      const nextState = JSON.parse(
-        canvasHistory.current[nextIndex]
-      );
+      const nextState = normalizeFabricJson(JSON.parse(canvasHistory.current[nextIndex]));
 
       canvas?.loadFromJSON(nextState, () => {
         canvas.renderAll();

@@ -2,6 +2,7 @@ import { fabric } from "fabric";
 import { useEffect, useRef } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
+import { normalizeFabricJson } from "@/features/editor/fabric-json";
 
 interface UseLoadStateProps {
   autoZoom: () => void;
@@ -24,7 +25,7 @@ export const useLoadState = ({
 
   useEffect(() => {
     if (!initialized.current && initialState?.current && canvas) {
-      const data = JSON.parse(initialState.current);
+      const data = normalizeFabricJson(JSON.parse(initialState.current));
 
       suppressSaveRef.current = true;
       canvas.loadFromJSON(data, () => {

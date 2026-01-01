@@ -28,6 +28,12 @@ const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback
     headers,
   });
 
+  if (res.status === 401 || res.status === 403) {
+    const body = await res.text().catch(() => "");
+    console.error("Pinata auth failed:", res.status, body);
+    throw new HttpError(501, "IPFS pinning is misconfigured.");
+  }
+
   return readApiResponse<T>(res, params.fallback);
 };
 
