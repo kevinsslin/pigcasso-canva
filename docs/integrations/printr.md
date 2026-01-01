@@ -33,6 +33,14 @@ PRINTR_API_TOKEN=...
 - `PRINTR_API_TOKEN` 絕對不能在 client bundle 內曝光（本 repo 透過 `/api/printr/*` server proxy 保護）。
 - `PRINTR_API_URL` 可保留預設，不設也會 fallback 到 preview server。
 
+（可選 / UI）Printr token 詳情頁的跳轉網址：
+
+```bash
+NEXT_PUBLIC_PRINTR_TOKEN_URL_TEMPLATE=https://app.printr.money/token/{tokenId}
+```
+
+- 若未設定，預設使用 `https://app.printr.money/token/{tokenId}`。
+
 ## 3) Upstream API（Printr）
 
 Base URL（preview）：`https://api-preview.printr.money/v0`
