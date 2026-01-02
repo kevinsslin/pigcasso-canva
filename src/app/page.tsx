@@ -477,23 +477,48 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Projects
+                          Projects × Canvas
                         </div>
                         <div className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                          Project hubs &amp; asset library
+                          Create assets. Track mindshare.
                         </div>
                       </div>
                     </div>
-                    <BentoBadge>
-                      <BadgeCheck className="size-3.5 text-primary" />
-                      B2B-ready
-                    </BentoBadge>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <BentoBadge>
+                        <BadgeCheck className="size-3.5 text-primary" />
+                        B2B-ready
+                      </BentoBadge>
+                      <BentoBadge>
+                        <Sparkles className="size-3.5 text-primary" />
+                        AI-native
+                      </BentoBadge>
+                    </div>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xl">
-                    Each project gets a dedicated hub: official templates, community submissions, and a
-                    live view of what’s actually being used across X, Discord, and Telegram.
+                    Start from a project hub, remix on the canvas with Pigcasso assistant, export for X/Discord/TG,
+                    then watch leaderboards evolve from real usage.
                   </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <BentoBadge>
+                      <Brush className="size-3.5 text-primary" />
+                      Create
+                    </BentoBadge>
+                    <BentoBadge>
+                      <Wand2 className="size-3.5 text-cyan-500" />
+                      Assist
+                    </BentoBadge>
+                    <BentoBadge>
+                      <Rocket className="size-3.5 text-primary" />
+                      Publish
+                    </BentoBadge>
+                    <BentoBadge>
+                      <Trophy className="size-3.5 text-yellow-500" />
+                      Track
+                    </BentoBadge>
+                  </div>
 
                   <div className="mt-auto pt-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -502,16 +527,16 @@ export default function LandingPage() {
                         Avatar frames, stickers, seasonal templates
                       </div>
                       <div className="flex items-center gap-2">
+                        <Brush className="size-4 text-primary" />
+                        Canva-like editing + presets
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-primary" />
+                        Assistant: draft → preview → apply
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Trophy className="size-4 text-yellow-500" />
                         Leaderboards + contribution tracking
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Rocket className="size-4 text-primary" />
-                        Export presets for X / Discord / TG
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Coins className="size-4 text-primary" />
-                        Tokenized templates (roadmap)
                       </div>
                     </div>
 
