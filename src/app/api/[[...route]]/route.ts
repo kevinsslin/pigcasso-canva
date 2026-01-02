@@ -14,6 +14,7 @@ import me from "./me";
 import printr from "./printr";
 import projectHubs from "./project-hubs";
 import projects from "./projects";
+import spaces from "./spaces";
 import templates from "./templates";
 import tokenGating from "./token-gating";
 
@@ -53,6 +54,7 @@ const routes = app
   .route("/printr", printr)
   .route("/project-hubs", projectHubs)
   .route("/projects", projects)
+  .route("/spaces", spaces)
   .route("/templates", templates)
   .route("/token-gating", tokenGating);
 

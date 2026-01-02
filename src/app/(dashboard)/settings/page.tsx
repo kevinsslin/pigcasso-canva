@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader, MessageCircle, Send, TriangleAlert, Twitter } from "lucide-react";
+import { Copy, ExternalLink, Loader, MessageCircle, Send, TriangleAlert, Twitter } from "lucide-react";
 import { toast } from "sonner";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 
@@ -172,6 +172,9 @@ export default function SettingsPage() {
   const twitterAccount = meUser?.socials.twitter ?? null;
   const discordAccount = meUser?.socials.discord ?? null;
   const telegramAccount = meUser?.socials.telegram ?? null;
+  const spaceHandle = meUser?.socials.twitter?.username ?? meUser?.id ?? null;
+  const spacePath = spaceHandle ? `/space/${encodeURIComponent(spaceHandle)}` : null;
+  const spaceUrl = spacePath && typeof window !== "undefined" ? `${window.location.origin}${spacePath}` : null;
 
   const onConnectTwitter = () => {
     try {
@@ -426,6 +429,46 @@ export default function SettingsPage() {
             Save
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pigcasso Space</CardTitle>
+          <CardDescription>
+            Your public gateway page. Share it in your X bio, Telegram, or Discord profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border bg-card p-4">
+            <div className="text-xs text-muted-foreground">Public URL</div>
+            <div className={cn("mt-1 text-sm break-all", !spacePath && "text-muted-foreground")}>
+              {spacePath ? `${spacePath}` : "—"}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary" disabled={!spacePath}>
+              <a href={spacePath ?? "#"} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 size-4" />
+                View Space
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!spaceUrl}
+              onClick={() => {
+                if (!spaceUrl) return;
+                void navigator.clipboard
+                  .writeText(spaceUrl)
+                  .then(() => toast.success("Space link copied."))
+                  .catch(() => toast.error("Failed to copy link."));
+              }}
+            >
+              <Copy className="mr-2 size-4" />
+              Copy link
+            </Button>
+          </div>
+        </CardContent>
       </Card>
 
       <Card>
