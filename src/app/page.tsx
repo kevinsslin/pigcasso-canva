@@ -323,7 +323,8 @@ export default function LandingPage() {
                     type="button"
                     onClick={() => void openApp("/app")}
                     disabled={!ready || opening}
-                    className="rounded-2xl px-8 py-6 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
+                    size="lg"
+                    className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
                     <Brush className="mr-2 size-5" />
                     Open app
@@ -334,7 +335,8 @@ export default function LandingPage() {
                     variant="secondary"
                     onClick={() => void openApp("/projects")}
                     disabled={!ready || opening}
-                    className="rounded-2xl px-8 py-6 text-base bg-white/75 border border-white/60 shadow-soft hover:bg-white/90"
+                    size="lg"
+                    className="h-12 rounded-2xl px-8 text-base bg-white/75 border border-white/60 shadow-soft hover:bg-white/90"
                   >
                     <FolderOpen className="mr-2 size-5 text-primary" />
                     Explore projects
@@ -351,17 +353,19 @@ export default function LandingPage() {
                   </a>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
-                  <StatChip
-                    icon={<FolderOpen className="size-5 text-primary" />}
-                    title="Projects & asset hubs"
-                    description="Official templates + community assets, organized per project."
-                  />
-                  <StatChip
-                    icon={<Trophy className="size-5 text-cyan-500" />}
-                    title="Leaderboards"
-                    description="See what’s trending and who’s contributing across projects."
-                  />
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
+                  <BentoBadge>
+                    <FolderOpen className="size-3.5 text-primary" />
+                    Project hubs
+                  </BentoBadge>
+                  <BentoBadge>
+                    <Sparkles className="size-3.5 text-primary" />
+                    Assistant edits
+                  </BentoBadge>
+                  <BentoBadge>
+                    <Trophy className="size-3.5 text-yellow-500" />
+                    Leaderboards
+                  </BentoBadge>
                 </div>
               </div>
 
@@ -371,14 +375,14 @@ export default function LandingPage() {
                   max={6}
                   scale={1.01}
                 >
-                  <div className="relative rounded-[2.75rem] overflow-hidden border border-white/50 bg-white/70 backdrop-blur shadow-2xl">
+                  <div className="relative rounded-[2.75rem] overflow-hidden border border-white/50 bg-white/70 backdrop-blur shadow-2xl aspect-[4/3] sm:aspect-[16/11] lg:aspect-[16/10]">
                     <Image
                       src="/pig-banner.png"
                       alt="Pigcasso hero"
-                      width={1500}
-                      height={500}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
                       priority
-                      className="w-full h-auto"
+                      className="object-cover object-right"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/20 to-transparent pointer-events-none" />
                     <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6 pointer-events-none">
@@ -402,21 +406,6 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-	                  <div className="hidden sm:block absolute left-6 top-6 motion-safe:animate-[pigcasso-float_12s_ease-in-out_900ms_infinite]">
-	                    <div className="rounded-2xl bg-white/90 backdrop-blur border border-white/60 shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
-	                      <div className="flex items-center gap-3">
-	                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-	                          <LayoutTemplate className="size-5 text-cyan-500" />
-	                        </div>
-	                        <div>
-	                          <div className="text-sm font-bold">Creator presets</div>
-	                          <div className="text-xs text-muted-foreground">
-	                            Export-ready sizes
-	                          </div>
-	                        </div>
-	                      </div>
-	                    </div>
-	                  </div>
 	                </Tilt>
 	              </div>
 	            </div>
@@ -442,7 +431,7 @@ export default function LandingPage() {
                     alt=""
                     fill
                     sizes="(max-width: 1024px) 100vw, 58vw"
-                    className="object-cover opacity-80"
+                    className="object-cover object-right opacity-55"
                   />
                   <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/70 to-transparent" />
                 </div>
@@ -936,7 +925,8 @@ export default function LandingPage() {
                       type="button"
                       onClick={() => void openApp("/app")}
                       disabled={!ready || opening}
-                      className="rounded-full px-10 py-6 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
+                      size="lg"
+                      className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
                     >
                       Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
@@ -944,7 +934,8 @@ export default function LandingPage() {
                     <Button
                       type="button"
                       variant="secondary"
-                      className="rounded-full px-10 py-6 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
+                      size="lg"
+                      className="h-12 rounded-full px-10 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
                       onClick={() => void openApp("/projects")}
                       disabled={!ready || opening}
                     >
@@ -954,7 +945,8 @@ export default function LandingPage() {
                     <Button
                       type="button"
                       variant="secondary"
-                      className="rounded-full px-10 py-6 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
+                      size="lg"
+                      className="h-12 rounded-full px-10 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
                       onClick={() => {
                         if (typeof window !== "undefined") {
                           window.scrollTo({ top: 0, behavior: "smooth" });
