@@ -70,6 +70,8 @@ export default function NftsPage() {
                     asset.projectThumbnailUrl ??
                     null;
 
+                  const tokenUri = asset.metadataUri ? ipfsToHttpUrl(asset.metadataUri) ?? asset.metadataUri : null;
+
                   const tokenLink =
                     asset.collectionAddress && asset.tokenId
                       ? `${MANTLE_EXPLORER_BASE_URL}/token/${asset.collectionAddress}?a=${asset.tokenId}`
@@ -110,13 +112,13 @@ export default function NftsPage() {
                           </div>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-1">
-                          {asset.metadataUri ? (
+                          {tokenUri ? (
                             <button
                               type="button"
                               className="underline underline-offset-4"
                               onClick={async () => {
                                 try {
-                                  await navigator.clipboard.writeText(asset.metadataUri ?? "");
+                                  await navigator.clipboard.writeText(tokenUri);
                                   toast.success("Token URI copied.");
                                 } catch {
                                   toast.error("Failed to copy.");
@@ -125,6 +127,16 @@ export default function NftsPage() {
                             >
                               Copy token URI
                             </button>
+                          ) : null}
+                          {tokenUri ? (
+                            <a
+                              className="inline-flex items-center gap-1 underline underline-offset-4"
+                              href={tokenUri}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open token URI <ExternalLink className="size-3" />
+                            </a>
                           ) : null}
                           {tokenLink ? (
                             <a
