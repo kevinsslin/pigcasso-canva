@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { toast } from "sonner";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -16,6 +17,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   LayoutTemplate,
+  Loader2,
   Mic,
   Rocket,
   Search,
@@ -67,7 +69,7 @@ const FeatureCard = ({
   );
 };
 
-  const BentoCard = ({
+const BentoCard = ({
   className,
   children,
 }: {
@@ -186,7 +188,10 @@ export default function LandingPage() {
   }, [authenticated, postLoginRedirect, ready, router]);
 
   const openApp = async (redirectTo = "/app") => {
-    if (!ready) return;
+    if (!ready) {
+      toast.message("Loading…");
+      return;
+    }
     const safeRedirect = toSafeRedirectPath(redirectTo);
 
     if (authenticated) {
@@ -274,9 +279,10 @@ export default function LandingPage() {
             <Button
               type="button"
               onClick={() => void openApp("/app")}
-              disabled={!ready || opening}
+              disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
+              {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Open app
               <ArrowRight className="ml-2 size-4" />
             </Button>
@@ -322,19 +328,19 @@ export default function LandingPage() {
                   <Button
                     type="button"
                     onClick={() => void openApp("/app")}
-                    disabled={!ready || opening}
+                    disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
-                    <Brush className="mr-2 size-5" />
-                    Open app
+                    {opening ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Brush className="mr-2 size-5" />}
+                    {opening ? "Opening…" : "Open app"}
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => void openApp("/projects")}
-                    disabled={!ready || opening}
+                    disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-white/75 border border-white/60 shadow-soft hover:bg-white/90"
                   >
@@ -424,16 +430,16 @@ export default function LandingPage() {
             />
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 lg:gap-6 lg:auto-rows-[minmax(240px,auto)] xl:auto-rows-[minmax(260px,auto)]">
-	              <BentoCard className="lg:col-span-8 lg:row-span-2">
+              <BentoCard className="md:col-span-2 lg:col-span-8 lg:row-span-2">
                 <div className="absolute inset-0">
                   <Image
                     src="/pig-banner.png"
                     alt=""
                     fill
                     sizes="(max-width: 1024px) 100vw, 58vw"
-                    className="object-cover object-right opacity-55"
+                    className="object-cover object-[82%_30%] opacity-30 sm:opacity-45"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/70 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/80 to-transparent" />
                 </div>
 
                 <div className="relative h-full flex flex-col">
@@ -487,7 +493,7 @@ export default function LandingPage() {
                       <Button
                         type="button"
                         onClick={() => void openApp("/projects")}
-                        disabled={!ready || opening}
+                        disabled={opening}
                         className="rounded-2xl bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
                       >
                         Explore projects <ArrowRight className="ml-2 size-4" />
@@ -496,7 +502,7 @@ export default function LandingPage() {
                         type="button"
                         variant="secondary"
                         onClick={() => void openApp("/app")}
-                        disabled={!ready || opening}
+                        disabled={opening}
                         className="rounded-2xl bg-white/80 border border-white/60 shadow-soft hover:bg-white"
                       >
                         Open editor <Brush className="ml-2 size-4 text-primary" />
@@ -820,9 +826,10 @@ export default function LandingPage() {
                     <Button
                       type="button"
                       onClick={() => void openApp("/app")}
-                      disabled={!ready || opening}
+                      disabled={opening}
                       className="w-full rounded-2xl mt-3"
                     >
+                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                       Open app
                       <ArrowRight className="ml-2 size-4" />
                     </Button>
@@ -858,9 +865,10 @@ export default function LandingPage() {
 	                    <Button
 	                      type="button"
 	                      onClick={() => void openApp("/app")}
-	                      disabled={!ready || opening}
+                        disabled={opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
+                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                       Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -924,10 +932,11 @@ export default function LandingPage() {
                     <Button
                       type="button"
                       onClick={() => void openApp("/app")}
-                      disabled={!ready || opening}
+                      disabled={opening}
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
                     >
+                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                       Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -937,7 +946,7 @@ export default function LandingPage() {
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
                       onClick={() => void openApp("/projects")}
-                      disabled={!ready || opening}
+                      disabled={opening}
                     >
                       Explore projects
                       <ArrowRight className="ml-2 size-4 text-primary" />

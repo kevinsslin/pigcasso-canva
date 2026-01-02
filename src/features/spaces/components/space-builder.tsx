@@ -671,7 +671,14 @@ export const SpaceBuilder = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff7fb]">
+    <div className="relative min-h-screen bg-[#fff7fb]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 right-[-12rem] h-[34rem] w-[34rem] rounded-full bg-primary/18 blur-3xl motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
+        <div className="absolute top-[35%] left-[-12rem] h-[30rem] w-[30rem] rounded-full bg-cyan-400/14 blur-3xl motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
+        <div className="absolute bottom-[-14rem] right-[20%] h-[32rem] w-[32rem] rounded-full bg-yellow-300/12 blur-3xl motion-safe:animate-[pigcasso-drift_22s_ease-in-out_infinite]" />
+        <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(to_right,rgba(236,72,153,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.14)_1px,transparent_1px)] [background-size:72px_72px]" />
+      </div>
+
       <header className="sticky top-0 z-30 border-b border-white/60 bg-white/75 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
@@ -755,8 +762,14 @@ export const SpaceBuilder = () => {
                     key={module.type}
                     type="button"
                     onClick={() => addModule(module)}
-                    className="group rounded-xl border border-white/60 bg-white/70 px-3 py-3 text-left shadow-sm transition hover:border-cyan-200 hover:shadow-glow"
+                    className="group relative overflow-hidden rounded-2xl border border-white/60 bg-white/70 px-3 py-3 text-left shadow-soft transition hover:border-cyan-200 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
+                    <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
+                      <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6">
+                        <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 motion-safe:animate-[pigcasso-sheen_5.5s_ease-in-out_0ms_infinite]" />
+                      </div>
+                    </div>
                     <module.icon className="size-5 text-primary group-hover:text-cyan-500 transition-colors" />
                     <div className="mt-2 text-xs font-bold text-gray-900">{module.label}</div>
                     <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{module.description}</div>
@@ -778,47 +791,69 @@ export const SpaceBuilder = () => {
                 <span className={cn("size-2 rounded-full", savingDotClass)} />
                 <span className="text-xs font-semibold text-gray-700">{savingLabel}</span>
               </div>
-	            </div>
+            </div>
 
-	            <div className="rounded-2xl border border-white/60 bg-white/70 p-3">
-	              <SpaceGridLayout
-	                className="layout"
-	                cols={4}
-	                rowHeight={140}
-	                margin={[16, 16]}
-	                containerPadding={[0, 0]}
-	                draggableHandle=".space-drag-handle"
-	                isDraggable={mode === "edit"}
-	                isResizable={mode === "edit"}
-	                onLayoutChange={onLayoutChange}
-	                layout={layoutFromBlocks(document.blocks.filter((block) => block.isVisible || mode === "edit"))}
-	              >
+            <div className="relative rounded-2xl border border-white/60 bg-white/70 p-3 shadow-sm overflow-hidden">
+              <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:radial-gradient(circle,rgba(236,72,153,0.12)_1px,transparent_1px)] [background-size:40px_40px]" />
+              <div className="relative overflow-x-auto overscroll-x-contain pb-2">
+                <div className="min-w-[820px]">
+                  <SpaceGridLayout
+                    className="space-grid-layout"
+                    cols={4}
+                    rowHeight={140}
+                    margin={[16, 16]}
+                    containerPadding={[0, 0]}
+                    draggableHandle=".space-drag-handle"
+                    isDraggable={mode === "edit"}
+                    isResizable={mode === "edit"}
+                    onLayoutChange={onLayoutChange}
+                    layout={layoutFromBlocks(document.blocks.filter((block) => block.isVisible || mode === "edit"))}
+                  >
                 {document.blocks
                   .filter((block) => block.isVisible || mode === "edit")
-                  .map((block) => (
-                    <div key={block.id} className="h-full">
-                      <div
-                        className={cn(
-                          "group h-full relative rounded-2xl ring-2 ring-transparent transition",
-                          selectedId === block.id && mode === "edit" ? "ring-primary/60" : "",
-                        )}
-                        onClick={() => {
-                          if (mode !== "edit") return;
-                          setSelectedId(block.id);
-                        }}
-                      >
-                        {mode === "edit" ? (
-                          <div className="space-drag-handle absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md border border-white/60 bg-white/80 px-2 py-1 opacity-0 shadow-sm transition group-hover:opacity-100">
-                            <GripVertical className="size-4 text-muted-foreground" />
+                  .map((block) => {
+                    const isSelected = selectedId === block.id && mode === "edit";
+
+                    return (
+                      <div key={block.id} className="h-full">
+                        <div
+                          className={cn(
+                            "group h-full relative rounded-2xl ring-1 ring-black/5 transition-shadow duration-200",
+                            isSelected ? "ring-2 ring-primary/50 shadow-neon" : "hover:shadow-glow",
+                          )}
+                          onClick={() => {
+                            if (mode !== "edit") return;
+                            setSelectedId(block.id);
+                          }}
+                        >
+                          <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
+                            <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6">
+                              <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/45 to-white/0 motion-safe:animate-[pigcasso-sheen_5.2s_ease-in-out_0ms_infinite]" />
+                            </div>
                           </div>
-                        ) : null}
-	                        <SpaceBlockPreview block={block} />
-	                      </div>
-	                    </div>
-	                  ))}
-	              </SpaceGridLayout>
-	            </div>
-	          </main>
+
+                          {mode === "edit" ? (
+                            <div
+                              className={cn(
+                                "space-drag-handle absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md border border-white/60 bg-white/85 px-2 py-1 shadow-sm transition-opacity",
+                                isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                              )}
+                            >
+                              <GripVertical className="size-4 text-muted-foreground" />
+                            </div>
+                          ) : null}
+
+                          <SpaceBlockPreview block={block} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </SpaceGridLayout>
+                </div>
+              </div>
+            </div>
+          </main>
 
           <aside className="rounded-2xl border border-white/60 bg-white/70 backdrop-blur shadow-soft overflow-hidden">
             {selectedBlock && mode === "edit" ? (

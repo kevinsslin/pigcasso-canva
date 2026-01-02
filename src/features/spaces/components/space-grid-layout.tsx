@@ -50,7 +50,7 @@ export const SpaceGridLayout = ({
           }}
           resizeConfig={{
             enabled: isResizable,
-            handles: ["se", "e", "s"],
+            handles: ["se"],
           }}
           onLayoutChange={onLayoutChange}
         >
