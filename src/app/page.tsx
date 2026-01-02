@@ -76,12 +76,12 @@ const BentoCard = ({
 }) => {
   return (
     <Tilt className={cn("h-full", className)} max={7} scale={1.01}>
-      <div className="group relative h-full overflow-hidden rounded-[2rem] border border-white/50 bg-white/70 backdrop-blur shadow-soft transition-shadow duration-300 hover:shadow-glow">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-cyan-400/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="group relative h-full overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 backdrop-blur shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-glow">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-cyan-400/12 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6 pointer-events-none">
           <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 opacity-0 group-hover:opacity-100 motion-safe:animate-[pigcasso-sheen_5.25s_ease-in-out_0.8s_infinite]" />
         </div>
-        <div className="relative h-full p-6">{children}</div>
+        <div className="relative h-full p-6 sm:p-7 lg:p-8">{children}</div>
       </div>
     </Tilt>
   );
@@ -89,7 +89,7 @@ const BentoCard = ({
 
 const BentoBadge = ({ children }: { children: React.ReactNode }) => {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/80 px-3 py-1 text-[11px] font-bold text-muted-foreground shadow-soft">
+    <span className="inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/75 px-3 py-1 text-xs font-semibold text-muted-foreground shadow-[0_2px_10px_rgb(0_0_0_/_0.04)]">
       {children}
     </span>
   );
@@ -447,7 +447,7 @@ export default function LandingPage() {
 
         <section
           id="product"
-          className="py-20 bg-white/60 border-y border-white/50"
+          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
@@ -456,7 +456,7 @@ export default function LandingPage() {
               description="Designed for creators and communities: build assets, publish fast, and track what people use."
             />
 
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 lg:auto-rows-[220px]">
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 lg:gap-6 lg:auto-rows-[minmax(240px,auto)] xl:auto-rows-[minmax(260px,auto)]">
               <BentoCard className="lg:col-span-8 lg:row-span-2">
                 <div className="absolute inset-0">
                   <Image
@@ -642,13 +642,13 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-3">
+              <BentoCard className="lg:col-span-6 xl:col-span-3">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <Trophy className="size-5 text-yellow-500" />
-                      </div>
+	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-yellow-300/20 to-primary/10 flex items-center justify-center border border-white/60">
+	                        <Trophy className="size-5 text-yellow-500" />
+	                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Signals
@@ -684,13 +684,13 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-3">
+              <BentoCard className="lg:col-span-6 xl:col-span-3">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <ArrowLeftRight className="size-5 text-cyan-500" />
-                      </div>
+	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-cyan-400/18 to-indigo-500/10 flex items-center justify-center border border-white/60">
+	                        <ArrowLeftRight className="size-5 text-cyan-500" />
+	                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Identity
@@ -719,13 +719,13 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-3">
+              <BentoCard className="lg:col-span-6 xl:col-span-3">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <Coins className="size-5 text-primary" />
-                      </div>
+	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/18 to-yellow-300/12 flex items-center justify-center border border-white/60">
+	                        <Coins className="size-5 text-primary" />
+	                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Monetize
@@ -749,13 +749,13 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-3">
+              <BentoCard className="lg:col-span-6 xl:col-span-3">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <CreditCard className="size-5 text-muted-foreground" />
-                      </div>
+	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-slate-900/8 to-primary/10 flex items-center justify-center border border-white/60">
+	                        <CreditCard className="size-5 text-muted-foreground" />
+	                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Access
