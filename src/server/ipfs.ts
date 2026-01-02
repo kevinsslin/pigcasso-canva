@@ -3,8 +3,8 @@ import { readApiResponse, readResponseBody } from "@/lib/api-response";
 import { extractBodyErrorMessage } from "@/lib/api-error";
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
-const PINATA_JSON_ENDPOINT = "https://api.pinata.cloud/pinning/pinJSONToIPFS";
-const PINATA_FILE_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
+const PINATA_UPLOAD_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
+const PINATA_NETWORK = "public";
 
 const MAX_FILE_BYTES = 15_000_000;
 
@@ -69,6 +69,7 @@ const applyPinataAuthHeaders = (headers: Headers, auth: PinataAuth) => {
 
   headers.set("pinata_api_key", auth.apiKey);
   headers.set("pinata_secret_api_key", auth.secretApiKey);
+  headers.set("pinata_api_secret", auth.secretApiKey);
 };
 
 const formatPinataFailure = (params: {
@@ -127,27 +128,31 @@ export const pinJsonToIpfs = async (params: {
   json: unknown;
   name?: string;
 }): Promise<{ cid: string }> => {
-  const body = params.name
-    ? { pinataMetadata: { name: params.name }, pinataContent: params.json }
-    : { pinataContent: params.json };
+  requireIpfsConfigured();
+  const jsonString = JSON.stringify(params.json);
+  const fileName = params.name?.trim() || "pigcasso.json";
+  const blob = new Blob([jsonString], { type: "application/json" });
+  const file = new File([blob], fileName, { type: "application/json" });
 
-  const response = await pinataFetch<{ IpfsHash: string }>({
-    url: PINATA_JSON_ENDPOINT,
+  const form = new FormData();
+  form.append("file", file);
+  form.append("network", PINATA_NETWORK);
+
+  const response = await pinataFetch<{ data?: { cid?: string } }>({
+    url: PINATA_UPLOAD_ENDPOINT,
     init: {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+      body: form,
     },
-    fallback: "Failed to pin JSON to IPFS",
+    fallback: "Failed to upload JSON to IPFS",
   });
 
-  if (!response.IpfsHash) {
+  const cid = response.data?.cid;
+  if (!cid) {
     throw new HttpError(502, "Invalid IPFS response");
   }
 
-  return { cid: response.IpfsHash };
+  return { cid };
 };
 
 export const pinFileFromUrlToIpfs = async (params: {
@@ -181,20 +186,21 @@ export const pinFileFromUrlToIpfs = async (params: {
 
   const form = new FormData();
   form.append("file", blob, params.name);
-  form.append("pinataMetadata", JSON.stringify({ name: params.name }));
+  form.append("network", PINATA_NETWORK);
 
-  const response = await pinataFetch<{ IpfsHash: string }>({
-    url: PINATA_FILE_ENDPOINT,
+  const response = await pinataFetch<{ data?: { cid?: string } }>({
+    url: PINATA_UPLOAD_ENDPOINT,
     init: {
       method: "POST",
       body: form,
     },
-    fallback: "Failed to pin file to IPFS",
+    fallback: "Failed to upload file to IPFS",
   });
 
-  if (!response.IpfsHash) {
+  const cid = response.data?.cid;
+  if (!cid) {
     throw new HttpError(502, "Invalid IPFS response");
   }
 
-  return { cid: response.IpfsHash };
+  return { cid };
 };
