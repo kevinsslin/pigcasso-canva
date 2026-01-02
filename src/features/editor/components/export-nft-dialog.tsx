@@ -126,6 +126,7 @@ export const ExportNftDialog = ({
     collectionAddress: `0x${string}`;
     txHash: `0x${string}`;
     tokenId: string | null;
+    tokenUri: string;
   } | null>(null);
 
   const [collectionMode, setCollectionMode] = useState<"auto" | "existing" | "new">("auto");
@@ -507,11 +508,12 @@ export const ExportNftDialog = ({
 
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
+      const tokenUri = ipfsToHttpUrl(asset.metadataUri) ?? asset.metadataUri;
       const hash = await walletClient.writeContract({
         address: collection.address,
         abi: pigcassoCollectionAbi,
         functionName: "mint",
-        args: [walletClient.account.address, asset.metadataUri],
+        args: [walletClient.account.address, tokenUri],
       });
 
       setMintStep("mint", { status: "active", detail: "Waiting for confirmation…" });
@@ -546,7 +548,7 @@ export const ExportNftDialog = ({
         },
       });
 
-      setMintResult({ collectionAddress: collection.address, txHash: hash, tokenId });
+      setMintResult({ collectionAddress: collection.address, txHash: hash, tokenId, tokenUri });
       setMintStep("mint", { status: "done", detail: tokenId ? `Minted token #${tokenId}.` : "NFT minted." });
       toast.success("NFT minted.", { duration: 3500 });
     } catch (error) {
@@ -560,6 +562,9 @@ export const ExportNftDialog = ({
   };
 
   const previewUrl = ipfsToHttpUrl(exportedAsset?.imageUri) ?? uploadedImageUrl ?? localPreviewUrl;
+  const tokenUriForDisplay = exportedAsset?.metadataUri
+    ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
+    : null;
 
   const collectionLabel =
     collectionMode === "existing" && isEvmAddress(selectedCollectionAddress.trim())
@@ -797,7 +802,7 @@ export const ExportNftDialog = ({
             {exportedAsset?.metadataUri ? (
               <div className="rounded-lg border p-3 text-xs space-y-1">
                 <div className="font-medium">Token URI</div>
-                <div className="font-mono break-all">{exportedAsset.metadataUri}</div>
+                <div className="font-mono break-all">{tokenUriForDisplay}</div>
               </div>
             ) : null}
 
@@ -807,6 +812,7 @@ export const ExportNftDialog = ({
                 <div className="font-mono break-all">Collection: {mintResult.collectionAddress}</div>
                 <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
                 <div className="font-mono break-all">Token ID: {mintResult.tokenId ?? "Unknown"}</div>
+                <div className="font-mono break-all">Token URI: {mintResult.tokenUri}</div>
               </div>
             ) : null}
 
@@ -863,219 +869,223 @@ export const ExportNftDialog = ({
                 />
               </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">
-              Collection: <span className="font-mono">{collectionLabel}</span>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto px-2 py-1 text-xs"
-              onClick={() => setShowAdvanced((prev) => !prev)}
-            >
-              {showAdvanced ? "Hide options" : "More options"}
-            </Button>
-          </div>
-
-          {showAdvanced ? (
-            <div className="space-y-4 rounded-xl border p-3">
-              <div className="grid gap-2">
-                <div className="text-sm font-medium">Description</div>
-                <Textarea
-                  value={tokenDescription}
-                  onChange={(e) => setTokenDescription(e.target.value)}
-                  placeholder="Optional description"
-                  rows={3}
-                  maxLength={500}
-                  disabled={isMinting}
-                />
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-muted-foreground">
+                  Mint to: <span className="font-mono">{collectionLabel}</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-xs"
+                  onClick={() => setShowAdvanced((prev) => !prev)}
+                >
+                  {showAdvanced ? "Hide options" : "More options"}
+                </Button>
               </div>
 
-              <div className="grid gap-2">
-                <div className="text-sm font-medium">Collection</div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={collectionMode === "auto" ? "default" : "secondary"}
-                    onClick={() => setCollectionMode("auto")}
-                    disabled={isMinting}
-                  >
-                    Auto
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={collectionMode === "existing" ? "default" : "secondary"}
-                    onClick={() => setCollectionMode("existing")}
-                    disabled={isMinting}
-                  >
-                    Existing
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={collectionMode === "new" ? "default" : "secondary"}
-                    onClick={() => setCollectionMode("new")}
-                    disabled={isMinting}
-                  >
-                    New
-                  </Button>
-                </div>
+              <div className="text-[11px] text-muted-foreground">
+                Your NFTs are minted into a collection contract. Each mint creates a unique token (NFT).
+              </div>
 
-                {collectionMode === "existing" ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={selectedCollectionAddress}
-                      onChange={(e) => {
-                        setSelectedCollectionRecordId(null);
-                        setSelectedCollectionAddress(e.target.value);
-                      }}
-                      placeholder="0x… collection address"
+              {showAdvanced ? (
+                <div className="space-y-4 rounded-xl border p-3">
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">Description</div>
+                    <Textarea
+                      value={tokenDescription}
+                      onChange={(e) => setTokenDescription(e.target.value)}
+                      placeholder="Optional description"
+                      rows={3}
+                      maxLength={500}
                       disabled={isMinting}
                     />
+                  </div>
 
-                    {collections.isLoading ? (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Loader2 className="size-3 animate-spin" />
-                        Loading your collections…
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">NFT contract</div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={collectionMode === "auto" ? "default" : "secondary"}
+                        onClick={() => setCollectionMode("auto")}
+                        disabled={isMinting}
+                      >
+                        Default
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={collectionMode === "existing" ? "default" : "secondary"}
+                        onClick={() => setCollectionMode("existing")}
+                        disabled={isMinting}
+                      >
+                        Existing contract
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={collectionMode === "new" ? "default" : "secondary"}
+                        onClick={() => setCollectionMode("new")}
+                        disabled={isMinting}
+                      >
+                        New contract
+                      </Button>
+                    </div>
+
+                    {collectionMode === "existing" ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={selectedCollectionAddress}
+                          onChange={(e) => {
+                            setSelectedCollectionRecordId(null);
+                            setSelectedCollectionAddress(e.target.value);
+                          }}
+                          placeholder="0x… contract address"
+                          disabled={isMinting}
+                        />
+
+                        {collections.isLoading ? (
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <Loader2 className="size-3 animate-spin" />
+                            Loading your collections…
+                          </div>
+                        ) : collectionsList.length ? (
+                          <div className="rounded-lg border p-2 space-y-2">
+                            <div className="text-xs text-muted-foreground">Or pick one:</div>
+                            <div className="space-y-1 max-h-40 overflow-auto">
+                              {collectionsList.map((collection) => (
+                                <button
+                                  key={collection.id}
+                                  type="button"
+                                  className="w-full text-left rounded-md px-2 py-1 hover:bg-muted text-sm"
+                                  onClick={() => {
+                                    setSelectedCollectionRecordId(collection.id);
+                                    setSelectedCollectionAddress(collection.address ?? "");
+                                  }}
+                                  disabled={!collection.address || isMinting}
+                                >
+                                  <div className="font-medium">{collection.name}</div>
+                                  <div className="text-[11px] text-muted-foreground font-mono">
+                                    {collection.address ?? "No address"}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">No collections yet.</div>
+                        )}
                       </div>
-                    ) : collectionsList.length ? (
-                      <div className="rounded-lg border p-2 space-y-2">
-                        <div className="text-xs text-muted-foreground">Or pick one:</div>
-                        <div className="space-y-1 max-h-40 overflow-auto">
-                          {collectionsList.map((collection) => (
-                            <button
-                              key={collection.id}
-                              type="button"
-                              className="w-full text-left rounded-md px-2 py-1 hover:bg-muted text-sm"
-                              onClick={() => {
-                                setSelectedCollectionRecordId(collection.id);
-                                setSelectedCollectionAddress(collection.address ?? "");
-                              }}
-                              disabled={!collection.address || isMinting}
-                            >
-                              <div className="font-medium">{collection.name}</div>
-                              <div className="text-[11px] text-muted-foreground font-mono">
-                                {collection.address ?? "No address"}
-                              </div>
-                            </button>
-                          ))}
+                    ) : null}
+
+                    {collectionMode === "new" ? (
+                      <div className="space-y-2 rounded-lg border p-3">
+                        <Input
+                          value={newCollectionName}
+                          onChange={(e) => setNewCollectionName(e.target.value)}
+                          placeholder="Contract name (optional)"
+                          maxLength={120}
+                          disabled={isMinting}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={newCollectionSymbol}
+                            onChange={(e) => setNewCollectionSymbol(e.target.value)}
+                            placeholder="Symbol (optional)"
+                            maxLength={16}
+                            disabled={isMinting}
+                          />
+                          <Input
+                            value={newCollectionMaxSupply}
+                            onChange={(e) => setNewCollectionMaxSupply(e.target.value)}
+                            placeholder="Max supply"
+                            inputMode="numeric"
+                            disabled={isMinting}
+                          />
+                        </div>
+                        <Input
+                          value={newCollectionContractUri}
+                          onChange={(e) => setNewCollectionContractUri(e.target.value)}
+                          placeholder="Contract URI (optional)"
+                          disabled={isMinting}
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          We’ll deploy this contract when you mint.
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No collections yet.</div>
-                    )}
-                  </div>
-                ) : null}
+                    ) : null}
 
-                {collectionMode === "new" ? (
-                  <div className="space-y-2 rounded-lg border p-3">
-                    <Input
-                      value={newCollectionName}
-                      onChange={(e) => setNewCollectionName(e.target.value)}
-                      placeholder="Collection name (optional)"
-                      maxLength={120}
-                      disabled={isMinting}
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        value={newCollectionSymbol}
-                        onChange={(e) => setNewCollectionSymbol(e.target.value)}
-                        placeholder="Symbol (optional)"
-                        maxLength={16}
-                        disabled={isMinting}
-                      />
-                      <Input
-                        value={newCollectionMaxSupply}
-                        onChange={(e) => setNewCollectionMaxSupply(e.target.value)}
-                        placeholder="Max supply"
-                        inputMode="numeric"
-                        disabled={isMinting}
-                      />
+                    {!factoryConfigured ? (
+                      <div className="text-xs text-muted-foreground">
+                        Minting is not configured yet. Set `NEXT_PUBLIC_NFT_FACTORY_ADDRESS`.
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {exportedAsset?.metadataUri ? (
+                    <div className="rounded-lg border p-3 text-xs space-y-1">
+                      <div className="font-medium">Token URI</div>
+                      <div className="font-mono break-all">{tokenUriForDisplay}</div>
                     </div>
-                    <Input
-                      value={newCollectionContractUri}
-                      onChange={(e) => setNewCollectionContractUri(e.target.value)}
-                      placeholder="Contract URI (optional)"
-                      disabled={isMinting}
-                    />
-                    <div className="text-xs text-muted-foreground">
-                      We’ll deploy this collection when you mint.
-                    </div>
-                  </div>
-                ) : null}
-
-                {!factoryConfigured ? (
-                  <div className="text-xs text-muted-foreground">
-                    Minting is not configured yet. Set `NEXT_PUBLIC_NFT_FACTORY_ADDRESS`.
-                  </div>
-                ) : null}
-              </div>
-
-              {exportedAsset?.metadataUri ? (
-                <div className="rounded-lg border p-3 text-xs space-y-1">
-                  <div className="font-medium">Token URI</div>
-                  <div className="font-mono break-all">{exportedAsset.metadataUri}</div>
+                  ) : null}
                 </div>
               ) : null}
-            </div>
-          ) : null}
 
-          {previewUrl ? (
-            <div className="rounded-xl border overflow-hidden bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewUrl} alt="NFT preview" className="w-full h-auto" />
-            </div>
-          ) : (
-            <div className="rounded-xl border bg-muted/30 p-6 text-xs text-muted-foreground text-center">
-              Preview is unavailable right now.
-            </div>
-          )}
-
-          <div className="space-y-1 text-xs text-muted-foreground">
-            {preferredWallet ? (
-              <div className="flex items-center justify-between gap-2">
-                <span>Signing wallet</span>
-                <span className="font-mono">{preferredWallet.address}</span>
-              </div>
-            ) : null}
-
-            {mintDisabledReasons.length ? (
-              <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
-                <div className="flex items-start gap-2 text-foreground">
-                  <AlertTriangle className="mt-0.5 size-4 text-muted-foreground" />
-                  <div className="font-medium">Mint NFT is disabled</div>
+              {previewUrl ? (
+                <div className="rounded-xl border overflow-hidden bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewUrl} alt="NFT preview" className="w-full h-auto" />
                 </div>
-                <ul className="list-disc pl-5 space-y-1">
-                  {mintDisabledReasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-                <details className="rounded-lg border bg-background/60 p-3" open>
-                  <summary className="cursor-pointer text-xs font-medium text-foreground">
-                    Debug details
-                  </summary>
-                  <div className="mt-3 space-y-2 text-xs">
-                    {mintDebugRows.map((row) => (
-                      <div key={row.label} className="grid grid-cols-1 gap-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium">{row.label}</span>
-                          <span className={row.ok ? "text-green-600" : "text-destructive"}>
-                            {row.ok ? "OK" : "Blocked"}
-                          </span>
-                        </div>
-                        <div className="font-mono break-all text-muted-foreground">
-                          {row.value}
-                        </div>
-                      </div>
-                    ))}
+              ) : (
+                <div className="rounded-xl border bg-muted/30 p-6 text-xs text-muted-foreground text-center">
+                  Preview is unavailable right now.
+                </div>
+              )}
+
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {preferredWallet ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Signing wallet</span>
+                    <span className="font-mono">{preferredWallet.address}</span>
                   </div>
-                </details>
+                ) : null}
+
+                {mintDisabledReasons.length ? (
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                    <div className="flex items-start gap-2 text-foreground">
+                      <AlertTriangle className="mt-0.5 size-4 text-muted-foreground" />
+                      <div className="font-medium">Mint NFT is disabled</div>
+                    </div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {mintDisabledReasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                    <details className="rounded-lg border bg-background/60 p-3" open>
+                      <summary className="cursor-pointer text-xs font-medium text-foreground">
+                        Debug details
+                      </summary>
+                      <div className="mt-3 space-y-2 text-xs">
+                        {mintDebugRows.map((row) => (
+                          <div key={row.label} className="grid grid-cols-1 gap-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium">{row.label}</span>
+                              <span className={row.ok ? "text-green-600" : "text-destructive"}>
+                                {row.ok ? "OK" : "Blocked"}
+                              </span>
+                            </div>
+                            <div className="font-mono break-all text-muted-foreground">
+                              {row.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">

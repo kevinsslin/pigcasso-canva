@@ -10,6 +10,16 @@ import { requireAuth } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
 import { hasIpfsConfigured, pinFileFromUrlToIpfs, pinJsonToIpfs } from "@/server/ipfs";
 
+const DEFAULT_IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+
+const getIpfsGatewayBase = () => {
+  const raw = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim();
+  if (!raw) return DEFAULT_IPFS_GATEWAY;
+  return raw.endsWith("/") ? raw : `${raw}/`;
+};
+
+const cidToGatewayUrl = (cid: string) => `${getIpfsGatewayBase()}${cid}`;
+
 const app = new Hono()
   .get(
     "/",
@@ -206,14 +216,17 @@ const app = new Hono()
       const metadata = {
         name: assetName,
         description: assetDescription,
-        image: `ipfs://${imagePinned.cid}`,
+        image: cidToGatewayUrl(imagePinned.cid),
+        image_url: cidToGatewayUrl(imagePinned.cid),
         attributes: [
           { trait_type: "Project", value: project.name },
           { trait_type: "Page", value: String(page.index + 1) },
           { trait_type: "Chain", value: "Mantle" },
         ],
         properties: {
+          image_ipfs: `ipfs://${imagePinned.cid}`,
           source: `ipfs://${sourcePinned.cid}`,
+          source_url: cidToGatewayUrl(sourcePinned.cid),
           projectId,
           projectPageId,
         },

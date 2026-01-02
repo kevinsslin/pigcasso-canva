@@ -42,7 +42,7 @@ NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
     1) 建立 `nft_asset`（draft）
     2) Pin PNG → `imageUri=ipfs://...`
     3) Pin source JSON（包含 canvas JSON）→ metadata `properties.source=ipfs://...`
-    4) Pin metadata → `metadataUri=ipfs://...`
+    4) Pin metadata → `metadataUri=ipfs://...`（metadata 的 `image` 會使用 gateway URL，避免部分錢包/瀏覽器不支援 `ipfs://`）
     5) 更新 `status=prepared`
 
 - `PATCH /api/assets/:id`
@@ -66,7 +66,7 @@ NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
   - Upload & Pin：呼叫 UploadThing → `POST /api/assets/export`
   - Mint：
     - 若未部署 collection：呼叫 factory `createCollection(...)`
-    - 之後呼叫 collection `mint(to, tokenUri)`
+    - 之後呼叫 collection `mint(to, tokenUri)`（預設用 gateway URL 作為 token URI，提升跨錢包相容性）
     - 成功後 `PATCH /api/assets/:id`
 
 ## 6) Smart Contracts（Factory Pattern）
