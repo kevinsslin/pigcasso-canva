@@ -86,6 +86,53 @@ flowchart
   S --> AS[Assets Library]
 ```
 
+---
+
+## 0.3) Pigcasso Space（v0.1 - Team Alignment）
+
+### 一句話
+**Pigcasso Space** 是 Web3 社群的「公開數位名片 / Gateway Page」：用 **Bento-like 模組化排版**把一個人的碎片資訊（Web2 + Web3 + 社群 + IRL 活動）聚合成一頁可分享的 Space，同時可選擇展示他在 Pigcasso 生態（Projects/Leaderboards/Community Assets）中的真實貢獻與作品，讓社群更容易互相認識、互相 clone、互相擴散。
+
+> Space 的定位：不是通用 Linktree/Bento 的替代品，而是 **Web3-native + Pigcasso Ecosystem 強關聯**的「公開入口」。
+
+### 為什麼要做（核心假設）
+- Web3 人的資訊高度碎片化：X / TG / Discord / Wallet / Research / Video / Events 分散，缺少「一頁」能快速理解一個人。
+- 在更立體媒介（Agent / onchain assets / attribution）成熟前，需要更低摩擦的 **2D Gateway**：先聚合身份與關係，再逐步升級。
+- Pigcasso 的核心是 **Community Asset + Contribution Tracking**：Space 讓創作與貢獻「可被看見、可被分享」，形成自然擴散入口。
+
+### 對內定位（3 句話）
+- **Canvas（Web App）**：把社群資產創作（Avatar/Sticker/Seasonal templates）留在產品內完成。
+- **Projects + Pig Agent**：跨 Web App / X / TG / Discord 追蹤真實貢獻，生成 KAITO 風格 mindshare/leaderboards（Agent 先 roadmap）。
+- **Space**：把「人」聚合起來，展示身份、內容、活動與（可選）貢獻/作品，形成可分享的社群入口與擴散載體。
+
+### 核心體驗（公開、Bento、可 clone）
+- **Public by default**：每個使用者都有公開 Space URL（可放 X bio / TG/Discord 介紹 / 跑會 QR code）。
+- **公開但可控**：可選擇「哪些模組顯示/隱藏」（尤其 Projects/戰績卡/作品牆）。
+- **Template-first**：用 Bento 卡片/模組化呈現；支援模板與套用；他人可 clone template 複製排版。
+- **Hybrid 資料來源**：連接 X/TG/Discord/Wallet（以及 Luma）→ 生成草稿 auto-draft → 允許手動改（增刪模組、改文字/連結、調整順序與排版）。
+
+### Space 模組藍圖（Business Scope）
+> 模組可拖拽排序；每個模組可設定顯示/隱藏。MVP 先做最小集合，其餘 roadmap。
+
+- Identity：PFP / 名稱 / bio / tags
+- Social & Communities：X / Telegram / Discord / YouTube / GitHub / Website…連結卡
+- Content / Research：文章、threads、videos（可手動選）
+- IRL / Events（Luma Calendar）：Upcoming / Past 活動（跑會與約見面）
+- Web3 Battle Cards：persona/achievements（先 link + badge + 自填）
+- Pigcasso Ecosystem（可選）：Projects + 排名/徽章、Community Assets 作品牆、模板被 clone/採用數
+
+### 與既有系統的 Synergy（關鍵）
+- Canvas → Space：資產可一鍵掛到 Space 成作品牆，提升分享與採用。
+- Space → Canvas：看到他人 Space 很漂亮/很會做貼紙 → 形成創作回流。
+- Projects/Agent → Space：貢獻可見（排名/徽章/摘要）→ 更願意分享 → 互動更強 → Leaderboard 更有價值。
+- Creator economy：模板可 clone → 採用數/貢獻點 → 曝光與上榜（付費/分潤先 roadmap）。
+
+### v0.1（MVP 建議）
+- Public Space URL（可分享）+ Bento layout（預設模板）。
+- Identity + Social links + Pigcasso ecosystem（Templates/Projects/NFT/Assets 的摘要卡）。
+- 基礎可控：顯示/隱藏部分模組（privacy toggles）。
+- Clone：先做 “Use this layout” / “Clone template”（生成草稿 + 立即可編輯），tokenization/分潤留到 roadmap。
+
 ## 0) 文件資訊
 
 | 欄位 | 值 |
