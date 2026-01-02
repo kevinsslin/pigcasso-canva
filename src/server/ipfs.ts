@@ -1,5 +1,6 @@
 import { HttpError } from "@/server/http-error";
-import { readApiResponse } from "@/lib/api-response";
+import { readApiResponse, readResponseBody } from "@/lib/api-response";
+import { extractBodyErrorMessage } from "@/lib/api-error";
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
 const PINATA_JSON_ENDPOINT = "https://api.pinata.cloud/pinning/pinJSONToIPFS";
@@ -70,9 +71,19 @@ const applyPinataAuthHeaders = (headers: Headers, auth: PinataAuth) => {
   headers.set("pinata_secret_api_key", auth.secretApiKey);
 };
 
+const formatPinataFailure = (params: {
+  type: PinataAuth["type"];
+  status: number;
+  message: string | null;
+}) => {
+  const suffix = params.message ? `: ${params.message}` : "";
+  return `${params.type} (${params.status})${suffix}`;
+};
+
 const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback: string }) => {
   requireIpfsConfigured();
   const authOptions = getPinataAuthOptions();
+  const failures: Array<{ type: PinataAuth["type"]; status: number; message: string | null }> = [];
 
   for (let index = 0; index < authOptions.length; index++) {
     const auth = authOptions[index];
@@ -85,14 +96,21 @@ const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback
     });
 
     if (res.status === 401 || res.status === 403) {
-      const body = await res.text().catch(() => "");
-      console.error(`Pinata auth failed (${auth.type}):`, res.status, body);
+      const body = await readResponseBody(res);
+      const message =
+        extractBodyErrorMessage(body) ??
+        (typeof body === "string" && body.trim().length > 0 ? body.trim() : null);
+
+      failures.push({ type: auth.type, status: res.status, message });
+      console.error(`Pinata auth failed (${auth.type}):`, res.status, message ?? body);
       if (index < authOptions.length - 1) {
         continue;
       }
+
+      const detail = failures.length ? failures.map(formatPinataFailure).join("; ") : "unknown";
       throw new HttpError(
         501,
-        "IPFS pinning is misconfigured. Verify PINATA_JWT (or PINATA_API_KEY + PINATA_SECRET_API_KEY).",
+        `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. Verify PINATA_JWT (or PINATA_API_KEY + PINATA_SECRET_API_KEY).`,
       );
     }
 
