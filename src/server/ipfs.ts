@@ -1,9 +1,10 @@
 import { HttpError } from "@/server/http-error";
-import { readApiResponse, readResponseBody } from "@/lib/api-response";
-import { extractBodyErrorMessage } from "@/lib/api-error";
+import { readApiResponse } from "@/lib/api-response";
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
-const PINATA_UPLOAD_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
+const PINATA_V3_UPLOAD_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
+const PINATA_LEGACY_PIN_FILE_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
+const PINATA_LEGACY_PIN_JSON_ENDPOINT = "https://api.pinata.cloud/pinning/pinJSONToIPFS";
 const PINATA_NETWORK = "public";
 
 const MAX_FILE_BYTES = 15_000_000;
@@ -33,27 +34,24 @@ const getPinataApiKey = () => normalizeSecret(process.env.PINATA_API_KEY);
 const getPinataSecretApiKey = () =>
   normalizeSecret(process.env.PINATA_SECRET_API_KEY ?? process.env.PINATA_API_SECRET);
 
-type PinataAuth =
-  | { type: "jwt"; jwt: string }
-  | { type: "keys"; apiKey: string; secretApiKey: string };
+type PinataJwtAuth = { type: "jwt"; jwt: string };
+type PinataKeysAuth = { type: "keys"; apiKey: string; secretApiKey: string };
+type PinataAuth = PinataJwtAuth | PinataKeysAuth;
 
-const getPinataAuthOptions = (): PinataAuth[] => {
+const getPinataJwtAuth = (): PinataJwtAuth | null => {
   const jwt = getPinataJwt();
-  const apiKey = getPinataApiKey();
-  const secretApiKey = getPinataSecretApiKey();
-
-  const options: PinataAuth[] = [];
-  if (jwt) {
-    options.push({ type: "jwt", jwt });
-  }
-  if (apiKey && secretApiKey) {
-    options.push({ type: "keys", apiKey, secretApiKey });
-  }
-
-  return options;
+  if (!jwt) return null;
+  return { type: "jwt", jwt };
 };
 
-export const hasIpfsConfigured = () => getPinataAuthOptions().length > 0;
+const getPinataKeysAuth = (): PinataKeysAuth | null => {
+  const apiKey = getPinataApiKey();
+  const secretApiKey = getPinataSecretApiKey();
+  if (!apiKey || !secretApiKey) return null;
+  return { type: "keys", apiKey, secretApiKey };
+};
+
+export const hasIpfsConfigured = () => Boolean(getPinataJwtAuth() || getPinataKeysAuth());
 
 const requireIpfsConfigured = () => {
   if (!hasIpfsConfigured()) {
@@ -73,57 +71,125 @@ const applyPinataAuthHeaders = (headers: Headers, auth: PinataAuth) => {
 };
 
 const formatPinataFailure = (params: {
-  type: PinataAuth["type"];
+  label: string;
   status: number;
   message: string | null;
 }) => {
   const suffix = params.message ? `: ${params.message}` : "";
-  return `${params.type} (${params.status})${suffix}`;
+  return `${params.label} (${params.status})${suffix}`;
 };
 
-const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback: string }) => {
-  requireIpfsConfigured();
-  const authOptions = getPinataAuthOptions();
-  const failures: Array<{ type: PinataAuth["type"]; status: number; message: string | null }> = [];
+type PinataFailure = {
+  label: string;
+  status: number;
+  message: string | null;
+};
 
-  for (let index = 0; index < authOptions.length; index++) {
-    const auth = authOptions[index];
-    const headers = new Headers(params.init.headers);
-    applyPinataAuthHeaders(headers, auth);
+const createPinataMisconfiguredError = (failures: PinataFailure[]) => {
+  const detail = failures.length ? failures.map(formatPinataFailure).join("; ") : "unknown";
+  return new HttpError(
+    501,
+    `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. ` +
+      "If you see 403, your Pinata key is likely scoped without `org:files:write` (or not an Admin key). " +
+      "Create a new Admin API Key in Pinata → API Keys and paste the JWT into `PINATA_JWT` (then redeploy Vercel).",
+  );
+};
 
-    const res = await fetch(params.url, {
-      ...params.init,
-      headers,
-    });
-
-    if (res.status === 401 || res.status === 403) {
-      const body = await readResponseBody(res);
-      const message =
-        extractBodyErrorMessage(body) ??
-        (typeof body === "string" && body.trim().length > 0 ? body.trim() : null);
-
-      failures.push({ type: auth.type, status: res.status, message });
-      console.error(`Pinata auth failed (${auth.type}):`, res.status, message ?? body);
-      if (index < authOptions.length - 1) {
-        continue;
-      }
-
-      const detail = failures.length ? failures.map(formatPinataFailure).join("; ") : "unknown";
-      throw new HttpError(
-        501,
-        `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. ` +
-          "If you see 403, your Pinata key is likely scoped without `org:files:write` (or not an Admin key). " +
-          "Create a new Admin API Key in Pinata → API Keys and paste the JWT into `PINATA_JWT`.",
-      );
-    }
-
-    return readApiResponse<T>(res, params.fallback);
+const pinataUploadV3 = async (params: { file: Blob | File; name?: string }): Promise<{ cid: string }> => {
+  const jwtAuth = getPinataJwtAuth();
+  if (!jwtAuth) {
+    throw new HttpError(
+      501,
+      "IPFS pinning is currently unavailable. Set `PINATA_JWT` for Pinata V3 uploads.",
+    );
   }
 
-  throw new HttpError(
-    501,
-    "IPFS pinning is currently unavailable. Set PINATA_JWT or PINATA_API_KEY + PINATA_SECRET_API_KEY.",
-  );
+  const form = new FormData();
+  form.append("file", params.file, params.name);
+  form.append("network", PINATA_NETWORK);
+
+  const res = await fetch(PINATA_V3_UPLOAD_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwtAuth.jwt}`,
+    },
+    body: form,
+  });
+
+  const body = await readApiResponse<{ data?: { cid?: string } }>(res, "Failed to upload file to IPFS");
+  const cid = body.data?.cid;
+  if (!cid) {
+    throw new HttpError(502, "Invalid IPFS response");
+  }
+
+  return { cid };
+};
+
+const pinataPinJsonLegacy = async (params: { json: unknown; name?: string }): Promise<{ cid: string }> => {
+  const keysAuth = getPinataKeysAuth();
+  if (!keysAuth) {
+    throw new HttpError(
+      501,
+      "IPFS pinning is currently unavailable. Set `PINATA_API_KEY` + `PINATA_SECRET_API_KEY` for legacy Pinata endpoints.",
+    );
+  }
+
+  const payload = {
+    pinataOptions: { cidVersion: 1 },
+    pinataMetadata: params.name ? { name: params.name } : undefined,
+    pinataContent: params.json,
+  };
+
+  const headers = new Headers({ "Content-Type": "application/json" });
+  applyPinataAuthHeaders(headers, keysAuth);
+
+  const res = await fetch(PINATA_LEGACY_PIN_JSON_ENDPOINT, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const body = await readApiResponse<{ IpfsHash?: string }>(res, "Failed to upload JSON to IPFS");
+  const cid = body.IpfsHash;
+  if (!cid) {
+    throw new HttpError(502, "Invalid IPFS response");
+  }
+
+  return { cid };
+};
+
+const pinataPinFileLegacy = async (params: { file: Blob | File; name: string }): Promise<{ cid: string }> => {
+  const keysAuth = getPinataKeysAuth();
+  if (!keysAuth) {
+    throw new HttpError(
+      501,
+      "IPFS pinning is currently unavailable. Set `PINATA_API_KEY` + `PINATA_SECRET_API_KEY` for legacy Pinata endpoints.",
+    );
+  }
+
+  const form = new FormData();
+  form.append("file", params.file, params.name);
+
+  const metadata = { name: params.name };
+  form.append("pinataMetadata", JSON.stringify(metadata));
+  form.append("pinataOptions", JSON.stringify({ cidVersion: 1 }));
+
+  const headers = new Headers();
+  applyPinataAuthHeaders(headers, keysAuth);
+
+  const res = await fetch(PINATA_LEGACY_PIN_FILE_ENDPOINT, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+
+  const body = await readApiResponse<{ IpfsHash?: string }>(res, "Failed to upload file to IPFS");
+  const cid = body.IpfsHash;
+  if (!cid) {
+    throw new HttpError(502, "Invalid IPFS response");
+  }
+
+  return { cid };
 };
 
 export const pinJsonToIpfs = async (params: {
@@ -131,30 +197,42 @@ export const pinJsonToIpfs = async (params: {
   name?: string;
 }): Promise<{ cid: string }> => {
   requireIpfsConfigured();
-  const jsonString = JSON.stringify(params.json);
+  const failures: PinataFailure[] = [];
+
   const fileName = params.name?.trim() || "pigcasso.json";
+  const jsonString = JSON.stringify(params.json);
   const blob = new Blob([jsonString], { type: "application/json" });
   const file = new File([blob], fileName, { type: "application/json" });
 
-  const form = new FormData();
-  form.append("file", file);
-  form.append("network", PINATA_NETWORK);
-
-  const response = await pinataFetch<{ data?: { cid?: string } }>({
-    url: PINATA_UPLOAD_ENDPOINT,
-    init: {
-      method: "POST",
-      body: form,
-    },
-    fallback: "Failed to upload JSON to IPFS",
-  });
-
-  const cid = response.data?.cid;
-  if (!cid) {
-    throw new HttpError(502, "Invalid IPFS response");
+  const jwtAuth = getPinataJwtAuth();
+  if (jwtAuth) {
+    try {
+      return await pinataUploadV3({ file, name: fileName });
+    } catch (error) {
+      const status = (error as { status?: unknown }).status;
+      if (typeof status === "number" && (status === 401 || status === 403)) {
+        failures.push({ label: "jwt-v3", status, message: (error as { message?: string }).message ?? null });
+      } else {
+        throw error;
+      }
+    }
   }
 
-  return { cid };
+  const keysAuth = getPinataKeysAuth();
+  if (keysAuth) {
+    try {
+      return await pinataPinJsonLegacy({ json: params.json, name: fileName });
+    } catch (error) {
+      const status = (error as { status?: unknown }).status;
+      if (typeof status === "number" && (status === 401 || status === 403)) {
+        failures.push({ label: "keys-legacy", status, message: (error as { message?: string }).message ?? null });
+        throw createPinataMisconfiguredError(failures);
+      }
+      throw error;
+    }
+  }
+
+  throw createPinataMisconfiguredError(failures);
 };
 
 export const pinFileFromUrlToIpfs = async (params: {
@@ -186,23 +264,35 @@ export const pinFileFromUrlToIpfs = async (params: {
   const fileType = params.mimeType ?? res.headers.get("content-type") ?? "application/octet-stream";
   const blob = new Blob([buffer], { type: fileType });
 
-  const form = new FormData();
-  form.append("file", blob, params.name);
-  form.append("network", PINATA_NETWORK);
+  const failures: PinataFailure[] = [];
 
-  const response = await pinataFetch<{ data?: { cid?: string } }>({
-    url: PINATA_UPLOAD_ENDPOINT,
-    init: {
-      method: "POST",
-      body: form,
-    },
-    fallback: "Failed to upload file to IPFS",
-  });
-
-  const cid = response.data?.cid;
-  if (!cid) {
-    throw new HttpError(502, "Invalid IPFS response");
+  const jwtAuth = getPinataJwtAuth();
+  if (jwtAuth) {
+    try {
+      return await pinataUploadV3({ file: blob, name: params.name });
+    } catch (error) {
+      const status = (error as { status?: unknown }).status;
+      if (typeof status === "number" && (status === 401 || status === 403)) {
+        failures.push({ label: "jwt-v3", status, message: (error as { message?: string }).message ?? null });
+      } else {
+        throw error;
+      }
+    }
   }
 
-  return { cid };
+  const keysAuth = getPinataKeysAuth();
+  if (keysAuth) {
+    try {
+      return await pinataPinFileLegacy({ file: blob, name: params.name });
+    } catch (error) {
+      const status = (error as { status?: unknown }).status;
+      if (typeof status === "number" && (status === 401 || status === 403)) {
+        failures.push({ label: "keys-legacy", status, message: (error as { message?: string }).message ?? null });
+        throw createPinataMisconfiguredError(failures);
+      }
+      throw error;
+    }
+  }
+
+  throw createPinataMisconfiguredError(failures);
 };
