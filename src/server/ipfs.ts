@@ -90,8 +90,10 @@ const createPinataMisconfiguredError = (failures: PinataFailure[]) => {
   return new HttpError(
     501,
     `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. ` +
-      "If you see 403, your Pinata key is likely scoped without `org:files:write` (or not an Admin key). " +
-      "Create a new Admin API Key in Pinata → API Keys and paste the JWT into `PINATA_JWT` (then redeploy Vercel).",
+      "If you see 403, your Pinata key is missing required permissions. " +
+      "For V3 uploads (`jwt-v3`), ensure the key includes `org:files:write` (or use an Admin key). " +
+      "For legacy endpoints (`keys-legacy`), ensure `pinFileToIPFS` and `pinJSONToIPFS` are allowed. " +
+      "After updating env vars, redeploy Vercel so the runtime picks them up.",
   );
 };
 
