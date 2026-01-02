@@ -67,7 +67,7 @@ const FeatureCard = ({
   );
 };
 
-const BentoCard = ({
+  const BentoCard = ({
   className,
   children,
 }: {
@@ -402,53 +402,31 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="hidden sm:block absolute left-6 top-6 motion-safe:animate-[pigcasso-float_12s_ease-in-out_900ms_infinite]">
-                    <div className="rounded-2xl bg-white/90 backdrop-blur border border-white/60 shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                          <LayoutTemplate className="size-5 text-cyan-500" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold">Creator presets</div>
-                          <div className="text-xs text-muted-foreground">
-                            X · Discord · Telegram
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Tilt>
-              </div>
-            </div>
-          </div>
-        </section>
+	                  <div className="hidden sm:block absolute left-6 top-6 motion-safe:animate-[pigcasso-float_12s_ease-in-out_900ms_infinite]">
+	                    <div className="rounded-2xl bg-white/90 backdrop-blur border border-white/60 shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
+	                      <div className="flex items-center gap-3">
+	                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+	                          <LayoutTemplate className="size-5 text-cyan-500" />
+	                        </div>
+	                        <div>
+	                          <div className="text-sm font-bold">Creator presets</div>
+	                          <div className="text-xs text-muted-foreground">
+	                            Export-ready sizes
+	                          </div>
+	                        </div>
+	                      </div>
+	                    </div>
+	                  </div>
+	                </Tilt>
+	              </div>
+	            </div>
+	          </div>
+	        </section>
 
-        <section className="py-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {[
-                { label: "X-ready", icon: <Flame className="size-4 text-primary" /> },
-                { label: "Discord banners", icon: <Blocks className="size-4 text-cyan-500" /> },
-                { label: "Telegram cards", icon: <LayoutDashboard className="size-4 text-yellow-500" /> },
-                { label: "Stock search", icon: <Search className="size-4 text-muted-foreground" /> },
-                { label: "Uploads", icon: <BadgeCheck className="size-4 text-muted-foreground" /> },
-              ].map((item) => (
-                <span
-                  key={item.label}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/75 border border-white/50 text-sm font-semibold text-muted-foreground shadow-soft hover:text-foreground hover:shadow-glow motion-safe:transition-transform motion-safe:duration-150 hover:-translate-y-0.5"
-                >
-                  {item.icon}
-                  {item.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="product"
-          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
-        >
+	        <section
+	          id="product"
+	          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
+	        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Product"
@@ -457,7 +435,7 @@ export default function LandingPage() {
             />
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 lg:gap-6 lg:auto-rows-[minmax(240px,auto)] xl:auto-rows-[minmax(260px,auto)]">
-              <BentoCard className="lg:col-span-8 lg:row-span-2">
+	              <BentoCard className="lg:col-span-8 lg:row-span-2">
                 <div className="absolute inset-0">
                   <Image
                     src="/pig-banner.png"
@@ -496,45 +474,21 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xl">
-                    Start from a project hub, remix on the canvas with Pigcasso assistant, export for X/Discord/TG,
-                    then watch leaderboards evolve from real usage.
-                  </p>
+	                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xl">
+	                    Start from a project hub, remix on the canvas with Pigcasso assistant, then watch leaderboards evolve from real usage.
+	                  </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <BentoBadge>
-                      <Brush className="size-3.5 text-primary" />
-                      Create
-                    </BentoBadge>
-                    <BentoBadge>
-                      <Wand2 className="size-3.5 text-cyan-500" />
-                      Assist
-                    </BentoBadge>
-                    <BentoBadge>
-                      <Rocket className="size-3.5 text-primary" />
-                      Publish
-                    </BentoBadge>
-                    <BentoBadge>
-                      <Trophy className="size-3.5 text-yellow-500" />
-                      Track
-                    </BentoBadge>
-                  </div>
-
-                  <div className="mt-auto pt-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <LayoutTemplate className="size-4 text-cyan-500" />
-                        Avatar frames, stickers, seasonal templates
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Brush className="size-4 text-primary" />
-                        Canva-like editing + presets
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="size-4 text-primary" />
-                        Assistant: draft → preview → apply
-                      </div>
-                      <div className="flex items-center gap-2">
+	                  <div className="mt-auto pt-6">
+	                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+	                      <div className="flex items-center gap-2">
+	                        <LayoutTemplate className="size-4 text-cyan-500" />
+	                        Avatar frames, stickers, seasonal templates
+	                      </div>
+	                      <div className="flex items-center gap-2">
+	                        <Sparkles className="size-4 text-primary" />
+	                        Assistant: draft → preview → apply
+	                      </div>
+	                      <div className="flex items-center gap-2">
                         <Trophy className="size-4 text-yellow-500" />
                         Leaderboards + contribution tracking
                       </div>
@@ -583,27 +537,11 @@ export default function LandingPage() {
                     </BentoBadge>
                   </div>
 
-                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Drag, resize, align, and remix. Export with presets so assets look right on every channel.
-                  </p>
-
-                  <div className="mt-auto pt-6 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground font-semibold">
-                    {[
-                      { label: "X", icon: <Flame className="size-3.5 text-primary" /> },
-                      { label: "Discord", icon: <Blocks className="size-3.5 text-cyan-500" /> },
-                      { label: "Telegram", icon: <LayoutDashboard className="size-3.5 text-yellow-500" /> },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 shadow-soft"
-                      >
-                        {item.icon}
-                        {item.label}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </BentoCard>
+	                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+	                    Drag, resize, align, and remix. Export with presets so assets look right on every channel.
+	                  </p>
+	                </div>
+	              </BentoCard>
 
               <BentoCard className="lg:col-span-4">
                 <div className="flex h-full flex-col">
@@ -783,15 +721,15 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how" className="py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+	        <section id="how" className="py-20">
+	          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Workflow"
               title="Create → publish → track"
               description="A simple loop for communities and creators."
             />
 
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+	            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <FeatureCard
                 icon={<FolderOpen className="size-5 text-primary" />}
                 title="1) Pick a project"
@@ -807,12 +745,12 @@ export default function LandingPage() {
                 title="3) Ask Pigcasso"
                 description="Use voice or text to draft edits. Preview the changes before applying."
               />
-              <FeatureCard
-                icon={<Rocket className="size-5 text-primary" />}
-                title="4) Publish & track"
-                description="Export for X/Discord/TG, then watch leaderboards evolve as the community remixes."
-              />
-            </div>
+	              <FeatureCard
+	                icon={<Rocket className="size-5 text-primary" />}
+	                title="4) Publish & track"
+	                description="Publish assets, then watch leaderboards evolve as the community remixes."
+	              />
+	            </div>
 
             <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Tilt className="h-full">
@@ -858,7 +796,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="pricing" className="py-20 bg-white/60 border-y border-white/50">
+	        <section id="pricing" className="py-20 bg-white/60 border-y border-white/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Plans"
@@ -903,41 +841,35 @@ export default function LandingPage() {
                 </Card>
               </Tilt>
 
-              <Tilt className="h-full">
-                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
+	              <Tilt className="h-full">
+	                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
                   <div className="absolute inset-0 opacity-35">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
                     <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
                   </div>
-                  <CardHeader className="relative pb-2">
-                    <CardTitle className="flex items-center justify-between gap-4">
-                      <span>Pro</span>
-                      <span className="text-sm font-semibold text-white/80">
-                        Token-gated
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="relative space-y-3 text-sm text-white/80">
-                    <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      Higher AI limits
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      Premium templates
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      Priority features (roadmap)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Wallet className="size-4 text-white" />
-                      Unlock via wallet on Mantle
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => void openApp("/app")}
-                      disabled={!ready || opening}
+	                  <CardHeader className="relative pb-2">
+	                    <CardTitle className="flex items-center justify-between gap-4">
+	                      <span>Pro</span>
+	                      <span className="text-sm font-semibold text-white/80">Roadmap</span>
+	                    </CardTitle>
+	                  </CardHeader>
+	                  <CardContent className="relative space-y-3 text-sm text-white/80">
+	                    <div className="flex items-center gap-2">
+	                      <BadgeCheck className="size-4 text-white" />
+	                      Premium templates + higher AI limits
+	                    </div>
+	                    <div className="flex items-center gap-2">
+	                      <BadgeCheck className="size-4 text-white" />
+	                      Partner projects + custom hubs
+	                    </div>
+	                    <div className="flex items-center gap-2">
+	                      <BadgeCheck className="size-4 text-white" />
+	                      Attribution signals + rewards (roadmap)
+	                    </div>
+	                    <Button
+	                      type="button"
+	                      onClick={() => void openApp("/app")}
+	                      disabled={!ready || opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
                       Open app
@@ -1038,7 +970,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <footer className="border-t border-white/50 bg-white/40 backdrop-blur">
+	        <footer className="border-t border-white/50 bg-white/40 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1055,14 +987,14 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-2">
-                  <CreditCard className="size-4" /> Pro via token-gating
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <Wand2 className="size-4" /> Draft-first assistant
-                </span>
-              </div>
+	              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+	                <span className="inline-flex items-center gap-2">
+	                  <FolderOpen className="size-4" /> Project asset hubs
+	                </span>
+	                <span className="inline-flex items-center gap-2">
+	                  <Trophy className="size-4" /> Lightweight leaderboards
+	                </span>
+	              </div>
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-muted-foreground">
