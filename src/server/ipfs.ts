@@ -111,7 +111,9 @@ const pinataFetch = async <T>(params: { url: string; init: RequestInit; fallback
       const detail = failures.length ? failures.map(formatPinataFailure).join("; ") : "unknown";
       throw new HttpError(
         501,
-        `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. Verify PINATA_JWT (or PINATA_API_KEY + PINATA_SECRET_API_KEY).`,
+        `IPFS pinning is misconfigured. Pinata auth failed: ${detail}. ` +
+          "If you see 403, your Pinata key is likely scoped without `org:files:write` (or not an Admin key). " +
+          "Create a new Admin API Key in Pinata → API Keys and paste the JWT into `PINATA_JWT`.",
       );
     }
 
