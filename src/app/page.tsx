@@ -67,6 +67,34 @@ const FeatureCard = ({
   );
 };
 
+const BentoCard = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) => {
+  return (
+    <Tilt className={cn("h-full", className)} max={7} scale={1.01}>
+      <div className="group relative h-full overflow-hidden rounded-[2rem] border border-white/50 bg-white/70 backdrop-blur shadow-soft transition-shadow duration-300 hover:shadow-glow">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-cyan-400/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6 pointer-events-none">
+          <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 opacity-0 group-hover:opacity-100 motion-safe:animate-[pigcasso-sheen_5.25s_ease-in-out_0.8s_infinite]" />
+        </div>
+        <div className="relative h-full p-6">{children}</div>
+      </div>
+    </Tilt>
+  );
+};
+
+const BentoBadge = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/80 px-3 py-1 text-[11px] font-bold text-muted-foreground shadow-soft">
+      {children}
+    </span>
+  );
+};
+
 const SectionTitle = ({
   eyebrow,
   title,
@@ -428,50 +456,304 @@ export default function LandingPage() {
               description="Designed for creators and communities: build assets, publish fast, and track what people use."
             />
 
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FeatureCard
-                icon={<FolderOpen className="size-5 text-primary" />}
-                title="Project hubs"
-                description="Browse official templates per project: avatar frames, stickers, seasonal campaigns, and more."
-              />
-              <FeatureCard
-                icon={<LayoutTemplate className="size-5 text-cyan-500" />}
-                title="Community assets"
-                description="Create, edit, remix, and export assets with presets for X, Discord, and Telegram."
-              />
-              <FeatureCard
-                icon={<Trophy className="size-5 text-yellow-500" />}
-                title="Leaderboards"
-                description="Track remixes and discover top projects/templates. Rewards & airdrops are on the roadmap."
-              />
-            </div>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 lg:auto-rows-[220px]">
+              <BentoCard className="lg:col-span-8 lg:row-span-2">
+                <div className="absolute inset-0">
+                  <Image
+                    src="/pig-banner.png"
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 58vw"
+                    className="object-cover opacity-80"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/70 to-transparent" />
+                </div>
 
-            <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <FeatureCard
-                className="lg:col-span-2"
-                icon={<Wand2 className="size-5 text-primary" />}
-                title="Pigcasso assistant inside the editor"
-                description="Ask in natural language (or voice), preview the draft changes, and apply them when you’re happy."
-              />
-              <FeatureCard
-                icon={<ArrowLeftRight className="size-5 text-cyan-500" />}
-                title="Identity-ready"
-                description="Connect wallets today. Link X/Discord/Telegram for attribution & cross-channel tracking (roadmap)."
-              />
-            </div>
+                <div className="relative h-full flex flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <FolderOpen className="size-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Projects
+                        </div>
+                        <div className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                          Project hubs &amp; asset library
+                        </div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <BadgeCheck className="size-3.5 text-primary" />
+                      B2B-ready
+                    </BentoBadge>
+                  </div>
 
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <FeatureCard
-                className="lg:col-span-2"
-                icon={<Coins className="size-5 text-primary" />}
-                title="Template token launchpad (coming soon)"
-                description="Creators will be able to launch a token per template on Printr for price discovery (meme + usage cashflow narrative) and distribution."
-              />
-              <FeatureCard
-                icon={<ArrowLeftRight className="size-5 text-cyan-500" />}
-                title="Stake-to-use (coming soon)"
-                description="Unlock templates by staking the template token (discounts/credits), or pay per use (roadmap)."
-              />
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xl">
+                    Each project gets a dedicated hub: official templates, community submissions, and a
+                    live view of what’s actually being used across X, Discord, and Telegram.
+                  </p>
+
+                  <div className="mt-auto pt-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <LayoutTemplate className="size-4 text-cyan-500" />
+                        Avatar frames, stickers, seasonal templates
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Trophy className="size-4 text-yellow-500" />
+                        Leaderboards + contribution tracking
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Rocket className="size-4 text-primary" />
+                        Export presets for X / Discord / TG
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coins className="size-4 text-primary" />
+                        Tokenized templates (roadmap)
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-col sm:flex-row gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => void openApp("/projects")}
+                        disabled={!ready || opening}
+                        className="rounded-2xl bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
+                      >
+                        Explore projects <ArrowRight className="ml-2 size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void openApp("/app")}
+                        disabled={!ready || opening}
+                        className="rounded-2xl bg-white/80 border border-white/60 shadow-soft hover:bg-white"
+                      >
+                        Open editor <Brush className="ml-2 size-4 text-primary" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-4">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <Brush className="size-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Editor
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Canva-like canvas</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <LayoutDashboard className="size-3.5 text-yellow-500" />
+                      Fast exports
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Drag, resize, align, and remix. Export with presets so assets look right on every channel.
+                  </p>
+
+                  <div className="mt-auto pt-6 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground font-semibold">
+                    {[
+                      { label: "X", icon: <Flame className="size-3.5 text-primary" /> },
+                      { label: "Discord", icon: <Blocks className="size-3.5 text-cyan-500" /> },
+                      { label: "Telegram", icon: <LayoutDashboard className="size-3.5 text-yellow-500" /> },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/70 px-3 py-2 shadow-soft"
+                      >
+                        {item.icon}
+                        {item.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-4">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <Mic className="size-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          AI
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Pigcasso assistant</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <Sparkles className="size-3.5 text-primary" />
+                      Draft-first
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Ask in natural language (or voice), preview proposed edits, then apply when you’re happy.
+                  </p>
+
+                  <div className="mt-auto pt-6 flex flex-col gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="size-4 text-cyan-500" />
+                      Suggests changes based on your current canvas.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-primary" />
+                      You control the final apply step.
+                    </div>
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-3">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <Trophy className="size-5 text-yellow-500" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Signals
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Leaderboards</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <Flame className="size-3.5 text-primary" />
+                      Mindshare
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Track what’s used in the wild: top projects, assets, and creators.
+                  </p>
+
+                  <div className="mt-auto pt-6 flex flex-wrap gap-2">
+                    {[
+                      { label: "Top creators", icon: <Trophy className="size-3.5 text-yellow-500" /> },
+                      { label: "Top assets", icon: <LayoutTemplate className="size-3.5 text-cyan-500" /> },
+                      { label: "Top projects", icon: <Rocket className="size-3.5 text-primary" /> },
+                    ].map((item) => (
+                      <span
+                        key={item.label}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-soft"
+                      >
+                        {item.icon}
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-3">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <ArrowLeftRight className="size-5 text-cyan-500" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Identity
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Link socials</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <Wallet className="size-3.5 text-muted-foreground" />
+                      Wallet-first
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Connect your wallet today. Link X, Discord, and Telegram for cross-channel attribution (roadmap).
+                  </p>
+
+                  <div className="mt-auto pt-6 flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-primary" /> No passwords
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <Blocks className="size-4 text-cyan-500" /> One identity
+                    </span>
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-3">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <Coins className="size-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Monetize
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Template tokens</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <Rocket className="size-3.5 text-primary" />
+                      Coming soon
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Launch a token per template on Printr. Narratives combine meme energy + real usage cashflow.
+                  </p>
+
+                  <div className="mt-auto pt-6 text-xs text-muted-foreground">
+                    Stake-to-use and pay-to-use models are on the roadmap.
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-3">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                        <CreditCard className="size-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                          Access
+                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Stake to use</div>
+                      </div>
+                    </div>
+                    <BentoBadge>
+                      <BadgeCheck className="size-3.5 text-primary" />
+                      Coming soon
+                    </BentoBadge>
+                  </div>
+
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Unlock premium templates by staking the template token for a period — or pay per use.
+                  </p>
+
+                  <div className="mt-auto pt-6 flex items-center gap-2 text-xs text-muted-foreground">
+                    <ArrowLeftRight className="size-4" />
+                    Flexible pricing model (to be finalized).
+                  </div>
+                </div>
+              </BentoCard>
             </div>
           </div>
         </section>
