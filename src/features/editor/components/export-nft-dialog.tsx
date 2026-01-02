@@ -111,7 +111,8 @@ export const ExportNftDialog = ({
   const exportAsset = useExportNftAsset();
   const updateAsset = useUpdateNftAsset();
 
-  const ipfsConfigured = me.data?.data.integrations.ipfs.configured === true;
+  const ipfsConfigured = me.data?.data.integrations.ipfs.configured;
+  const uploadthingConfigured = me.data?.data.integrations.uploadthing.configured;
 
   const [tokenName, setTokenName] = useState("");
   const tokenNameTouchedRef = useRef(false);
@@ -568,7 +569,8 @@ export const ExportNftDialog = ({
   const canMintNow =
     Boolean(editor) &&
     Boolean(activePage) &&
-    ipfsConfigured &&
+    ipfsConfigured === true &&
+    uploadthingConfigured === true &&
     factoryConfigured &&
     Boolean(preferredWallet) &&
     !isMinting &&
@@ -584,8 +586,16 @@ export const ExportNftDialog = ({
     if (!activePage) reasons.push("Select a page to mint.");
     if (!preferredWallet) reasons.push("Connect an Ethereum wallet to mint.");
     if (!factoryConfigured) reasons.push("NFT minting is not configured (missing `NEXT_PUBLIC_NFT_FACTORY_ADDRESS`).");
-    if (!ipfsConfigured)
+    if (ipfsConfigured === undefined) {
+      reasons.push("Loading IPFS status…");
+    } else if (!ipfsConfigured) {
       reasons.push("IPFS pinning is not configured (missing `PINATA_JWT` or Pinata API key/secret).");
+    }
+    if (uploadthingConfigured === undefined) {
+      reasons.push("Loading UploadThing status…");
+    } else if (!uploadthingConfigured) {
+      reasons.push("Uploads are not configured (missing `UPLOADTHING_TOKEN`).");
+    }
     if (isMinting) reasons.push("Minting is already in progress.");
     if (exportAsset.isPending || updateAsset.isPending || createCollectionRecord.isPending) {
       reasons.push("Please wait for the current request to finish.");
@@ -603,6 +613,107 @@ export const ExportNftDialog = ({
     isMinting,
     preferredWallet,
     updateAsset.isPending,
+    uploadthingConfigured,
+  ]);
+
+  const mintDebugRows = useMemo(() => {
+    const rows = [
+      {
+        label: "Editor ready",
+        ok: Boolean(editor),
+        value: editor ? "Yes" : "No",
+      },
+      {
+        label: "Selected page",
+        ok: Boolean(activePage),
+        value: activePage ? `#${activePage.index + 1} (${activePage.id})` : "None",
+      },
+      {
+        label: "UploadThing configured",
+        ok: uploadthingConfigured === true,
+        value:
+          uploadthingConfigured === undefined
+            ? "Loading…"
+            : uploadthingConfigured
+              ? "Yes"
+              : "No",
+      },
+      {
+        label: "IPFS (Pinata) configured",
+        ok: ipfsConfigured === true,
+        value:
+          ipfsConfigured === undefined
+            ? "Loading…"
+            : ipfsConfigured
+              ? "Yes"
+              : "No",
+      },
+      {
+        label: "NFT factory address",
+        ok: factoryConfigured,
+        value: factoryAddress || "Missing",
+      },
+      {
+        label: "Connected wallets (session)",
+        ok: connectedEthereumWallets.length > 0,
+        value: connectedEthereumWallets.length
+          ? connectedEthereumWallets.map((wallet) => wallet.address).join(", ")
+          : "None",
+      },
+      {
+        label: "Signing wallet",
+        ok: Boolean(preferredWallet),
+        value: preferredWallet?.address ?? "None",
+      },
+      {
+        label: "Wallets (server)",
+        ok: true,
+        value: [
+          externalWalletAddress ? `external=${externalWalletAddress}` : null,
+          embeddedWalletAddress ? `embedded=${embeddedWalletAddress}` : null,
+        ]
+          .filter(Boolean)
+          .join(", ") || "None",
+      },
+      {
+        label: "Pending state",
+        ok:
+          !isMinting &&
+          !exportAsset.isPending &&
+          !updateAsset.isPending &&
+          !createCollectionRecord.isPending,
+        value: [
+          isMinting ? "minting" : null,
+          exportAsset.isPending ? "exportAsset" : null,
+          updateAsset.isPending ? "updateAsset" : null,
+          createCollectionRecord.isPending ? "createCollection" : null,
+        ]
+          .filter(Boolean)
+          .join(", ") || "idle",
+      },
+      {
+        label: "Target chain",
+        ok: true,
+        value: `Mantle (${mantle.id})`,
+      },
+    ];
+
+    return rows;
+  }, [
+    activePage,
+    connectedEthereumWallets,
+    createCollectionRecord.isPending,
+    editor,
+    embeddedWalletAddress,
+    exportAsset.isPending,
+    externalWalletAddress,
+    factoryAddress,
+    factoryConfigured,
+    ipfsConfigured,
+    isMinting,
+    preferredWallet,
+    updateAsset.isPending,
+    uploadthingConfigured,
   ]);
 
   const mintStepList = [
@@ -942,6 +1053,26 @@ export const ExportNftDialog = ({
                     <li key={reason}>{reason}</li>
                   ))}
                 </ul>
+                <details className="rounded-lg border bg-background/60 p-3" open>
+                  <summary className="cursor-pointer text-xs font-medium text-foreground">
+                    Debug details
+                  </summary>
+                  <div className="mt-3 space-y-2 text-xs">
+                    {mintDebugRows.map((row) => (
+                      <div key={row.label} className="grid grid-cols-1 gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{row.label}</span>
+                          <span className={row.ok ? "text-green-600" : "text-destructive"}>
+                            {row.ok ? "OK" : "Blocked"}
+                          </span>
+                        </div>
+                        <div className="font-mono break-all text-muted-foreground">
+                          {row.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               </div>
             ) : null}
           </div>
