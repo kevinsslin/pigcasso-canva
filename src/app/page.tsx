@@ -2,9 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import { toast } from "sonner";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -26,218 +23,21 @@ import {
   Wand2,
   Wallet,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tilt } from "@/components/tilt";
 
-import { cn } from "@/lib/utils";
-
-const FeatureCard = ({
-  icon,
-  title,
-  description,
-  className,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  className?: string;
-}) => {
-  return (
-    <Tilt className="h-full">
-      <Card
-        className={cn(
-          "h-full bg-white/70 backdrop-blur border-white/50 shadow-soft transition-shadow duration-300 hover:shadow-glow",
-          className,
-        )}
-      >
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/40">
-              {icon}
-            </div>
-            <CardTitle className="text-lg">{title}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0 text-sm text-muted-foreground leading-relaxed">
-          {description}
-        </CardContent>
-      </Card>
-    </Tilt>
-  );
-};
-
-const BentoCard = ({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <Tilt className={cn("h-full", className)} max={7} scale={1.01}>
-      <div className="group relative h-full overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 backdrop-blur shadow-soft ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-glow">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-cyan-400/12 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6 pointer-events-none">
-          <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 opacity-0 group-hover:opacity-100 motion-safe:animate-[pigcasso-sheen_5.25s_ease-in-out_0.8s_infinite]" />
-        </div>
-        <div className="relative h-full p-6 sm:p-7 lg:p-8">{children}</div>
-      </div>
-    </Tilt>
-  );
-};
-
-const BentoBadge = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/75 px-3 py-1 text-xs font-semibold text-muted-foreground shadow-[0_2px_10px_rgb(0_0_0_/_0.04)]">
-      {children}
-    </span>
-  );
-};
-
-const SectionTitle = ({
-  eyebrow,
-  title,
-  description,
-  align = "center",
-}: {
-  eyebrow: string;
-  title: string;
-  description?: string;
-  align?: "center" | "left";
-}) => {
-  const alignment = align === "left" ? "text-left" : "text-center";
-  return (
-    <div className={cn("max-w-3xl mx-auto", alignment)}>
-      <div className="text-xs font-extrabold text-primary uppercase tracking-[0.2em]">
-        {eyebrow}
-      </div>
-      <h2 className="mt-3 text-3xl md:text-4xl font-extrabold tracking-tight">
-        {title}
-      </h2>
-      {description ? (
-        <p className="mt-3 text-muted-foreground text-lg">{description}</p>
-      ) : null}
-    </div>
-  );
-};
-
-const StatChip = ({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) => {
-  return (
-    <Tilt>
-      <div className="flex items-start gap-3 rounded-2xl bg-white/70 backdrop-blur border border-white/50 px-4 py-3 shadow-soft transition-shadow duration-300 hover:shadow-glow">
-        <div className="mt-0.5 size-9 rounded-xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/40">
-          {icon}
-        </div>
-        <div>
-          <div className="text-sm font-bold">{title}</div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {description}
-          </div>
-        </div>
-      </div>
-    </Tilt>
-  );
-};
-
-const FAQItem = ({ question, answer }: { question: string; answer: string }) => {
-  return (
-    <details className="group rounded-2xl border border-white/50 bg-white/70 backdrop-blur px-5 py-4 shadow-soft">
-      <summary className="cursor-pointer list-none flex items-center justify-between gap-4">
-        <span className="font-semibold">{question}</span>
-        <span className="text-muted-foreground transition group-open:rotate-180">
-          <ArrowRight className="size-4 rotate-90" />
-        </span>
-      </summary>
-      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{answer}</p>
-    </details>
-  );
-};
-
-const toSafeRedirectPath = (value: string | null) => {
-  if (!value) return "/app";
-  if (!value.startsWith("/")) return "/app";
-  if (value.startsWith("//")) return "/app";
-  return value;
-};
+import { BentoBadge } from "@/features/marketing/components/bento-badge";
+import { BentoCard } from "@/features/marketing/components/bento-card";
+import { FAQItem } from "@/features/marketing/components/faq-item";
+import { FeatureCard } from "@/features/marketing/components/feature-card";
+import { SectionTitle } from "@/features/marketing/components/section-title";
+import { StatChip } from "@/features/marketing/components/stat-chip";
+import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
 export default function LandingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { ready, authenticated, login } = usePrivy();
-  const [opening, setOpening] = useState(false);
-  const handledAutoLoginRef = useRef(false);
-  const [postLoginRedirect, setPostLoginRedirect] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!ready || !authenticated || !postLoginRedirect) {
-      return;
-    }
-    router.replace(postLoginRedirect);
-    setPostLoginRedirect(null);
-  }, [authenticated, postLoginRedirect, ready, router]);
-
-  const openApp = async (redirectTo = "/app") => {
-    if (!ready) {
-      toast.message("Loading…");
-      return;
-    }
-    const safeRedirect = toSafeRedirectPath(redirectTo);
-
-    if (authenticated) {
-      router.push(safeRedirect);
-      return;
-    }
-
-    handledAutoLoginRef.current = true;
-    setPostLoginRedirect(safeRedirect);
-    setOpening(true);
-    try {
-      await login();
-    } finally {
-      setOpening(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!ready) {
-      return;
-    }
-
-    const open = searchParams?.get("open") === "1";
-    if (!open) {
-      handledAutoLoginRef.current = false;
-      return;
-    }
-
-    const redirectTo = toSafeRedirectPath(searchParams?.get("redirect"));
-
-    if (authenticated) {
-      if (!postLoginRedirect) {
-        router.replace(redirectTo);
-      }
-      return;
-    }
-
-    if (handledAutoLoginRef.current) {
-      return;
-    }
-    handledAutoLoginRef.current = true;
-
-    setPostLoginRedirect(redirectTo);
-    setOpening(true);
-    Promise.resolve(login()).finally(() => setOpening(false));
-  }, [authenticated, login, postLoginRedirect, ready, router, searchParams]);
+  const { openApp, opening } = useOpenApp();
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,0 +1,46 @@
+.layout :global(.react-grid-item) {
+  transition: box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.layout :global(.react-grid-item.react-draggable-dragging) {
+  z-index: 30;
+}
+
+.layout :global(.react-grid-item.react-draggable-dragging > div) {
+  box-shadow: 0 28px 55px -18px rgb(0 0 0 / 0.25);
+}
+
+.layout :global(.react-grid-placeholder) {
+  background: rgb(236 72 153 / 0.08);
+  border: 2px dashed rgb(236 72 153 / 0.35);
+  border-radius: 1.25rem;
+  opacity: 1;
+}
+
+.layout :global(.react-resizable-handle) {
+  width: 16px;
+  height: 16px;
+  background: rgb(255 255 255 / 0.9);
+  background-image: none;
+  border: 1px solid rgb(236 72 153 / 0.24);
+  border-radius: 9999px;
+  box-shadow: 0 10px 20px -10px rgb(0 0 0 / 0.25);
+  opacity: 0;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.layout :global(.react-resizable-handle::after) {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgb(236 72 153 / 0.45), rgb(34 211 238 / 0.35));
+}
+
+.layout :global(.react-grid-item:hover > .react-resizable-handle),
+.layout :global(.react-grid-item.react-resizable-resizing > .react-resizable-handle),
+.layout :global(.react-grid-item.react-draggable-dragging > .react-resizable-handle) {
+  opacity: 1;
+  transform: scale(1.02);
+}
+

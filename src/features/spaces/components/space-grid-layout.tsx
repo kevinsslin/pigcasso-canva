@@ -3,6 +3,10 @@
 import type { ReactNode, Ref } from "react";
 import GridLayout, { useContainerWidth, type Layout } from "react-grid-layout";
 
+import { cn } from "@/lib/utils";
+
+import styles from "./space-grid-layout.module.css";
+
 export type SpaceGridLayoutProps = {
   layout: Layout;
   onLayoutChange: (layout: Layout) => void;
@@ -36,7 +40,7 @@ export const SpaceGridLayout = ({
   });
 
   return (
-    <div ref={containerRef as unknown as Ref<HTMLDivElement>} className={className}>
+    <div ref={containerRef as unknown as Ref<HTMLDivElement>} className={cn(styles.layout, className)}>
       {mounted ? (
         <GridLayout
           width={width}
