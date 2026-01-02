@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ExternalLink, Loader, MessageCircle, Send, TriangleAlert, Twitter } from "lucide-react";
+import Link from "next/link";
+import { Copy, ExternalLink, Loader, MessageCircle, Pencil, Send, TriangleAlert, Twitter } from "lucide-react";
 import { toast } from "sonner";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 
@@ -446,6 +447,12 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button asChild>
+              <Link href="/space/builder">
+                <Pencil className="mr-2 size-4" />
+                Edit Space
+              </Link>
+            </Button>
             <Button asChild variant="secondary" disabled={!spacePath}>
               <a href={spacePath ?? "#"} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 size-4" />

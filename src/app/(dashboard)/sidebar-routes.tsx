@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, FolderOpen, Home, LayoutGrid, RefreshCw, Settings, Trophy, Wallet } from "lucide-react";
+import { Crown, FolderOpen, Home, LayoutGrid, RefreshCw, Settings, Trophy, UserRound, Wallet } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -23,6 +23,7 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const isCreatorHubActive = pathname === "/creator-hub";
   const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
   const isLeaderboardsActive = pathname === "/leaderboards";
+  const isSpaceActive = pathname === "/space/builder";
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -84,6 +85,13 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
           icon={LayoutGrid}
           label="Creator Hub"
           isActive={isCreatorHubActive}
+          onClick={onNavigate}
+        />
+        <SidebarItem
+          href="/space/builder"
+          icon={UserRound}
+          label="Space"
+          isActive={isSpaceActive}
           onClick={onNavigate}
         />
         <SidebarItem

@@ -36,11 +36,41 @@ export const users = pgTable("user", {
   updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const spaceDocuments = pgTable(
+  "space_document",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    json: text("json").notNull(),
+    isPublished: boolean("isPublished").notNull().default(false),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userUnique: uniqueIndex("space_document_user_unique").on(table.userId),
+  }),
+);
+
+export const usersRelations = relations(users, ({ many, one }) => ({
+  spaceDocument: one(spaceDocuments, {
+    fields: [users.id],
+    references: [spaceDocuments.userId],
+  }),
   projects: many(projects),
   projectHubs: many(projectHubs),
   nftCollections: many(nftCollections),
   nftAssets: many(nftAssets),
+}));
+
+export const spaceDocumentsRelations = relations(spaceDocuments, ({ one }) => ({
+  user: one(users, {
+    fields: [spaceDocuments.userId],
+    references: [users.id],
+  }),
 }));
 
 export const projectHubs = pgTable(

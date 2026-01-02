@@ -475,7 +475,7 @@ const app = new Hono()
       },
       fallbackMessage: "Failed to fetch Printr quote",
     });
-    return c.json(data);
+    return c.json(data as any);
   })
   .post("/print", requireAuth, zValidator("json", printSchema), async (c) => {
     const body = c.req.valid("json");
@@ -490,7 +490,7 @@ const app = new Hono()
       },
       fallbackMessage: "Failed to create Printr token",
     });
-    return c.json(data);
+    return c.json(data as any);
   })
   .get(
     "/tokens/:id",
@@ -505,7 +505,7 @@ const app = new Hono()
         },
         fallbackMessage: "Failed to fetch Printr token",
       });
-      return c.json(data);
+      return c.json(data as any);
     },
   )
   .get(
@@ -521,7 +521,7 @@ const app = new Hono()
         },
         fallbackMessage: "Failed to fetch Printr deployments",
       });
-      return c.json(data);
+      return c.json(data as any);
     },
   );
 

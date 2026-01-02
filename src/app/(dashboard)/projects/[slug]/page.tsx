@@ -72,10 +72,10 @@ export default function ProjectHubPage() {
         param: { slug: slug ?? "" },
       });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || "Failed to download CSV");
-      }
+	      if (!response.ok) {
+	        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+	        throw new Error(body?.error || "Failed to download CSV");
+	      }
 
       const csv = await response.text();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });

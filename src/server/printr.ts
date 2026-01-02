@@ -1,6 +1,7 @@
 import { HttpError } from "@/server/http-error";
 import { readApiResponse } from "@/lib/api-response";
 import { getApiErrorStatus } from "@/lib/api-error";
+import type { JSONValue } from "hono/utils/types";
 
 const DEFAULT_PRINTR_API_URL = "https://api-preview.printr.money/v0";
 
@@ -29,7 +30,7 @@ const joinUrl = (baseUrl: string, path: string) => {
   return new URL(normalizedPath, normalizedBase).toString();
 };
 
-export const printrFetchJson = async <T>(params: {
+export const printrFetchJson = async <T extends JSONValue = JSONValue>(params: {
   path: string;
   init?: RequestInit;
   fallbackMessage?: string;
