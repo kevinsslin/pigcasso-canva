@@ -69,6 +69,14 @@ NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
     - 之後呼叫 collection `mint(to, tokenUri)`（預設用 gateway URL 作為 token URI，提升跨錢包相容性）
     - 成功後 `PATCH /api/assets/:id`
 
+### 5.1 Token URI vs Image URL
+
+- **Token URI（tokenURI）** 指向的是一個 **metadata JSON**（不是圖片）。
+- 圖片在 metadata 裡的 `image` / `image_url` 欄位。
+  - 新版本會用 `https://…/ipfs/<cid>`（gateway URL）提升錢包/瀏覽器相容性。
+  - 同時保留 `properties.image_ipfs=ipfs://<cid>` 方便追溯來源。
+- 已上鏈的 tokenURI 無法被前端「修正」：如果是舊版 mint 造成 tokenURI / metadata 使用 `ipfs://` 而你的錢包不支援，需重新 export + mint。
+
 ## 6) Smart Contracts（Factory Pattern）
 
 Contracts repo：`../pigcasso-nft-factory`

@@ -71,6 +71,7 @@ export default function NftsPage() {
                     null;
 
                   const tokenUri = asset.metadataUri ? ipfsToHttpUrl(asset.metadataUri) ?? asset.metadataUri : null;
+                  const imageUrl = asset.imageUri ? ipfsToHttpUrl(asset.imageUri) ?? asset.imageUri : null;
 
                   const tokenLink =
                     asset.collectionAddress && asset.tokenId
@@ -136,6 +137,16 @@ export default function NftsPage() {
                               rel="noreferrer"
                             >
                               Open token URI <ExternalLink className="size-3" />
+                            </a>
+                          ) : null}
+                          {imageUrl ? (
+                            <a
+                              className="inline-flex items-center gap-1 underline underline-offset-4"
+                              href={imageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open image <ExternalLink className="size-3" />
                             </a>
                           ) : null}
                           {tokenLink ? (

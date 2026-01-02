@@ -562,6 +562,9 @@ export const ExportNftDialog = ({
   };
 
   const previewUrl = ipfsToHttpUrl(exportedAsset?.imageUri) ?? uploadedImageUrl ?? localPreviewUrl;
+  const imageUrlForDisplay = exportedAsset?.imageUri
+    ? ipfsToHttpUrl(exportedAsset.imageUri) ?? exportedAsset.imageUri
+    : null;
   const tokenUriForDisplay = exportedAsset?.metadataUri
     ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
     : null;
@@ -801,8 +804,15 @@ export const ExportNftDialog = ({
 
             {exportedAsset?.metadataUri ? (
               <div className="rounded-lg border p-3 text-xs space-y-1">
-                <div className="font-medium">Token URI</div>
+                <div className="font-medium">Metadata URL (tokenURI)</div>
                 <div className="font-mono break-all">{tokenUriForDisplay}</div>
+              </div>
+            ) : null}
+
+            {imageUrlForDisplay ? (
+              <div className="rounded-lg border p-3 text-xs space-y-1">
+                <div className="font-medium">Image URL</div>
+                <div className="font-mono break-all">{imageUrlForDisplay}</div>
               </div>
             ) : null}
 
@@ -1026,8 +1036,15 @@ export const ExportNftDialog = ({
 
                   {exportedAsset?.metadataUri ? (
                     <div className="rounded-lg border p-3 text-xs space-y-1">
-                      <div className="font-medium">Token URI</div>
+                      <div className="font-medium">Metadata URL (tokenURI)</div>
                       <div className="font-mono break-all">{tokenUriForDisplay}</div>
+                    </div>
+                  ) : null}
+
+                  {imageUrlForDisplay ? (
+                    <div className="rounded-lg border p-3 text-xs space-y-1">
+                      <div className="font-medium">Image URL</div>
+                      <div className="font-mono break-all">{imageUrlForDisplay}</div>
                     </div>
                   ) : null}
                 </div>
