@@ -102,6 +102,7 @@ export const SpaceBuilder = () => {
               selectedId={builder.selectedId}
               onSelectId={builder.setSelectedId}
               onLayoutChange={builder.onLayoutChange}
+              onDropModule={builder.addModule}
             />
           </main>
 

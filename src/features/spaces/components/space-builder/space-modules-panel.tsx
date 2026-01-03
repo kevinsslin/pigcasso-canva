@@ -1,5 +1,8 @@
+import { GripVertical } from "lucide-react";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { setSpaceModuleDragData } from "@/features/spaces/lib/space-dnd";
 import type { SpaceModuleDefinition } from "@/features/spaces/lib/space-modules";
 
 type SpaceModulesPanelProps = {
@@ -12,9 +15,7 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
     <aside className="rounded-2xl border border-white/60 bg-white/70 backdrop-blur shadow-soft overflow-hidden">
       <div className="border-b border-white/60 px-4 py-4">
         <div className="text-sm font-bold text-gray-900">Modules</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Add blocks, then drag to arrange on the canvas.
-        </div>
+        <div className="mt-1 text-xs text-muted-foreground">Drag blocks onto the canvas.</div>
       </div>
       <ScrollArea className="h-[calc(100vh-240px)]">
         <div className="p-4 grid grid-cols-2 gap-3">
@@ -23,6 +24,8 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
               key={module.type}
               type="button"
               onClick={() => onAddModule(module)}
+              draggable
+              onDragStart={(event) => setSpaceModuleDragData(event.dataTransfer, module.type)}
               className="group relative overflow-hidden rounded-2xl border border-white/60 bg-white/70 px-3 py-3 text-left shadow-soft transition hover:border-cyan-200 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -31,7 +34,12 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
                   <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 motion-safe:animate-[pigcasso-sheen_5.5s_ease-in-out_0ms_infinite]" />
                 </div>
               </div>
-              <module.icon className="size-5 text-primary group-hover:text-cyan-500 transition-colors" />
+              <div className="relative flex items-start justify-between gap-2">
+                <module.icon className="size-5 text-primary group-hover:text-cyan-500 transition-colors" />
+                <span className="rounded-md border border-white/60 bg-white/80 px-1.5 py-1 shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
+                  <GripVertical className="size-4 text-muted-foreground" />
+                </span>
+              </div>
               <div className="mt-2 text-xs font-bold text-gray-900">{module.label}</div>
               <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{module.description}</div>
             </button>
@@ -41,4 +49,3 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
     </aside>
   );
 };
-

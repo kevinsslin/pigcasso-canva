@@ -13,6 +13,13 @@ import type { SpaceModuleDefinition } from "@/features/spaces/lib/space-modules"
 
 export type SpaceBuilderMode = "edit" | "preview";
 
+export type SpaceModulePlacement = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 export type SpaceBuilderController = {
   mode: SpaceBuilderMode;
   setMode: (mode: SpaceBuilderMode) => void;
@@ -27,7 +34,7 @@ export type SpaceBuilderController = {
   isDirty: boolean;
   isSaving: boolean;
   saveStatus: "saving" | "dirty" | "saved";
-  addModule: (module: SpaceModuleDefinition) => void;
+  addModule: (module: SpaceModuleDefinition, placement?: SpaceModulePlacement) => void;
   updateBlock: (block: SpaceBlock) => void;
   deleteSelectedBlock: () => void;
   onLayoutChange: (layout: Layout) => void;
@@ -99,15 +106,21 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     setSelectedId(nextBlocks[0]?.id ?? null);
   };
 
-  const addModule = (module: SpaceModuleDefinition) => {
+  const addModule = (module: SpaceModuleDefinition, placement?: SpaceModulePlacement) => {
     if (!document) return;
+    const GRID_COLS = 4;
     const nextRow = getNextRowY(document.blocks);
+
+    const w = Math.max(1, Math.min(placement?.w ?? module.defaultLayout.w, GRID_COLS));
+    const x = Math.max(0, Math.min(placement?.x ?? 0, GRID_COLS - w));
+    const y = Math.max(0, placement?.y ?? nextRow);
+    const h = Math.max(1, placement?.h ?? module.defaultLayout.h);
 
     const block: SpaceBlock = {
       id: crypto.randomUUID(),
       type: module.type,
       isVisible: true,
-      layout: { x: 0, y: nextRow, w: module.defaultLayout.w, h: module.defaultLayout.h },
+      layout: { x, y, w, h },
       data: module.createData(),
     } as SpaceBlock;
 

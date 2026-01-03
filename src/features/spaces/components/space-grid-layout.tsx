@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
-import GridLayout, { useContainerWidth, type Layout } from "react-grid-layout";
+import GridLayout, { useContainerWidth, type GridLayoutProps, type Layout } from "react-grid-layout";
 
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,13 @@ export type SpaceGridLayoutProps = {
   containerPadding: readonly [number, number];
   isDraggable: boolean;
   isResizable: boolean;
+  isBounded?: boolean;
   draggableHandle?: string;
+  dropConfig?: GridLayoutProps["dropConfig"];
+  droppingItem?: GridLayoutProps["droppingItem"];
+  onDrop?: GridLayoutProps["onDrop"];
+  onDropDragOver?: GridLayoutProps["onDropDragOver"];
+  compactor?: GridLayoutProps["compactor"];
   children: ReactNode;
   className?: string;
 };
@@ -30,7 +36,13 @@ export const SpaceGridLayout = ({
   containerPadding,
   isDraggable,
   isResizable,
+  isBounded,
   draggableHandle,
+  dropConfig,
+  droppingItem,
+  onDrop,
+  onDropDragOver,
+  compactor,
   children,
   className,
 }: SpaceGridLayoutProps) => {
@@ -48,7 +60,7 @@ export const SpaceGridLayout = ({
           gridConfig={{ cols, rowHeight, margin, containerPadding, maxRows: Infinity }}
           dragConfig={{
             enabled: isDraggable,
-            bounded: false,
+            bounded: isBounded ?? false,
             threshold: 6,
             handle: draggableHandle,
           }}
@@ -56,7 +68,12 @@ export const SpaceGridLayout = ({
             enabled: isResizable,
             handles: ["se"],
           }}
+          dropConfig={dropConfig}
+          droppingItem={droppingItem}
+          compactor={compactor}
           onLayoutChange={onLayoutChange}
+          onDrop={onDrop}
+          onDropDragOver={onDropDragOver}
         >
           {children}
         </GridLayout>
