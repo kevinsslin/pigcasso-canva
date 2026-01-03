@@ -1,21 +1,21 @@
 import { toast } from "sonner";
-import { InferRequestType, InferResponseType } from "hono";
+import { InferRequestType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
 import { readApiResponse } from "@/lib/api-response";
+import type { ResponseType as MySpaceResponse } from "@/features/spaces/api/use-my-space-document";
 
-type ResponseType = InferResponseType<typeof client.api.spaces.me["$patch"], 200>;
 type RequestType = InferRequestType<typeof client.api.spaces.me["$patch"]>["json"];
 
 export const useUpdateMySpaceDocument = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<ResponseType, Error, RequestType>({
+  return useMutation<MySpaceResponse, Error, RequestType>({
     mutationKey: ["space", "me"],
     mutationFn: async (json) => {
       const response = await client.api.spaces.me.$patch({ json });
-      return readApiResponse<ResponseType>(response, "Failed to save Space");
+      return readApiResponse<MySpaceResponse>(response, "Failed to save Space");
     },
     onSuccess: (response) => {
       queryClient.setQueryData(["space", "me"], response.data);
@@ -25,4 +25,3 @@ export const useUpdateMySpaceDocument = () => {
     },
   });
 };
-
