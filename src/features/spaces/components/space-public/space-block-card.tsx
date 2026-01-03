@@ -83,6 +83,7 @@ export const SpaceBlockCard = ({
       );
     }
     case "links": {
+      const links = block.data.links ?? [];
       return (
         <div className={cn(cardBase, "px-5 py-5")}>
           {interactive ? (
@@ -97,8 +98,15 @@ export const SpaceBlockCard = ({
                 {block.data.description}
               </div>
             ) : null}
-            <div className="mt-4 space-y-2">
-              {block.data.links.map((link) => {
+            {links.length === 0 ? (
+              interactive ? null : (
+                <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-white/60 px-4 py-3 text-xs text-muted-foreground">
+                  Add links in the editor to show buttons here.
+                </div>
+              )
+            ) : (
+              <div className="mt-4 space-y-2">
+                {links.map((link) => {
                 const rowClassName =
                   "flex w-full items-center justify-between rounded-2xl bg-white/75 px-4 py-2.5 text-sm font-semibold text-gray-900 ring-1 ring-black/5 transition-colors";
 
@@ -123,8 +131,9 @@ export const SpaceBlockCard = ({
                     <span className="text-xs text-muted-foreground">↗</span>
                   </div>
                 );
-              })}
-            </div>
+                })}
+              </div>
+            )}
           </div>
         </div>
       );

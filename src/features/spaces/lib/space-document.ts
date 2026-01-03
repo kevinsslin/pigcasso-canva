@@ -128,11 +128,8 @@ export const getDefaultSpaceDocument = (options?: {
         layout: { x: 2, y: 0, w: 2, h: 1 },
         data: {
           title: "Links",
-          description: "Quick access to my work.",
-          links: [
-            { label: "X", url: "https://x.com/" },
-            { label: "Website", url: "https://example.com" },
-          ],
+          description: "Add your favorite links.",
+          links: [],
         },
       },
       {
@@ -159,4 +156,3 @@ export const getDefaultSpaceDocument = (options?: {
     ],
   };
 };
-

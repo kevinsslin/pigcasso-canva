@@ -36,10 +36,7 @@ export const SPACE_MODULES: SpaceModuleDefinition[] = [
     createData: () => ({
       title: "Links",
       description: null,
-      links: [
-        { label: "X", url: "https://x.com/" },
-        { label: "Website", url: "https://example.com" },
-      ],
+      links: [],
     }),
   },
   {
@@ -80,4 +77,3 @@ export const SPACE_MODULES: SpaceModuleDefinition[] = [
 
 export const getSpaceModuleDefinition = (type: SpaceBlock["type"]) =>
   SPACE_MODULES.find((module) => module.type === type) ?? null;
-
