@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Eye, GripVertical, Rocket } from "lucide-react";
+import { ExternalLink, Eye, GripVertical, LayoutGrid, Rocket, SlidersHorizontal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ type SpaceBuilderHeaderProps = {
   publishDisabled: boolean;
   isPublished: boolean;
   spacePath: string | null;
+  modulesOpen: boolean;
+  inspectorOpen: boolean;
+  onToggleModules: () => void;
+  onToggleInspector: () => void;
 };
 
 export const SpaceBuilderHeader = ({
@@ -23,9 +27,13 @@ export const SpaceBuilderHeader = ({
   publishDisabled,
   isPublished,
   spacePath,
+  modulesOpen,
+  inspectorOpen,
+  onToggleModules,
+  onToggleInspector,
 }: SpaceBuilderHeaderProps) => {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/60 bg-white/75 backdrop-blur-md">
+    <header className="shrink-0 z-30 border-b border-white/60 bg-white/75 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-2xl bg-gradient-to-tr from-primary to-cyan-400 flex items-center justify-center overflow-hidden shadow-lg">
@@ -51,6 +59,36 @@ export const SpaceBuilderHeader = ({
               </Button>
             </>
           ) : null}
+
+          <div className="hidden items-center gap-1 rounded-full bg-white/70 p-1 border border-white/60 shadow-soft lg:flex">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "rounded-full",
+                modulesOpen ? "bg-primary/10 text-primary hover:bg-primary/15" : "text-muted-foreground",
+              )}
+              onClick={onToggleModules}
+              title={modulesOpen ? "Hide modules panel" : "Show modules panel"}
+            >
+              <LayoutGrid className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "rounded-full",
+                inspectorOpen ? "bg-primary/10 text-primary hover:bg-primary/15" : "text-muted-foreground",
+              )}
+              onClick={onToggleInspector}
+              title={inspectorOpen ? "Hide editor panel" : "Show editor panel"}
+            >
+              <SlidersHorizontal className="size-4" />
+            </Button>
+          </div>
+
           <div className="flex rounded-full bg-white/70 p-1 border border-white/60 shadow-soft">
             <Button
               type="button"

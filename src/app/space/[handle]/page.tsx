@@ -121,7 +121,7 @@ export default async function SpacePage({ params }: PageProps) {
   const publishedDocument = await getPublishedSpaceDocumentForUserId(data.user.id);
   if (publishedDocument) {
     return (
-      <main className="min-h-screen bg-[#fff7fb]">
+      <main className="relative min-h-screen bg-background">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-primary/15 blur-3xl" />
           <div className="absolute top-[30%] left-[-10rem] h-[28rem] w-[28rem] rounded-full bg-cyan-400/12 blur-3xl" />
@@ -184,15 +184,15 @@ export default async function SpacePage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#fff7fb]">
+    <main className="relative min-h-screen bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-primary/15 blur-3xl" />
         <div className="absolute top-[30%] left-[-10rem] h-[28rem] w-[28rem] rounded-full bg-cyan-400/12 blur-3xl" />
         <div className="absolute bottom-[-12rem] right-[20%] h-[30rem] w-[30rem] rounded-full bg-yellow-300/10 blur-3xl" />
       </div>
 
-        <header className="sticky top-0 z-20 border-b border-white/60 bg-white/70 backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <header className="sticky top-0 z-20 border-b border-white/60 bg-white/70 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/logo-pig.png"

@@ -1,3 +1,11 @@
+.layout {
+  height: 100%;
+}
+
+.layout :global(.react-grid-layout) {
+  min-height: 100%;
+}
+
 .layout :global(.react-grid-item) {
   transition: box-shadow 180ms ease, opacity 180ms ease;
 }
@@ -43,4 +51,3 @@
   opacity: 1;
   transform: scale(1.02);
 }
-

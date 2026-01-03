@@ -23,7 +23,7 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const isCreatorHubActive = pathname === "/creator-hub";
   const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
   const isLeaderboardsActive = pathname === "/leaderboards";
-  const isSpaceActive = pathname === "/space/builder";
+  const isSpaceActive = pathname === "/space" || pathname.startsWith("/space/");
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -88,7 +88,7 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
           onClick={onNavigate}
         />
         <SidebarItem
-          href="/space/builder"
+          href="/space"
           icon={UserRound}
           label="Space"
           isActive={isSpaceActive}

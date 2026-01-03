@@ -21,48 +21,52 @@ export const BentoSpacePage = ({
   handle,
   walletLabel,
   document,
+  variant = "public",
 }: {
   handle: string;
   walletLabel: string | null;
   document: SpaceDocument;
+  variant?: "public" | "embedded";
 }) => {
   const visibleBlocks = document.blocks.filter((block) => block.isVisible);
   const stackedBlocks = [...visibleBlocks].sort((a, b) => (a.layout.y - b.layout.y) || (a.layout.x - b.layout.x));
+  const wrapperClass =
+    variant === "embedded"
+      ? "relative mx-auto max-w-6xl px-4 py-6 sm:px-6"
+      : "relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6";
 
   return (
-    <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
-      <div className="rounded-3xl border border-white/60 bg-white/60 p-4 shadow-soft backdrop-blur sm:p-6">
-        <div
-          className="hidden gap-4 md:grid"
-          style={{
-            gridTemplateColumns: `repeat(${SPACE_GRID_COLUMNS}, minmax(0, 1fr))`,
-            gridAutoRows: `${SPACE_GRID_ROW_HEIGHT}px`,
-          }}
-        >
-          {visibleBlocks.map((block) => {
-            const placement = getSafeGridPlacement(block);
-            return (
-              <div
-                key={block.id}
-                className="h-full"
-                style={{
-                  gridColumn: `${placement.x + 1} / span ${placement.w}`,
-                  gridRow: `${placement.y + 1} / span ${placement.h}`,
-                }}
-              >
-                <SpaceBlockCard block={block} handle={handle} walletLabel={walletLabel} />
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:hidden">
-          {stackedBlocks.map((block) => (
-            <div key={block.id} style={{ minHeight: getStackedMinHeight(block.layout.h) }}>
+    <section className={wrapperClass}>
+      <div
+        className="hidden gap-4 md:grid"
+        style={{
+          gridTemplateColumns: `repeat(${SPACE_GRID_COLUMNS}, minmax(0, 1fr))`,
+          gridAutoRows: `${SPACE_GRID_ROW_HEIGHT}px`,
+        }}
+      >
+        {visibleBlocks.map((block) => {
+          const placement = getSafeGridPlacement(block);
+          return (
+            <div
+              key={block.id}
+              className="h-full"
+              style={{
+                gridColumn: `${placement.x + 1} / span ${placement.w}`,
+                gridRow: `${placement.y + 1} / span ${placement.h}`,
+              }}
+            >
               <SpaceBlockCard block={block} handle={handle} walletLabel={walletLabel} />
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {stackedBlocks.map((block) => (
+          <div key={block.id} style={{ minHeight: getStackedMinHeight(block.layout.h) }}>
+            <SpaceBlockCard block={block} handle={handle} walletLabel={walletLabel} />
+          </div>
+        ))}
       </div>
     </section>
   );

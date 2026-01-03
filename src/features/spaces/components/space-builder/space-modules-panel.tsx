@@ -1,5 +1,10 @@
-import { GripVertical } from "lucide-react";
+"use client";
 
+import { useMemo, useState } from "react";
+
+import { GripVertical, Search } from "lucide-react";
+
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { setSpaceModuleDragData } from "@/features/spaces/lib/space-dnd";
@@ -11,15 +16,38 @@ type SpaceModulesPanelProps = {
 };
 
 export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelProps) => {
+  const [query, setQuery] = useState("");
+  const filteredModules = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return modules;
+
+    return modules.filter((module) => {
+      const label = module.label.toLowerCase();
+      const description = module.description.toLowerCase();
+      return label.includes(normalized) || description.includes(normalized);
+    });
+  }, [modules, query]);
+
   return (
-    <aside className="rounded-2xl border border-white/60 bg-white/70 backdrop-blur shadow-soft overflow-hidden">
-      <div className="border-b border-white/60 px-4 py-4">
-        <div className="text-sm font-bold text-gray-900">Modules</div>
-        <div className="mt-1 text-xs text-muted-foreground">Drag blocks onto the canvas.</div>
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-soft backdrop-blur">
+      <div className="border-b border-white/60 px-4 py-4 space-y-3">
+        <div>
+          <div className="text-sm font-bold text-gray-900">Modules</div>
+          <div className="mt-1 text-xs text-muted-foreground">Drag onto the canvas or click to add.</div>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search modules…"
+            className="h-9 pl-9 bg-white/70"
+          />
+        </div>
       </div>
-      <ScrollArea className="h-[calc(100vh-240px)]">
+      <ScrollArea className="flex-1">
         <div className="p-4 grid grid-cols-2 gap-3">
-          {modules.map((module) => (
+          {filteredModules.map((module) => (
             <button
               key={module.type}
               type="button"
@@ -44,6 +72,11 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
               <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{module.description}</div>
             </button>
           ))}
+          {filteredModules.length === 0 ? (
+            <div className="col-span-2 rounded-2xl border border-dashed border-white/70 bg-white/60 px-4 py-6 text-center text-xs text-muted-foreground">
+              No modules found.
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
     </aside>
