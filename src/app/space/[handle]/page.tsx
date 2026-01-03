@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 import { MessageCircle, Send, Twitter, Wallet } from "lucide-react";
 
@@ -22,6 +23,7 @@ type PageProps = {
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  noStore();
   const data = await getPublicSpaceData(params.handle);
   if (!data) {
     return {
@@ -95,6 +97,7 @@ const SocialLink = ({
 );
 
 export default async function SpacePage({ params }: PageProps) {
+  noStore();
   const data = await getPublicSpaceData(params.handle);
   if (!data) {
     notFound();

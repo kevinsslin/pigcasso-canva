@@ -47,6 +47,9 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   const saveMutation = useUpdateMySpaceDocument();
 
   const hydratedRef = useRef(false);
+  const documentRef = useRef<SpaceDocument | null>(null);
+  const changeVersionRef = useRef(0);
+  const savedVersionRef = useRef(0);
   const [mode, setMode] = useState<SpaceBuilderMode>("edit");
   const [document, setDocument] = useState<SpaceDocument | null>(null);
   const [isPublished, setIsPublished] = useState(false);
@@ -57,9 +60,12 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   useEffect(() => {
     if (!data || hydratedRef.current) return;
     hydratedRef.current = true;
+    documentRef.current = data.document;
     setDocument(data.document);
     setIsPublished(data.isPublished);
     setSelectedId(data.document.blocks[0]?.id ?? null);
+    changeVersionRef.current = 0;
+    savedVersionRef.current = 0;
     setChangeVersion(0);
     setSavedVersion(0);
   }, [data]);
@@ -72,7 +78,10 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
         saveMutation.mutate(
           { document: nextDocument, isPublished: nextPublished },
           {
-            onSuccess: () => setSavedVersion(version),
+            onSuccess: () => {
+              savedVersionRef.current = version;
+              setSavedVersion(version);
+            },
           },
         );
       }, 900),
@@ -87,9 +96,14 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     };
   }, [document, isDirty, isPublished, changeVersion, saveDebounced]);
 
-  const bumpVersion = () => setChangeVersion((current) => current + 1);
+  const bumpVersion = () => {
+    changeVersionRef.current += 1;
+    setChangeVersion(changeVersionRef.current);
+    return changeVersionRef.current;
+  };
 
   const updateDocument = (next: SpaceDocument) => {
+    documentRef.current = next;
     setDocument(next);
     bumpVersion();
   };
@@ -138,21 +152,23 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   const onLayoutChange = (layout: Layout) => {
     if (!document) return;
     const nextBlocks = applyLayoutToBlocks(document.blocks, layout);
-    setDocument({ ...document, blocks: nextBlocks });
-    bumpVersion();
+    updateDocument({ ...document, blocks: nextBlocks });
   };
 
   const publish = () => {
-    if (!document || saveMutation.isPending) return;
+    const currentDocument = documentRef.current;
+    if (!currentDocument || saveMutation.isPending) return;
 
+    saveDebounced.cancel();
     setIsPublished(true);
-    bumpVersion();
+    const version = bumpVersion();
 
     saveMutation.mutate(
-      { document, isPublished: true },
+      { document: currentDocument, isPublished: true },
       {
         onSuccess: () => {
-          setSavedVersion(changeVersion + 1);
+          savedVersionRef.current = version;
+          setSavedVersion(version);
           toast.success("Space published.");
         },
       },

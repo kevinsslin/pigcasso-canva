@@ -22,7 +22,7 @@ export const SpaceBuilder = () => {
   const me = useMe();
   const [mobilePanel, setMobilePanel] = useState<"canvas" | "modules" | "inspector">("canvas");
   const [modulesOpen, setModulesOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const { mode, selectedId, deleteSelectedBlock } = builder;
 
   const spaceHandle = me.data?.data.user
@@ -144,6 +144,7 @@ export const SpaceBuilder = () => {
                   handle={spaceHandle ?? "me"}
                   walletLabel={walletLabel}
                   document={builder.document}
+                  variant="embedded"
                 />
               </div>
             </div>
@@ -248,11 +249,11 @@ export const SpaceBuilder = () => {
                 className={cn(
                   "hidden lg:grid lg:flex-1 lg:min-h-0 lg:gap-5",
                   modulesOpen && inspectorOpen
-                    ? "lg:grid-cols-[320px_minmax(0,1fr)_320px]"
+                    ? "lg:grid-cols-[300px_minmax(0,1fr)_300px]"
                     : modulesOpen
-                      ? "lg:grid-cols-[320px_minmax(0,1fr)]"
+                      ? "lg:grid-cols-[300px_minmax(0,1fr)]"
                       : inspectorOpen
-                        ? "lg:grid-cols-[minmax(0,1fr)_320px]"
+                        ? "lg:grid-cols-[minmax(0,1fr)_300px]"
                         : "lg:grid-cols-1",
                 )}
               >
@@ -279,7 +280,10 @@ export const SpaceBuilder = () => {
                       walletLabel={walletLabel}
                       mode={builder.mode}
                       selectedId={builder.selectedId}
-                      onSelectId={builder.setSelectedId}
+                      onSelectId={(id) => {
+                        builder.setSelectedId(id);
+                        setInspectorOpen(true);
+                      }}
                       onLayoutChange={builder.onLayoutChange}
                       onDropModule={addModule}
                     />
