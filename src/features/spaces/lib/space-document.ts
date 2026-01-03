@@ -16,6 +16,28 @@ export const spaceLinkSchema = z.object({
 
 export type SpaceLink = z.infer<typeof spaceLinkSchema>;
 
+export const spaceNftItemSchema = z.object({
+  chainId: z.number().int().positive(),
+  contractAddress: z
+    .string()
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid contract address"),
+  tokenId: z.string().trim().min(1).max(78),
+  name: z.string().trim().max(160).optional().nullable(),
+  imageUrl: z.string().trim().url().optional().nullable(),
+  tokenUri: z.string().trim().optional().nullable(),
+  tokenStandard: z.enum(["erc721", "erc1155", "unknown"]).default("unknown"),
+  ownedBy: z
+    .string()
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid wallet address")
+    .optional()
+    .nullable(),
+  resolvedAt: z.string().trim().optional().nullable(),
+});
+
+export type SpaceNftItem = z.infer<typeof spaceNftItemSchema>;
+
 export const spaceBlockBaseSchema = z.object({
   id: z.string().min(1),
   layout: spaceLayoutSchema,
@@ -77,12 +99,24 @@ export const spaceStatBlockSchema = spaceBlockBaseSchema.extend({
 
 export type SpaceStatBlock = z.infer<typeof spaceStatBlockSchema>;
 
+export const spaceNftShowcaseBlockSchema = spaceBlockBaseSchema.extend({
+  type: z.literal("nftShowcase"),
+  data: z.object({
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(240).optional().nullable(),
+    items: z.array(spaceNftItemSchema).max(36),
+  }),
+});
+
+export type SpaceNftShowcaseBlock = z.infer<typeof spaceNftShowcaseBlockSchema>;
+
 export const spaceBlockSchema = z.discriminatedUnion("type", [
   spaceBioBlockSchema,
   spaceLinkStackBlockSchema,
   spaceImageBlockSchema,
   spaceTextBlockSchema,
   spaceStatBlockSchema,
+  spaceNftShowcaseBlockSchema,
 ]);
 
 export type SpaceBlock = z.infer<typeof spaceBlockSchema>;

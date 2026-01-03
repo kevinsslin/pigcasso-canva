@@ -1,11 +1,12 @@
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { GripVertical } from "lucide-react";
+import { Copy, Eye, EyeOff, GripVertical, Trash2 } from "lucide-react";
 import { verticalCompactor, type Layout } from "react-grid-layout";
 
 import { cn } from "@/lib/utils";
 
 import type { SpaceGridLayoutProps } from "@/features/spaces/components/space-grid-layout";
-import { layoutFromBlocks } from "@/features/spaces/lib/space-layout";
+import { applyLayoutToBlocks, layoutFromBlocks, normalizeBlocksLayout } from "@/features/spaces/lib/space-layout";
 import type { SpaceBlock } from "@/features/spaces/lib/space-document";
 import type { SpaceBuilderMode } from "@/features/spaces/hooks/use-space-builder";
 import { getSpaceModuleDragData } from "@/features/spaces/lib/space-dnd";
@@ -32,6 +33,9 @@ type SpaceBuilderCanvasProps = {
   mode: SpaceBuilderMode;
   selectedId: string | null;
   onSelectId: (id: string) => void;
+  onDuplicateSelected?: () => void;
+  onToggleVisibilitySelected?: () => void;
+  onDeleteSelected?: () => void;
   onLayoutChange: (layout: Layout) => void;
   onDropModule: (module: SpaceModuleDefinition, placement: DroppedModulePlacement) => void;
 };
@@ -43,12 +47,30 @@ export const SpaceBuilderCanvas = ({
   mode,
   selectedId,
   onSelectId,
+  onDuplicateSelected,
+  onToggleVisibilitySelected,
+  onDeleteSelected,
   onLayoutChange,
   onDropModule,
 }: SpaceBuilderCanvasProps) => {
+  const baseLayout = useMemo(() => layoutFromBlocks(blocks), [blocks]);
+  const [draftLayout, setDraftLayout] = useState<Layout>(baseLayout);
+
+  useEffect(() => {
+    setDraftLayout(baseLayout);
+  }, [baseLayout, mode]);
+
+  const onLiveLayoutChange: SpaceGridLayoutProps["onLayoutChange"] = (layout) => {
+    if (mode !== "edit") return;
+    setDraftLayout(layout);
+  };
+
   const commitLayout: SpaceGridLayoutProps["onDragStop"] = (layout) => {
     if (mode !== "edit") return;
-    onLayoutChange(layout);
+    const nextBlocks = normalizeBlocksLayout(applyLayoutToBlocks(blocks, layout), SPACE_GRID_COLUMNS);
+    const safeLayout = layoutFromBlocks(nextBlocks);
+    setDraftLayout(safeLayout);
+    onLayoutChange(safeLayout);
   };
 
   const onDropDragOver: SpaceGridLayoutProps["onDropDragOver"] = (event) => {
@@ -72,6 +94,7 @@ export const SpaceBuilderCanvas = ({
     const moduleDef = getSpaceModuleDefinition(moduleType);
     if (!moduleDef) return;
 
+    setDraftLayout(layout);
     onLayoutChange(layout);
 
     const placement: DroppedModulePlacement = {
@@ -111,7 +134,8 @@ export const SpaceBuilderCanvas = ({
             compactor={verticalCompactor}
             onDragStop={commitLayout}
             onResizeStop={commitLayout}
-            layout={layoutFromBlocks(blocks)}
+            onLayoutChange={onLiveLayoutChange}
+            layout={draftLayout}
             dropConfig={{ enabled: mode === "edit", defaultItem: { w: 1, h: 1 } }}
             onDrop={onDrop}
             onDropDragOver={onDropDragOver}
@@ -139,11 +163,57 @@ export const SpaceBuilderCanvas = ({
                       </div>
                     ) : null}
 
+                    {mode === "edit" && isSelected ? (
+                      <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
+                        {onToggleVisibilitySelected ? (
+                          <button
+                            type="button"
+                            className="inline-flex size-9 items-center justify-center rounded-2xl border border-white/70 bg-white/85 text-gray-700 shadow-soft transition hover:bg-white"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onToggleVisibilitySelected();
+                            }}
+                            title={block.isVisible ? "Hide module" : "Show module"}
+                          >
+                            {block.isVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        ) : null}
+                        {onDuplicateSelected ? (
+                          <button
+                            type="button"
+                            className="inline-flex size-9 items-center justify-center rounded-2xl border border-white/70 bg-white/85 text-gray-700 shadow-soft transition hover:bg-white"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDuplicateSelected();
+                            }}
+                            title="Duplicate module"
+                          >
+                            <Copy className="size-4" />
+                          </button>
+                        ) : null}
+                        {onDeleteSelected ? (
+                          <button
+                            type="button"
+                            className="inline-flex size-9 items-center justify-center rounded-2xl border border-white/70 bg-white/85 text-red-600 shadow-soft transition hover:bg-white"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDeleteSelected();
+                            }}
+                            title="Delete module"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     {mode === "edit" ? (
                       <div
                         className={cn(
                           "space-drag-handle absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md border border-white/60 bg-white/85 px-2 py-1 shadow-sm transition-opacity",
-                          isSelected ? "opacity-100" : "opacity-70 hover:opacity-100 group-hover:opacity-100",
+                          isSelected
+                            ? "opacity-100"
+                            : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
                         )}
                       >
                         <GripVertical className="size-4 text-muted-foreground" />

@@ -65,7 +65,7 @@ export const SpaceGridLayout = ({
           dragConfig={{
             enabled: isDraggable,
             bounded: isBounded ?? false,
-            threshold: 1,
+            threshold: 4,
             handle: draggableHandle,
           }}
           resizeConfig={{

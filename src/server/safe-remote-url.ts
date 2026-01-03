@@ -5,7 +5,12 @@ const STATIC_ALLOWED_HOSTS = [
   "images.unsplash.com",
   "lh3.googleusercontent.com",
   "gateway.pinata.cloud",
+  "cloudflare-ipfs.com",
   "ipfs.io",
+  "nftstorage.link",
+  "w3s.link",
+  "dweb.link",
+  "arweave.net",
   "replicate.delivery",
 ];
 
@@ -54,4 +59,3 @@ export const assertSafeRemoteUrl = (value: string, fallbackMessage = "Invalid UR
 
   return url;
 };
-

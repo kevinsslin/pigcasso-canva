@@ -113,24 +113,30 @@ export const SpaceBuilderHeader = ({
               <span className="hidden sm:inline">Back</span>
             </Link>
           </Button>
-            {spacePath ? (
-              <>
-                <CopySpaceLink path={spacePath} variant="icon" />
-                {isPublished ? (
-                  <Button asChild type="button" variant="secondary" size="sm">
-                    <Link href={spacePath} target="_blank" rel="noreferrer">
-                      <span className="hidden sm:inline">View live</span>
-                      <ExternalLink className="size-4 sm:ml-2" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button type="button" variant="secondary" size="sm" disabled title="Publish to view your Space layout on the public URL.">
+          {spacePath ? (
+            <>
+              <CopySpaceLink path={spacePath} variant="icon" />
+              {isPublished ? (
+                <Button asChild type="button" variant="secondary" size="sm">
+                  <Link href={spacePath} target="_blank" rel="noreferrer">
                     <span className="hidden sm:inline">View live</span>
                     <ExternalLink className="size-4 sm:ml-2" />
-                  </Button>
-                )}
-              </>
-            ) : null}
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled
+                  title="Publish to view your Space layout on the public URL."
+                >
+                  <span className="hidden sm:inline">View live</span>
+                  <ExternalLink className="size-4 sm:ml-2" />
+                </Button>
+              )}
+            </>
+          ) : null}
 
           <div className="hidden items-center gap-1 rounded-full bg-white/70 p-1 border border-white/60 shadow-soft lg:flex">
             <Button

@@ -66,7 +66,7 @@ describe("space layout helpers", () => {
     }
   });
 
-  test("normalizeBlocksLayout keeps a valid layout stable", () => {
+  test("normalizeBlocksLayout compacts a valid layout by default", () => {
     const blocks = [
       makeTextBlock("a", { x: 0, y: 0, w: 1, h: 1 }),
       makeTextBlock("b", { x: 3, y: 2, w: 1, h: 1 }),
@@ -77,6 +77,6 @@ describe("space layout helpers", () => {
 
     const byId = new Map(next.map((block) => [block.id, block.layout]));
     expect(byId.get("a")).toEqual({ x: 0, y: 0, w: 1, h: 1 });
-    expect(byId.get("b")).toEqual({ x: 3, y: 2, w: 1, h: 1 });
+    expect(byId.get("b")).toEqual({ x: 3, y: 0, w: 1, h: 1 });
   });
 });

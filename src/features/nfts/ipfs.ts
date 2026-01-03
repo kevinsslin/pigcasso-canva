@@ -14,8 +14,11 @@ export const ipfsToHttpUrl = (uri: string | null | undefined) => {
   if (!trimmed) return null;
 
   if (trimmed.startsWith("ipfs://")) {
-    const cid = trimmed.replace("ipfs://", "");
-    return `${getIpfsGatewayBase()}${cid}`;
+    let path = trimmed.replace("ipfs://", "");
+    if (path.startsWith("ipfs/")) {
+      path = path.slice("ipfs/".length);
+    }
+    return `${getIpfsGatewayBase()}${path}`;
   }
 
   if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
@@ -24,4 +27,3 @@ export const ipfsToHttpUrl = (uri: string | null | undefined) => {
 
   return null;
 };
-

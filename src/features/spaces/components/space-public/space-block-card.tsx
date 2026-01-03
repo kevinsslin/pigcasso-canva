@@ -4,6 +4,24 @@ import { cn } from "@/lib/utils";
 
 import type { SpaceBlock } from "@/features/spaces/lib/space-document";
 
+const EXPLORER_BASE_BY_CHAIN_ID: Record<number, string> = {
+  1: "https://etherscan.io",
+  56: "https://bscscan.com",
+  143: "https://monadvision.com",
+  8453: "https://basescan.org",
+  42161: "https://arbiscan.io",
+  43114: "https://snowtrace.io",
+  5000: "https://mantlescan.xyz",
+};
+
+const buildExplorerTokenUrl = (params: { chainId: number; contractAddress: string; tokenId: string }) => {
+  const base = EXPLORER_BASE_BY_CHAIN_ID[params.chainId];
+  if (!base) return null;
+
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  return `${normalizedBase}/token/${params.contractAddress}?a=${encodeURIComponent(params.tokenId)}`;
+};
+
 export const SpaceBlockCard = ({
   block,
   handle,
@@ -187,6 +205,89 @@ export const SpaceBlockCard = ({
         >
           <div className="text-2xl font-extrabold tracking-tight">{block.data.value}</div>
           <div className="mt-1 text-xs font-semibold text-white/85">{block.data.label}</div>
+        </div>
+      );
+    }
+    case "nftShowcase": {
+      const items = block.data.items ?? [];
+      const maxItems = block.layout.h >= 2 ? 4 : 2;
+      const visible = items.slice(0, maxItems);
+      const remaining = Math.max(0, items.length - visible.length);
+      const gridCols =
+        visible.length <= 1 || (block.layout.w <= 1 && block.layout.h <= 1)
+          ? "grid-cols-1"
+          : "grid-cols-2";
+
+      return (
+        <div className={cn(cardBase, "px-5 py-5")}>
+          {interactive ? (
+            <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
+            </div>
+          ) : null}
+          <div className="relative">
+            <div className="text-sm font-extrabold text-gray-900">{block.data.title}</div>
+            {block.data.description ? (
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{block.data.description}</div>
+            ) : null}
+
+            {items.length === 0 ? (
+              interactive ? null : (
+                <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-white/60 px-4 py-3 text-xs text-muted-foreground">
+                  Add NFTs in the editor to show them here.
+                </div>
+              )
+            ) : (
+              <div className={cn("mt-4 grid gap-2", gridCols)}>
+                {visible.map((item, index) => {
+                  const explorerUrl = buildExplorerTokenUrl({
+                    chainId: item.chainId,
+                    contractAddress: item.contractAddress,
+                    tokenId: item.tokenId,
+                  });
+
+                  const Wrapper = interactive && explorerUrl ? "a" : "div";
+
+                  return (
+                    <Wrapper
+                      key={`${item.chainId}-${item.contractAddress}-${item.tokenId}`}
+                      {...(interactive && explorerUrl
+                        ? {
+                            href: explorerUrl,
+                            target: "_blank",
+                            rel: "noreferrer",
+                          }
+                        : {})}
+                      className={cn(
+                        "group/nft relative overflow-hidden rounded-2xl bg-white/70 ring-1 ring-black/5",
+                        interactive && explorerUrl ? "cursor-pointer hover:ring-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" : null,
+                      )}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-cyan-400/10 to-yellow-300/10" />
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.imageUrl} alt="" className="relative h-full w-full object-cover" />
+                      ) : null}
+
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute inset-x-2 bottom-2 flex items-end justify-between gap-2">
+                        <div className="min-w-0 text-[11px] font-semibold text-white">
+                          <div className="line-clamp-1">
+                            {item.name ?? `Token #${item.tokenId}`}
+                          </div>
+                        </div>
+                        {remaining > 0 && index === visible.length - 1 ? (
+                          <div className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-bold text-gray-900 shadow-soft">
+                            +{remaining}
+                          </div>
+                        ) : null}
+                      </div>
+                    </Wrapper>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       );
     }

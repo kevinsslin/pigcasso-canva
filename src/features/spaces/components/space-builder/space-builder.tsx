@@ -10,23 +10,26 @@ import { SpaceBuilderHeader } from "@/features/spaces/components/space-builder/s
 import { SpaceBuilderCanvas } from "@/features/spaces/components/space-builder/space-builder-canvas";
 import { SpaceInspector } from "@/features/spaces/components/space-builder/space-inspector";
 import { SpaceModulesPanel } from "@/features/spaces/components/space-builder/space-modules-panel";
-import { useSpaceBuilder, type SpaceBuilderController } from "@/features/spaces/hooks/use-space-builder";
+import { useSpaceBuilder, type SpaceBuilderController, type SpaceBuilderMode } from "@/features/spaces/hooks/use-space-builder";
 import { SPACE_MODULES } from "@/features/spaces/lib/space-modules";
 import { useMe } from "@/features/auth/api/use-me";
 import { getCanonicalSpaceHandle } from "@/features/spaces/lib/space-handle";
 import { shortenWalletAddress } from "@/features/auth/lib/user-display";
 import { BentoSpacePage } from "@/features/spaces/components/space-public/bento-space-page";
 import { SpacePublishDialog } from "@/features/spaces/components/space-builder/space-publish-dialog";
+import type { SpaceDocument } from "@/features/spaces/lib/space-document";
 
-export const SpaceBuilder = () => {
+export const SpaceBuilder = ({ initialMode }: { initialMode?: SpaceBuilderMode }) => {
   const builder = useSpaceBuilder();
+  const initialModeAppliedRef = useRef(false);
   const me = useMe();
   const [mobilePanel, setMobilePanel] = useState<"canvas" | "modules" | "inspector">("canvas");
   const [modulesOpen, setModulesOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishSnapshot, setPublishSnapshot] = useState<SpaceDocument | null>(null);
   const autoMobilePanelRef = useRef(false);
-  const { mode, selectedId, deleteSelectedBlock } = builder;
+  const { mode, selectedId, deleteSelectedBlock, document: builderDocument, setMode: setBuilderMode } = builder;
 
   const spaceHandle = me.data?.data.user
     ? getCanonicalSpaceHandle({ id: me.data.data.user.id, socials: me.data.data.user.socials })
@@ -36,10 +39,24 @@ export const SpaceBuilder = () => {
   const walletAddress = me.data?.data.user.wallets.external ?? me.data?.data.user.wallets.embedded ?? null;
   const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : null;
 
+  const onToggleVisibilitySelected = () => {
+    if (!builder.selectedBlock) return;
+    builder.updateBlock({ ...builder.selectedBlock, isVisible: !builder.selectedBlock.isVisible });
+  };
+
   const addModule: SpaceBuilderController["addModule"] = (module, placement) => {
     builder.addModule(module, placement);
     setMobilePanel("canvas");
   };
+
+  useEffect(() => {
+    if (initialModeAppliedRef.current) return;
+    if (!initialMode) return;
+    if (!builderDocument) return;
+
+    setBuilderMode(initialMode);
+    initialModeAppliedRef.current = true;
+  }, [builderDocument, initialMode, setBuilderMode]);
 
   useEffect(() => {
     if (mode !== "edit") return;
@@ -102,6 +119,14 @@ export const SpaceBuilder = () => {
 
   if (!builder.document) return null;
 
+  const snapshotDraft = (document: SpaceDocument) => {
+    if (typeof structuredClone === "function") {
+      return structuredClone(document) as SpaceDocument;
+    }
+
+    return JSON.parse(JSON.stringify(document)) as SpaceDocument;
+  };
+
   return (
     <div className="relative flex h-[100dvh] min-h-0 flex-col bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -114,7 +139,12 @@ export const SpaceBuilder = () => {
       <SpaceBuilderHeader
         mode={builder.mode}
         onModeChange={builder.setMode}
-        onPublish={() => setPublishDialogOpen(true)}
+        onPublish={() => {
+          const currentDocument = builder.document;
+          if (!currentDocument) return;
+          setPublishSnapshot(snapshotDraft(currentDocument));
+          setPublishDialogOpen(true);
+        }}
         publishDisabled={builder.isSaving}
         saveStatus={builder.saveStatus}
         isPublished={builder.isPublished}
@@ -128,8 +158,11 @@ export const SpaceBuilder = () => {
 
       <SpacePublishDialog
         open={publishDialogOpen}
-        onOpenChange={setPublishDialogOpen}
-        document={builder.document}
+        onOpenChange={(open) => {
+          setPublishDialogOpen(open);
+          if (!open) setPublishSnapshot(null);
+        }}
+        document={publishSnapshot ?? builder.document}
         handle={spaceHandle ?? "me"}
         walletLabel={walletLabel}
         spacePath={spacePath}
@@ -137,7 +170,13 @@ export const SpaceBuilder = () => {
         hasLiveChanges={builder.hasLiveChanges}
         isPublishing={builder.isSaving}
         onConfirm={async () => {
-          await builder.publish();
+          const currentDocument = publishSnapshot ?? builder.document;
+          if (!currentDocument) return;
+          const didPublish = await builder.publish(currentDocument);
+          if (didPublish) {
+            setPublishDialogOpen(false);
+            setPublishSnapshot(null);
+          }
         }}
       />
 
@@ -195,6 +234,9 @@ export const SpaceBuilder = () => {
                         builder.setSelectedId(id);
                         setMobilePanel("inspector");
                       }}
+                      onDuplicateSelected={builder.duplicateSelectedBlock}
+                      onToggleVisibilitySelected={onToggleVisibilitySelected}
+                      onDeleteSelected={builder.deleteSelectedBlock}
                       onLayoutChange={builder.onLayoutChange}
                       onDropModule={addModule}
                     />
@@ -249,11 +291,11 @@ export const SpaceBuilder = () => {
                 className={cn(
                   "hidden lg:grid lg:flex-1 lg:min-h-0 lg:gap-5",
                   modulesOpen && inspectorOpen
-                    ? "lg:grid-cols-[340px_minmax(0,1fr)_340px]"
+                    ? "lg:grid-cols-[320px_minmax(0,1fr)_320px]"
                     : modulesOpen
-                      ? "lg:grid-cols-[340px_minmax(0,1fr)]"
+                      ? "lg:grid-cols-[320px_minmax(0,1fr)]"
                       : inspectorOpen
-                        ? "lg:grid-cols-[minmax(0,1fr)_340px]"
+                        ? "lg:grid-cols-[minmax(0,1fr)_320px]"
                         : "lg:grid-cols-1",
                 )}
               >
@@ -269,6 +311,9 @@ export const SpaceBuilder = () => {
                     builder.setSelectedId(id);
                     setInspectorOpen(true);
                   }}
+                  onDuplicateSelected={builder.duplicateSelectedBlock}
+                  onToggleVisibilitySelected={onToggleVisibilitySelected}
+                  onDeleteSelected={builder.deleteSelectedBlock}
                   onLayoutChange={builder.onLayoutChange}
                   onDropModule={addModule}
                 />

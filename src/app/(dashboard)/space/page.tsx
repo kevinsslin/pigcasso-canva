@@ -29,9 +29,9 @@ export default function SpaceHomePage() {
   const handle = user ? getCanonicalSpaceHandle({ id: user.id, socials: user.socials }) : null;
   const spacePath = handle ? `/space/${encodeURIComponent(handle)}` : null;
   const isPublished = space.data?.isPublished ?? false;
-  const hasLiveChanges =
-    Boolean(isPublished && space.data?.publishedDocument) &&
-    JSON.stringify(space.data?.document) !== JSON.stringify(space.data?.publishedDocument);
+  const draftJson = JSON.stringify(space.data?.document ?? null);
+  const publishedJson = space.data?.publishedDocument ? JSON.stringify(space.data.publishedDocument) : null;
+  const hasLiveChanges = Boolean(isPublished && (publishedJson === null || draftJson !== publishedJson));
 
   const statusLabel = !isPublished ? "Draft" : hasLiveChanges ? "Changes not live" : "Live";
   const statusIcon = !isPublished ? (
@@ -111,7 +111,9 @@ export default function SpaceHomePage() {
               <div>
                 <div className="text-sm font-extrabold text-gray-900">View public Space</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  See what others will see at your published URL.
+                  {isPublished
+                    ? "See what others will see at your published URL."
+                    : "Preview your Space before publishing it publicly."}
                 </div>
               </div>
               <div className="flex size-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-700">
@@ -120,14 +122,22 @@ export default function SpaceHomePage() {
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               {spacePath ? (
-                <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                  <Link href={spacePath} target="_blank" rel="noreferrer">
-                    Open Space <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
+                isPublished ? (
+                  <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                    <Link href={spacePath} target="_blank" rel="noreferrer">
+                      View live <ArrowRight className="ml-2 size-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                    <Link href="/space/builder?mode=preview">
+                      Preview draft <ArrowRight className="ml-2 size-4" />
+                    </Link>
+                  </Button>
+                )
               ) : (
                 <Button variant="secondary" className="rounded-2xl border border-white/70 bg-white/70" disabled>
-                  Open Space <ArrowRight className="ml-2 size-4" />
+                  Preview draft <ArrowRight className="ml-2 size-4" />
                 </Button>
               )}
               {spacePath ? <CopySpaceLink path={spacePath} /> : null}

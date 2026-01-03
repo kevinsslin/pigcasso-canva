@@ -9,6 +9,12 @@ describe("ipfsToHttpUrl", () => {
     );
   });
 
+  test("converts ipfs://ipfs/ URIs using default gateway", () => {
+    expect(ipfsToHttpUrl("ipfs://ipfs/bafy123")).toBe(
+      "https://gateway.pinata.cloud/ipfs/bafy123",
+    );
+  });
+
   test("passes through http(s) URLs", () => {
     expect(ipfsToHttpUrl("https://example.com/a.png")).toBe("https://example.com/a.png");
     expect(ipfsToHttpUrl("http://example.com/a.png")).toBe("http://example.com/a.png");
@@ -35,4 +41,3 @@ describe("getIpfsGatewayBase", () => {
     }
   });
 });
-

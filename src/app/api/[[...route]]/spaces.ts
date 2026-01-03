@@ -9,10 +9,18 @@ import { getPublicSpaceData } from "@/server/space";
 import { requireAuth } from "@/server/hono-auth";
 import { getOrCreateSpaceDocumentForUserId, upsertSpaceDocumentForUserId } from "@/server/space-documents";
 import { spaceDocumentSchema } from "@/features/spaces/lib/space-document";
+import { resolveSpaceNft } from "@/server/space-nft-resolver";
 
 const upsertSchema = z.object({
   document: spaceDocumentSchema,
   isPublished: z.boolean().optional(),
+});
+
+const resolveNftSchema = z.object({
+  chainId: z.number().int().positive(),
+  contractAddress: z.string().trim().min(1),
+  tokenId: z.string().trim().min(1),
+  walletAddress: z.string().trim().optional().nullable(),
 });
 
 const app = new Hono()
@@ -37,6 +45,42 @@ const app = new Hono()
         updatedAt: row.updatedAt,
       },
     });
+  })
+  .post("/nfts/resolve", requireAuth, zValidator("json", resolveNftSchema), async (c) => {
+    const authUser = c.get("authUser");
+    const body = c.req.valid("json");
+
+    const linkedWallets = [
+      authUser.externalWalletAddress,
+      ...authUser.externalWalletAddresses,
+      authUser.embeddedWalletAddress,
+    ];
+
+    const requestedWallet = body.walletAddress?.trim() || null;
+
+    if (requestedWallet) {
+      const matches = linkedWallets.some(
+        (wallet) => wallet?.toLowerCase() === requestedWallet.toLowerCase(),
+      );
+
+      if (!matches) {
+        return c.json(
+          {
+            error: "Wallet address must be linked to your account.",
+          },
+          400,
+        );
+      }
+    }
+
+    const result = await resolveSpaceNft({
+      chainId: body.chainId,
+      contractAddress: body.contractAddress,
+      tokenId: body.tokenId,
+      ownerAddresses: requestedWallet ? [requestedWallet] : linkedWallets,
+    });
+
+    return c.json({ data: result });
   })
   .patch("/me", requireAuth, zValidator("json", upsertSchema), async (c) => {
     const authUser = c.get("authUser");

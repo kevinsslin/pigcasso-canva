@@ -46,8 +46,9 @@ export type SpaceBuilderController = {
   addModule: (module: SpaceModuleDefinition, placement?: SpaceModulePlacement) => void;
   updateBlock: (block: SpaceBlock) => void;
   deleteSelectedBlock: () => void;
+  duplicateSelectedBlock: () => void;
   onLayoutChange: (layout: Layout) => void;
-  publish: () => Promise<boolean>;
+  publish: (documentOverride?: SpaceDocument) => Promise<boolean>;
 };
 
 export const useSpaceBuilder = (): SpaceBuilderController => {
@@ -144,21 +145,51 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   };
 
   const updateBlock = (nextBlock: SpaceBlock) => {
-    if (!document) return;
-    const nextBlocks = document.blocks.map((block) => (block.id === nextBlock.id ? nextBlock : block));
-    updateDocument({ ...document, blocks: nextBlocks });
+    const currentDocument = documentRef.current;
+    if (!currentDocument) return;
+    const nextBlocks = currentDocument.blocks.map((block) => (block.id === nextBlock.id ? nextBlock : block));
+    updateDocument({ ...currentDocument, blocks: nextBlocks });
   };
 
   const deleteSelectedBlock = () => {
-    if (!document || !selectedId) return;
-    const nextBlocks = document.blocks.filter((block) => block.id !== selectedId);
-    updateDocument({ ...document, blocks: nextBlocks });
+    const currentDocument = documentRef.current;
+    if (!currentDocument || !selectedId) return;
+    const nextBlocks = currentDocument.blocks.filter((block) => block.id !== selectedId);
+    updateDocument({ ...currentDocument, blocks: nextBlocks });
     setSelectedId(nextBlocks[0]?.id ?? null);
   };
 
+  const duplicateSelectedBlock = () => {
+    const currentDocument = documentRef.current;
+    if (!currentDocument || !selectedId) return;
+    const selectedBlock = currentDocument.blocks.find((block) => block.id === selectedId);
+    if (!selectedBlock) return;
+
+    const clonedBlock = (() => {
+      if (typeof structuredClone === "function") {
+        return structuredClone(selectedBlock) as SpaceBlock;
+      }
+
+      return JSON.parse(JSON.stringify(selectedBlock)) as SpaceBlock;
+    })();
+
+    const w = selectedBlock.layout.w;
+    const nextX = Math.max(0, Math.min(selectedBlock.layout.x + 1, SPACE_GRID_COLUMNS - w));
+    const duplicate: SpaceBlock = {
+      ...clonedBlock,
+      id: crypto.randomUUID(),
+      layout: { ...selectedBlock.layout, x: nextX },
+    };
+
+    const nextBlocks = insertBlockAvoidingOverlap(currentDocument.blocks, duplicate, SPACE_GRID_COLUMNS);
+    updateDocument({ ...currentDocument, blocks: nextBlocks });
+    setSelectedId(duplicate.id);
+  };
+
   const addModule = (module: SpaceModuleDefinition, placement?: SpaceModulePlacement) => {
-    if (!document) return;
-    const nextRow = getNextRowY(document.blocks);
+    const currentDocument = documentRef.current;
+    if (!currentDocument) return;
+    const nextRow = getNextRowY(currentDocument.blocks);
 
     const w = Math.max(1, Math.min(placement?.w ?? module.defaultLayout.w, SPACE_GRID_COLUMNS));
     const x = Math.max(0, Math.min(placement?.x ?? 0, SPACE_GRID_COLUMNS - w));
@@ -174,9 +205,9 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     } as SpaceBlock;
 
     const nextBlocks = placement
-      ? normalizeBlocksLayout([...document.blocks, block], SPACE_GRID_COLUMNS)
-      : insertBlockAvoidingOverlap(document.blocks, block, SPACE_GRID_COLUMNS);
-    const nextDocument: SpaceDocument = { ...document, blocks: nextBlocks };
+      ? normalizeBlocksLayout([...currentDocument.blocks, block], SPACE_GRID_COLUMNS)
+      : insertBlockAvoidingOverlap(currentDocument.blocks, block, SPACE_GRID_COLUMNS);
+    const nextDocument: SpaceDocument = { ...currentDocument, blocks: nextBlocks };
     const parsed = spaceDocumentSchema.safeParse(nextDocument);
     if (!parsed.success) {
       toast.error("Failed to add module (invalid document).");
@@ -203,8 +234,8 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     updateDocument({ ...currentDocument, blocks: nextBlocks });
   };
 
-  const publish = async () => {
-    const currentDocument = documentRef.current;
+  const publish = async (documentOverride?: SpaceDocument) => {
+    const currentDocument = documentOverride ?? documentRef.current;
     if (!currentDocument || saveMutation.isPending) return false;
 
     saveDebounced.cancel();
@@ -254,6 +285,7 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     addModule,
     updateBlock,
     deleteSelectedBlock,
+    duplicateSelectedBlock,
     onLayoutChange,
     publish,
   };
