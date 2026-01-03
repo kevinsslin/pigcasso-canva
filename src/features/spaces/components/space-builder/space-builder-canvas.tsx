@@ -10,6 +10,7 @@ import type { SpaceBlock } from "@/features/spaces/lib/space-document";
 import type { SpaceBuilderMode } from "@/features/spaces/hooks/use-space-builder";
 import { SpaceBlockPreview } from "@/features/spaces/components/space-builder/space-block-preview";
 import { getSpaceModuleDragData } from "@/features/spaces/lib/space-dnd";
+import { SPACE_GRID_COLUMNS, SPACE_GRID_GAP, SPACE_GRID_ROW_HEIGHT } from "@/features/spaces/lib/space-grid";
 import { getSpaceModuleDefinition, type SpaceModuleDefinition } from "@/features/spaces/lib/space-modules";
 
 const SpaceGridLayout = dynamic<SpaceGridLayoutProps>(
@@ -77,9 +78,9 @@ export const SpaceBuilderCanvas = ({
       <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:radial-gradient(circle,rgba(236,72,153,0.12)_1px,transparent_1px)] [background-size:40px_40px]" />
       <div className="relative overflow-x-auto overscroll-x-contain pb-2">
         <SpaceGridLayout
-          cols={4}
-          rowHeight={140}
-          margin={[16, 16]}
+          cols={SPACE_GRID_COLUMNS}
+          rowHeight={SPACE_GRID_ROW_HEIGHT}
+          margin={[SPACE_GRID_GAP, SPACE_GRID_GAP]}
           containerPadding={[0, 0]}
           draggableHandle=".space-drag-handle"
           isDraggable={mode === "edit"}

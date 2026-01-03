@@ -1,10 +1,7 @@
 import type { SpaceDocument } from "@/features/spaces/lib/space-document";
+import { SPACE_GRID_COLUMNS, SPACE_GRID_GAP, SPACE_GRID_ROW_HEIGHT } from "@/features/spaces/lib/space-grid";
 
 import { SpaceBlockCard } from "@/features/spaces/components/space-public/space-block-card";
-
-const SPACE_GRID_COLUMNS = 4;
-const SPACE_ROW_HEIGHT = 140;
-const SPACE_GAP = 16;
 
 const getSafeGridPlacement = (block: SpaceDocument["blocks"][number]) => {
   const w = Math.max(1, Math.min(block.layout.w, SPACE_GRID_COLUMNS));
@@ -17,7 +14,7 @@ const getSafeGridPlacement = (block: SpaceDocument["blocks"][number]) => {
 
 const getStackedMinHeight = (heightUnits: number) => {
   const units = Math.max(1, heightUnits);
-  return units * SPACE_ROW_HEIGHT + (units - 1) * SPACE_GAP;
+  return units * SPACE_GRID_ROW_HEIGHT + (units - 1) * SPACE_GRID_GAP;
 };
 
 export const BentoSpacePage = ({
@@ -35,7 +32,13 @@ export const BentoSpacePage = ({
   return (
     <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
       <div className="rounded-3xl border border-white/60 bg-white/60 p-4 shadow-soft backdrop-blur sm:p-6">
-        <div className="hidden gap-4 md:grid md:grid-cols-4 md:auto-rows-[140px]">
+        <div
+          className="hidden gap-4 md:grid"
+          style={{
+            gridTemplateColumns: `repeat(${SPACE_GRID_COLUMNS}, minmax(0, 1fr))`,
+            gridAutoRows: `${SPACE_GRID_ROW_HEIGHT}px`,
+          }}
+        >
           {visibleBlocks.map((block) => {
             const placement = getSafeGridPlacement(block);
             return (
@@ -64,4 +67,3 @@ export const BentoSpacePage = ({
     </section>
   );
 };
-

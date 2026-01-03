@@ -9,6 +9,7 @@ import { useMySpaceDocument } from "@/features/spaces/api/use-my-space-document"
 import { useUpdateMySpaceDocument } from "@/features/spaces/api/use-update-my-space-document";
 import { applyLayoutToBlocks, getNextRowY } from "@/features/spaces/lib/space-layout";
 import { spaceDocumentSchema, type SpaceBlock, type SpaceDocument } from "@/features/spaces/lib/space-document";
+import { SPACE_GRID_COLUMNS } from "@/features/spaces/lib/space-grid";
 import type { SpaceModuleDefinition } from "@/features/spaces/lib/space-modules";
 
 export type SpaceBuilderMode = "edit" | "preview";
@@ -108,11 +109,10 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
 
   const addModule = (module: SpaceModuleDefinition, placement?: SpaceModulePlacement) => {
     if (!document) return;
-    const GRID_COLS = 4;
     const nextRow = getNextRowY(document.blocks);
 
-    const w = Math.max(1, Math.min(placement?.w ?? module.defaultLayout.w, GRID_COLS));
-    const x = Math.max(0, Math.min(placement?.x ?? 0, GRID_COLS - w));
+    const w = Math.max(1, Math.min(placement?.w ?? module.defaultLayout.w, SPACE_GRID_COLUMNS));
+    const x = Math.max(0, Math.min(placement?.x ?? 0, SPACE_GRID_COLUMNS - w));
     const y = Math.max(0, placement?.y ?? nextRow);
     const h = Math.max(1, placement?.h ?? module.defaultLayout.h);
 
