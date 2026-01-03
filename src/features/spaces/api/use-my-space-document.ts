@@ -7,6 +7,7 @@ import type { SpaceDocument } from "@/features/spaces/lib/space-document";
 
 export type MySpaceDocument = {
   document: SpaceDocument;
+  publishedDocument: SpaceDocument | null;
   isPublished: boolean;
   updatedAt: string;
 };
@@ -27,4 +28,3 @@ export const useMySpaceDocument = (options?: { enabled?: boolean }) => {
     },
   });
 };
-

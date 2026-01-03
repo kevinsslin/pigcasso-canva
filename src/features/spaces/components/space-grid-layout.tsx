@@ -9,7 +9,7 @@ import styles from "./space-grid-layout.module.css";
 
 export type SpaceGridLayoutProps = {
   layout: Layout;
-  onLayoutChange: (layout: Layout) => void;
+  onLayoutChange?: (layout: Layout) => void;
   cols: number;
   rowHeight: number;
   margin: readonly [number, number];
@@ -22,6 +22,8 @@ export type SpaceGridLayoutProps = {
   droppingItem?: GridLayoutProps["droppingItem"];
   onDrop?: GridLayoutProps["onDrop"];
   onDropDragOver?: GridLayoutProps["onDropDragOver"];
+  onDragStop?: GridLayoutProps["onDragStop"];
+  onResizeStop?: GridLayoutProps["onResizeStop"];
   compactor?: GridLayoutProps["compactor"];
   children: ReactNode;
   className?: string;
@@ -42,6 +44,8 @@ export const SpaceGridLayout = ({
   droppingItem,
   onDrop,
   onDropDragOver,
+  onDragStop,
+  onResizeStop,
   compactor,
   children,
   className,
@@ -61,7 +65,7 @@ export const SpaceGridLayout = ({
           dragConfig={{
             enabled: isDraggable,
             bounded: isBounded ?? false,
-            threshold: 6,
+            threshold: 1,
             handle: draggableHandle,
           }}
           resizeConfig={{
@@ -72,6 +76,8 @@ export const SpaceGridLayout = ({
           droppingItem={droppingItem}
           compactor={compactor}
           onLayoutChange={onLayoutChange}
+          onDragStop={onDragStop}
+          onResizeStop={onResizeStop}
           onDrop={onDrop}
           onDropDragOver={onDropDragOver}
         >

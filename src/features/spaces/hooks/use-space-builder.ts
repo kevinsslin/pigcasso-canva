@@ -7,7 +7,14 @@ import type { Layout } from "react-grid-layout";
 
 import { useMySpaceDocument } from "@/features/spaces/api/use-my-space-document";
 import { useUpdateMySpaceDocument } from "@/features/spaces/api/use-update-my-space-document";
-import { applyLayoutToBlocks, getNextRowY } from "@/features/spaces/lib/space-layout";
+import {
+  applyLayoutToBlocks,
+  getNextRowY,
+  hasLayoutOverlap,
+  insertBlockAvoidingOverlap,
+  normalizeBlocksLayout,
+  resolveLayoutCollisions,
+} from "@/features/spaces/lib/space-layout";
 import { spaceDocumentSchema, type SpaceBlock, type SpaceDocument } from "@/features/spaces/lib/space-document";
 import { SPACE_GRID_COLUMNS } from "@/features/spaces/lib/space-grid";
 import type { SpaceModuleDefinition } from "@/features/spaces/lib/space-modules";
@@ -26,6 +33,7 @@ export type SpaceBuilderController = {
   setMode: (mode: SpaceBuilderMode) => void;
   document: SpaceDocument | null;
   isPublished: boolean;
+  hasLiveChanges: boolean;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   selectedBlock: SpaceBlock | null;
@@ -39,7 +47,7 @@ export type SpaceBuilderController = {
   updateBlock: (block: SpaceBlock) => void;
   deleteSelectedBlock: () => void;
   onLayoutChange: (layout: Layout) => void;
-  publish: () => void;
+  publish: () => Promise<boolean>;
 };
 
 export const useSpaceBuilder = (): SpaceBuilderController => {
@@ -48,10 +56,12 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
 
   const hydratedRef = useRef(false);
   const documentRef = useRef<SpaceDocument | null>(null);
+  const publishedDocumentRef = useRef<SpaceDocument | null>(null);
   const changeVersionRef = useRef(0);
   const savedVersionRef = useRef(0);
   const [mode, setMode] = useState<SpaceBuilderMode>("edit");
   const [document, setDocument] = useState<SpaceDocument | null>(null);
+  const [publishedDocument, setPublishedDocument] = useState<SpaceDocument | null>(null);
   const [isPublished, setIsPublished] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [changeVersion, setChangeVersion] = useState(0);
@@ -60,10 +70,24 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   useEffect(() => {
     if (!data || hydratedRef.current) return;
     hydratedRef.current = true;
-    documentRef.current = data.document;
-    setDocument(data.document);
+    const normalizedDocument: SpaceDocument = {
+      ...data.document,
+      blocks: normalizeBlocksLayout(data.document.blocks, SPACE_GRID_COLUMNS),
+    };
+
+    const normalizedPublished = data.publishedDocument
+      ? ({
+          ...data.publishedDocument,
+          blocks: normalizeBlocksLayout(data.publishedDocument.blocks, SPACE_GRID_COLUMNS),
+        } satisfies SpaceDocument)
+      : null;
+
+    documentRef.current = normalizedDocument;
+    publishedDocumentRef.current = normalizedPublished;
+    setDocument(normalizedDocument);
+    setPublishedDocument(normalizedPublished);
     setIsPublished(data.isPublished);
-    setSelectedId(data.document.blocks[0]?.id ?? null);
+    setSelectedId(normalizedDocument.blocks[0]?.id ?? null);
     changeVersionRef.current = 0;
     savedVersionRef.current = 0;
     setChangeVersion(0);
@@ -72,11 +96,18 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
 
   const isDirty = changeVersion !== savedVersion;
 
+  const hasLiveChanges = useMemo(() => {
+    if (!document || !isPublished) return false;
+    const published = publishedDocument ?? publishedDocumentRef.current;
+    if (!published) return true;
+    return JSON.stringify(document) !== JSON.stringify(published);
+  }, [document, isPublished, publishedDocument]);
+
   const saveDebounced = useMemo(
     () =>
-      debounce((nextDocument: SpaceDocument, nextPublished: boolean, version: number) => {
+      debounce((nextDocument: SpaceDocument, version: number) => {
         saveMutation.mutate(
-          { document: nextDocument, isPublished: nextPublished },
+          { document: nextDocument },
           {
             onSuccess: () => {
               savedVersionRef.current = version;
@@ -90,11 +121,11 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
 
   useEffect(() => {
     if (!hydratedRef.current || !document || !isDirty) return;
-    saveDebounced(document, isPublished, changeVersion);
+    saveDebounced(document, changeVersion);
     return () => {
       saveDebounced.cancel();
     };
-  }, [document, isDirty, isPublished, changeVersion, saveDebounced]);
+  }, [document, isDirty, changeVersion, saveDebounced]);
 
   const bumpVersion = () => {
     changeVersionRef.current += 1;
@@ -103,8 +134,12 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   };
 
   const updateDocument = (next: SpaceDocument) => {
-    documentRef.current = next;
-    setDocument(next);
+    const normalized: SpaceDocument = {
+      ...next,
+      blocks: normalizeBlocksLayout(next.blocks, SPACE_GRID_COLUMNS),
+    };
+    documentRef.current = normalized;
+    setDocument(normalized);
     bumpVersion();
   };
 
@@ -138,7 +173,10 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
       data: module.createData(),
     } as SpaceBlock;
 
-    const nextDocument: SpaceDocument = { ...document, blocks: [...document.blocks, block] };
+    const nextBlocks = placement
+      ? normalizeBlocksLayout([...document.blocks, block], SPACE_GRID_COLUMNS)
+      : insertBlockAvoidingOverlap(document.blocks, block, SPACE_GRID_COLUMNS);
+    const nextDocument: SpaceDocument = { ...document, blocks: nextBlocks };
     const parsed = spaceDocumentSchema.safeParse(nextDocument);
     if (!parsed.success) {
       toast.error("Failed to add module (invalid document).");
@@ -150,29 +188,40 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
   };
 
   const onLayoutChange = (layout: Layout) => {
-    if (!document) return;
-    const nextBlocks = applyLayoutToBlocks(document.blocks, layout);
-    updateDocument({ ...document, blocks: nextBlocks });
+    const currentDocument = documentRef.current;
+    if (!currentDocument) return;
+
+    const ids = new Set(currentDocument.blocks.map((block) => block.id));
+    const nextLayout = layout.filter((item) => ids.has(item.i));
+    if (!nextLayout.length) return;
+
+    const safeLayout = hasLayoutOverlap(nextLayout)
+      ? resolveLayoutCollisions(nextLayout, SPACE_GRID_COLUMNS)
+      : nextLayout;
+
+    const nextBlocks = applyLayoutToBlocks(currentDocument.blocks, safeLayout);
+    updateDocument({ ...currentDocument, blocks: nextBlocks });
   };
 
-  const publish = () => {
+  const publish = async () => {
     const currentDocument = documentRef.current;
-    if (!currentDocument || saveMutation.isPending) return;
+    if (!currentDocument || saveMutation.isPending) return false;
 
     saveDebounced.cancel();
-    setIsPublished(true);
-    const version = bumpVersion();
+    const version = changeVersionRef.current;
 
-    saveMutation.mutate(
-      { document: currentDocument, isPublished: true },
-      {
-        onSuccess: () => {
-          savedVersionRef.current = version;
-          setSavedVersion(version);
-          toast.success("Space published.");
-        },
-      },
-    );
+    try {
+      await saveMutation.mutateAsync({ document: currentDocument, isPublished: true });
+      setIsPublished(true);
+      publishedDocumentRef.current = currentDocument;
+      setPublishedDocument(currentDocument);
+      savedVersionRef.current = version;
+      setSavedVersion(version);
+      toast.success("Space published.");
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const selectedBlock = document?.blocks.find((block) => block.id === selectedId) ?? null;
@@ -192,6 +241,7 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     setMode,
     document,
     isPublished,
+    hasLiveChanges,
     selectedId,
     setSelectedId,
     selectedBlock,

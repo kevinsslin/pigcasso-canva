@@ -29,6 +29,18 @@ export default function SpaceHomePage() {
   const handle = user ? getCanonicalSpaceHandle({ id: user.id, socials: user.socials }) : null;
   const spacePath = handle ? `/space/${encodeURIComponent(handle)}` : null;
   const isPublished = space.data?.isPublished ?? false;
+  const hasLiveChanges =
+    Boolean(isPublished && space.data?.publishedDocument) &&
+    JSON.stringify(space.data?.document) !== JSON.stringify(space.data?.publishedDocument);
+
+  const statusLabel = !isPublished ? "Draft" : hasLiveChanges ? "Changes not live" : "Live";
+  const statusIcon = !isPublished ? (
+    <Pencil className="size-4 text-primary" />
+  ) : hasLiveChanges ? (
+    <Rocket className="size-4 text-amber-600" />
+  ) : (
+    <Rocket className="size-4 text-emerald-600" />
+  );
 
   return (
     <div className="relative h-full overflow-auto bg-background">
@@ -56,8 +68,8 @@ export default function SpaceHomePage() {
 
           <div className="flex shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-700 shadow-soft">
-              {isPublished ? <Rocket className="size-4 text-emerald-600" /> : <Pencil className="size-4 text-primary" />}
-              {isPublished ? "Published" : "Draft"}
+              {statusIcon}
+              {statusLabel}
             </div>
             {spacePath ? (
               <div className="text-xs text-muted-foreground">
@@ -121,7 +133,11 @@ export default function SpaceHomePage() {
               {spacePath ? <CopySpaceLink path={spacePath} /> : null}
             </div>
             <div className="mt-4 text-xs text-muted-foreground">
-              Tip: You can keep it as a draft and publish when you’re ready.
+              {!isPublished
+                ? "Tip: Publish when you’re ready to share your Space publicly."
+                : hasLiveChanges
+                  ? "Your draft has changes that aren’t live yet. Open the builder to update your Space."
+                  : "Your Space is live and up to date."}
             </div>
           </Card>
         </div>

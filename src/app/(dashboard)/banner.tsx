@@ -16,6 +16,10 @@ export const Banner = () => {
   const router = useRouter();
   const mutation = useCreateProject({ toast: false });
 
+  const onBuildSpace = () => {
+    router.push("/space");
+  };
+
   const onClick = () => {
     const toastId = toast.loading("Creating project…", {
       description: "Setting up a 1080×1350 canvas.",
@@ -83,6 +87,15 @@ export const Banner = () => {
                 ) : (
                   <ArrowRight className="size-4 ml-2" />
                 )}
+              </Button>
+              <Button
+                disabled={mutation.isPending || transitioning}
+                variant="secondary"
+                onClick={onBuildSpace}
+                className="rounded-full px-6 border border-white/70 bg-white/70"
+              >
+                Build my Space
+                <ArrowRight className="size-4 ml-2" />
               </Button>
             </div>
           </div>

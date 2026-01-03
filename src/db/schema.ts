@@ -46,6 +46,7 @@ export const spaceDocuments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     json: text("json").notNull(),
+    publishedJson: text("publishedJson"),
     isPublished: boolean("isPublished").notNull().default(false),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),

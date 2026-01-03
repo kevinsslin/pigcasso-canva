@@ -32,6 +32,7 @@ const app = new Hono()
     return c.json({
       data: {
         document: row.document,
+        publishedDocument: row.isPublished ? (row.publishedDocument ?? row.document) : null,
         isPublished: row.isPublished,
         updatedAt: row.updatedAt,
       },
@@ -50,6 +51,7 @@ const app = new Hono()
     return c.json({
       data: {
         document: row.document,
+        publishedDocument: row.isPublished ? (row.publishedDocument ?? row.document) : null,
         isPublished: row.isPublished,
         updatedAt: row.updatedAt,
       },

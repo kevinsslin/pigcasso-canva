@@ -16,9 +16,9 @@ export const SpaceBlockCard = ({
   interactive?: boolean;
 }) => {
   const cardBase = cn(
-    "group relative h-full w-full overflow-hidden rounded-3xl bg-white/85 shadow-soft ring-1 ring-black/5 backdrop-blur",
+    "relative h-full w-full overflow-hidden rounded-3xl bg-white/85 shadow-soft ring-1 ring-black/5 backdrop-blur",
     interactive
-      ? "transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-glow"
+      ? "group transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-glow"
       : null,
   );
 
@@ -27,9 +27,11 @@ export const SpaceBlockCard = ({
       const avatarUrl = block.data.avatarUrl ?? null;
       return (
         <div className={cn(cardBase, "px-5 py-5")}>
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/12 via-cyan-400/10 to-yellow-300/10" />
-          </div>
+          {interactive ? (
+            <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/12 via-cyan-400/10 to-yellow-300/10" />
+            </div>
+          ) : null}
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
@@ -83,9 +85,11 @@ export const SpaceBlockCard = ({
     case "links": {
       return (
         <div className={cn(cardBase, "px-5 py-5")}>
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
-          </div>
+          {interactive ? (
+            <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
+            </div>
+          ) : null}
           <div className="relative">
             <div className="text-sm font-extrabold text-gray-900">{block.data.title}</div>
             {block.data.description ? (

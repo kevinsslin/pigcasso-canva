@@ -90,7 +90,7 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
         <SidebarItem
           href="/space"
           icon={UserRound}
-          label="Space"
+          label="My Space"
           isActive={isSpaceActive}
           onClick={onNavigate}
         />

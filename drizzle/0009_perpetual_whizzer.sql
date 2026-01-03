@@ -1,0 +1,1 @@
+ALTER TABLE "space_document" ADD COLUMN "publishedJson" text;

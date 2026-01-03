@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 
@@ -16,13 +16,16 @@ import { useMe } from "@/features/auth/api/use-me";
 import { getCanonicalSpaceHandle } from "@/features/spaces/lib/space-handle";
 import { shortenWalletAddress } from "@/features/auth/lib/user-display";
 import { BentoSpacePage } from "@/features/spaces/components/space-public/bento-space-page";
+import { SpacePublishDialog } from "@/features/spaces/components/space-builder/space-publish-dialog";
 
 export const SpaceBuilder = () => {
   const builder = useSpaceBuilder();
   const me = useMe();
   const [mobilePanel, setMobilePanel] = useState<"canvas" | "modules" | "inspector">("canvas");
   const [modulesOpen, setModulesOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const autoMobilePanelRef = useRef(false);
   const { mode, selectedId, deleteSelectedBlock } = builder;
 
   const spaceHandle = me.data?.data.user
@@ -32,20 +35,6 @@ export const SpaceBuilder = () => {
 
   const walletAddress = me.data?.data.user.wallets.external ?? me.data?.data.user.wallets.embedded ?? null;
   const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : null;
-
-  const savingLabel =
-    builder.saveStatus === "saving"
-      ? "Saving…"
-      : builder.saveStatus === "dirty"
-        ? "Unsaved changes"
-        : "Saved";
-
-  const savingDotClass =
-    builder.saveStatus === "saving"
-      ? "bg-yellow-400"
-      : builder.saveStatus === "dirty"
-        ? "bg-red-400"
-        : "bg-emerald-400";
 
   const addModule: SpaceBuilderController["addModule"] = (module, placement) => {
     builder.addModule(module, placement);
@@ -82,6 +71,16 @@ export const SpaceBuilder = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteSelectedBlock, mode, selectedId]);
 
+  useEffect(() => {
+    if (autoMobilePanelRef.current) return;
+    if (builder.mode !== "edit") return;
+    if (!builder.document) return;
+    if (builder.document.blocks.length > 0) return;
+
+    autoMobilePanelRef.current = true;
+    setMobilePanel("modules");
+  }, [builder.document, builder.mode]);
+
   if (builder.isLoading) {
     return (
       <div className="flex h-[70vh] items-center justify-center text-sm text-muted-foreground">
@@ -104,20 +103,22 @@ export const SpaceBuilder = () => {
   if (!builder.document) return null;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-background">
+    <div className="relative flex h-[100dvh] min-h-0 flex-col bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 right-[-12rem] h-[34rem] w-[34rem] rounded-full bg-primary/18 blur-3xl motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
-        <div className="absolute top-[35%] left-[-12rem] h-[30rem] w-[30rem] rounded-full bg-cyan-400/14 blur-3xl motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
-        <div className="absolute bottom-[-14rem] right-[20%] h-[32rem] w-[32rem] rounded-full bg-yellow-300/12 blur-3xl motion-safe:animate-[pigcasso-drift_22s_ease-in-out_infinite]" />
-        <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(to_right,rgba(236,72,153,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.14)_1px,transparent_1px)] [background-size:72px_72px]" />
+        <div className="absolute -top-44 right-[-16rem] h-[38rem] w-[38rem] rounded-full bg-primary/14 blur-3xl motion-safe:animate-[pigcasso-drift_18s_ease-in-out_infinite]" />
+        <div className="absolute top-[35%] left-[-16rem] h-[32rem] w-[32rem] rounded-full bg-cyan-400/12 blur-3xl motion-safe:animate-[pigcasso-float_16s_ease-in-out_infinite]" />
+        <div className="absolute bottom-[-16rem] right-[20%] h-[34rem] w-[34rem] rounded-full bg-yellow-300/10 blur-3xl motion-safe:animate-[pigcasso-drift_22s_ease-in-out_infinite]" />
+        <div className="absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle,rgba(236,72,153,0.35)_1px,transparent_1px)] [background-size:52px_52px]" />
       </div>
 
       <SpaceBuilderHeader
         mode={builder.mode}
         onModeChange={builder.setMode}
-        onPublish={builder.publish}
+        onPublish={() => setPublishDialogOpen(true)}
         publishDisabled={builder.isSaving}
+        saveStatus={builder.saveStatus}
         isPublished={builder.isPublished}
+        hasLiveChanges={builder.hasLiveChanges}
         spacePath={spacePath}
         modulesOpen={modulesOpen}
         inspectorOpen={inspectorOpen}
@@ -125,14 +126,29 @@ export const SpaceBuilder = () => {
         onToggleInspector={() => setInspectorOpen((prev) => !prev)}
       />
 
+      <SpacePublishDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        document={builder.document}
+        handle={spaceHandle ?? "me"}
+        walletLabel={walletLabel}
+        spacePath={spacePath}
+        isPublished={builder.isPublished}
+        hasLiveChanges={builder.hasLiveChanges}
+        isPublishing={builder.isSaving}
+        onConfirm={async () => {
+          await builder.publish();
+        }}
+      />
+
       <div className="relative flex-1 min-h-0 overflow-hidden">
-        <div className="mx-auto flex h-full max-w-[1400px] flex-col px-4 pb-8 pt-6 sm:px-6">
+        <div className="mx-auto flex h-full max-w-[1680px] flex-col px-4 pb-6 pt-5 sm:px-6">
           {builder.mode === "preview" ? (
             <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/40 shadow-soft backdrop-blur">
               <div className="shrink-0 border-b border-white/60 bg-white/70 px-5 py-4">
                 <div className="text-sm font-extrabold tracking-tight text-gray-900">Preview</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  This matches what visitors see at{" "}
+                  Preview your current draft. Publishing updates{" "}
                   <span className="font-semibold text-gray-700">
                     {spacePath ?? "/space/<your-handle>"}
                   </span>
@@ -144,7 +160,6 @@ export const SpaceBuilder = () => {
                   handle={spaceHandle ?? "me"}
                   walletLabel={walletLabel}
                   document={builder.document}
-                  variant="embedded"
                 />
               </div>
             </div>
@@ -152,61 +167,6 @@ export const SpaceBuilder = () => {
             <>
               {/* Mobile */}
               <div className="flex flex-1 min-h-0 flex-col gap-4 lg:hidden">
-                <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-soft backdrop-blur">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-lg font-extrabold tracking-tight text-gray-900">My Space</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {builder.isPublished ? "Published" : "Draft"} • {spacePath ?? "/space/<your-handle>"}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 shadow-sm">
-                      <span className={cn("size-2 rounded-full", savingDotClass)} />
-                      <span className="text-xs font-semibold text-gray-700">{savingLabel}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/70 bg-white/70 p-1 shadow-sm">
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
-                        mobilePanel === "canvas"
-                          ? "bg-primary text-white shadow-glow"
-                          : "text-gray-700 hover:bg-white/70",
-                      )}
-                      onClick={() => setMobilePanel("canvas")}
-                    >
-                      Canvas
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
-                        mobilePanel === "modules"
-                          ? "bg-primary text-white shadow-glow"
-                          : "text-gray-700 hover:bg-white/70",
-                      )}
-                      onClick={() => setMobilePanel("modules")}
-                    >
-                      Modules
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!builder.selectedBlock}
-                      className={cn(
-                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
-                        mobilePanel === "inspector"
-                          ? "bg-primary text-white shadow-glow"
-                          : "text-gray-700 hover:bg-white/70",
-                      )}
-                      onClick={() => setMobilePanel("inspector")}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex-1 min-h-0 overflow-hidden">
                   {mobilePanel === "modules" ? (
                     <SpaceModulesPanel modules={SPACE_MODULES} onAddModule={addModule} />
@@ -225,55 +185,6 @@ export const SpaceBuilder = () => {
                       )}
                     </aside>
                   ) : (
-                    <div className="h-full rounded-2xl border border-white/60 bg-white/40 p-4 shadow-soft backdrop-blur">
-                      <SpaceBuilderCanvas
-                        blocks={builder.visibleBlocks}
-                        handle={spaceHandle ?? "me"}
-                        walletLabel={walletLabel}
-                        mode={builder.mode}
-                        selectedId={builder.selectedId}
-                        onSelectId={(id) => {
-                          builder.setSelectedId(id);
-                          setMobilePanel("inspector");
-                        }}
-                        onLayoutChange={builder.onLayoutChange}
-                        onDropModule={addModule}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Desktop */}
-              <div
-                className={cn(
-                  "hidden lg:grid lg:flex-1 lg:min-h-0 lg:gap-5",
-                  modulesOpen && inspectorOpen
-                    ? "lg:grid-cols-[300px_minmax(0,1fr)_300px]"
-                    : modulesOpen
-                      ? "lg:grid-cols-[300px_minmax(0,1fr)]"
-                      : inspectorOpen
-                        ? "lg:grid-cols-[minmax(0,1fr)_300px]"
-                        : "lg:grid-cols-1",
-                )}
-              >
-                {modulesOpen ? <SpaceModulesPanel modules={SPACE_MODULES} onAddModule={addModule} /> : null}
-
-                <main className="flex h-full min-h-0 flex-col rounded-2xl border border-white/60 bg-white/40 p-4 shadow-soft backdrop-blur sm:p-5">
-                  <div className="flex items-end justify-between gap-3 pb-4">
-                    <div className="min-w-0">
-                      <div className="text-lg font-extrabold tracking-tight text-gray-900">My Space</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {builder.isPublished ? "Published" : "Draft"} • {spacePath ?? "/space/<your-handle>"}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 shadow-sm">
-                      <span className={cn("size-2 rounded-full", savingDotClass)} />
-                      <span className="text-xs font-semibold text-gray-700">{savingLabel}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-h-0">
                     <SpaceBuilderCanvas
                       blocks={builder.visibleBlocks}
                       handle={spaceHandle ?? "me"}
@@ -282,13 +193,85 @@ export const SpaceBuilder = () => {
                       selectedId={builder.selectedId}
                       onSelectId={(id) => {
                         builder.setSelectedId(id);
-                        setInspectorOpen(true);
+                        setMobilePanel("inspector");
                       }}
                       onLayoutChange={builder.onLayoutChange}
                       onDropModule={addModule}
                     />
+                  )}
+                </div>
+
+                <div className="fixed bottom-4 left-0 right-0 z-40 mx-auto w-full max-w-[440px] px-3 pb-[calc(env(safe-area-inset-bottom)+4px)]">
+                  <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/70 bg-white/85 p-1 shadow-soft backdrop-blur">
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
+                        mobilePanel === "modules"
+                          ? "bg-primary text-white shadow-glow"
+                          : "text-gray-700 hover:bg-white/70",
+                      )}
+                      onClick={() => setMobilePanel("modules")}
+                    >
+                      Modules
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
+                        mobilePanel === "canvas"
+                          ? "bg-primary text-white shadow-glow"
+                          : "text-gray-700 hover:bg-white/70",
+                      )}
+                      onClick={() => setMobilePanel("canvas")}
+                    >
+                      Canvas
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!builder.selectedBlock}
+                      className={cn(
+                        "rounded-xl px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
+                        mobilePanel === "inspector"
+                          ? "bg-primary text-white shadow-glow"
+                          : "text-gray-700 hover:bg-white/70",
+                      )}
+                      onClick={() => setMobilePanel("inspector")}
+                    >
+                      Edit
+                    </button>
                   </div>
-                </main>
+                </div>
+              </div>
+
+              {/* Desktop */}
+              <div
+                className={cn(
+                  "hidden lg:grid lg:flex-1 lg:min-h-0 lg:gap-5",
+                  modulesOpen && inspectorOpen
+                    ? "lg:grid-cols-[340px_minmax(0,1fr)_340px]"
+                    : modulesOpen
+                      ? "lg:grid-cols-[340px_minmax(0,1fr)]"
+                      : inspectorOpen
+                        ? "lg:grid-cols-[minmax(0,1fr)_340px]"
+                        : "lg:grid-cols-1",
+                )}
+              >
+                {modulesOpen ? <SpaceModulesPanel modules={SPACE_MODULES} onAddModule={addModule} /> : null}
+
+                <SpaceBuilderCanvas
+                  blocks={builder.visibleBlocks}
+                  handle={spaceHandle ?? "me"}
+                  walletLabel={walletLabel}
+                  mode={builder.mode}
+                  selectedId={builder.selectedId}
+                  onSelectId={(id) => {
+                    builder.setSelectedId(id);
+                    setInspectorOpen(true);
+                  }}
+                  onLayoutChange={builder.onLayoutChange}
+                  onDropModule={addModule}
+                />
 
                 {inspectorOpen ? (
                   <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-soft backdrop-blur">

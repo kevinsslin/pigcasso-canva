@@ -46,7 +46,7 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
         </div>
       </div>
       <ScrollArea className="flex-1">
-        <div className="p-4 grid grid-cols-2 gap-3">
+        <div className="p-4 space-y-2">
           {filteredModules.map((module) => (
             <button
               key={module.type}
@@ -54,26 +54,27 @@ export const SpaceModulesPanel = ({ modules, onAddModule }: SpaceModulesPanelPro
               onClick={() => onAddModule(module)}
               draggable
               onDragStart={(event) => setSpaceModuleDragData(event.dataTransfer, module.type)}
-              className="group relative overflow-hidden rounded-2xl border border-white/60 bg-white/70 px-3 py-3 text-left shadow-soft transition hover:border-cyan-200 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="group relative w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-left shadow-soft transition hover:border-primary/25 hover:bg-white/80 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
-              <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-cyan-400/10 to-yellow-300/10" />
-                <div className="absolute inset-y-0 -left-1/3 w-1/2 rotate-6">
-                  <div className="h-full w-full bg-gradient-to-r from-white/0 via-white/55 to-white/0 motion-safe:animate-[pigcasso-sheen_5.5s_ease-in-out_0ms_infinite]" />
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-black/5 transition-colors group-hover:bg-cyan-400/10 group-hover:text-cyan-700">
+                  <module.icon className="size-5" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate text-sm font-bold text-gray-900">{module.label}</div>
+                    <span className="rounded-xl border border-white/70 bg-white/80 px-2 py-1 text-[10px] font-semibold text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                      <GripVertical className="size-3" />
+                    </span>
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{module.description}</div>
                 </div>
               </div>
-              <div className="relative flex items-start justify-between gap-2">
-                <module.icon className="size-5 text-primary group-hover:text-cyan-500 transition-colors" />
-                <span className="rounded-md border border-white/60 bg-white/80 px-1.5 py-1 shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
-                  <GripVertical className="size-4 text-muted-foreground" />
-                </span>
-              </div>
-              <div className="mt-2 text-xs font-bold text-gray-900">{module.label}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{module.description}</div>
             </button>
           ))}
           {filteredModules.length === 0 ? (
-            <div className="col-span-2 rounded-2xl border border-dashed border-white/70 bg-white/60 px-4 py-6 text-center text-xs text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-white/70 bg-white/60 px-4 py-6 text-center text-xs text-muted-foreground">
               No modules found.
             </div>
           ) : null}
