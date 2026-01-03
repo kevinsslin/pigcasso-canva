@@ -3,16 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowLeftRight,
   ArrowRight,
   BadgeCheck,
   Blocks,
   Brush,
   Coins,
-  CreditCard,
   Flame,
   FolderOpen,
-  LayoutDashboard,
   LayoutTemplate,
   Loader2,
   Mic,
@@ -21,7 +18,6 @@ import {
   Sparkles,
   Trophy,
   Wand2,
-  Wallet,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +42,12 @@ export default function LandingPage() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-cyan-400 p-0.5 shadow-lg shadow-pink-500/20 group-hover:rotate-6 transition-transform duration-300">
               <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                <Image src="/logo-pig.png" alt="Pigcasso" width={40} height={40} />
+                <Image
+                  src="/logo-pig.png"
+                  alt="Pigcasso"
+                  width={40}
+                  height={40}
+                />
               </div>
             </div>
             <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
@@ -82,7 +83,9 @@ export default function LandingPage() {
               disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
-              {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {opening ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
               Open app
               <ArrowRight className="ml-2 size-4" />
             </Button>
@@ -118,10 +121,10 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
-                  Browse project hubs, remix templates, and ship polished assets for X,
-                  Discord, and Telegram. Track what people actually use with built-in
-                  leaderboards — and unlock rewards &amp; cross-channel attribution on the
-                  roadmap.
+                  Browse project hubs, remix templates, and ship polished assets
+                  for X, Discord, and Telegram. Track what people actually use
+                  with built-in leaderboards — and unlock rewards &amp;
+                  cross-channel attribution on the roadmap.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
@@ -132,7 +135,11 @@ export default function LandingPage() {
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
-                    {opening ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Brush className="mr-2 size-5" />}
+                    {opening ? (
+                      <Loader2 className="mr-2 size-5 animate-spin" />
+                    ) : (
+                      <Brush className="mr-2 size-5" />
+                    )}
                     {opening ? "Opening…" : "Open app"}
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
@@ -211,35 +218,34 @@ export default function LandingPage() {
                       </div>
                     </div>
                   </div>
+                </Tilt>
+              </div>
+            </div>
+          </div>
+        </section>
 
-	                </Tilt>
-	              </div>
-	            </div>
-	          </div>
-	        </section>
-
-	        <section
-	          id="product"
-	          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
-	        >
+        <section
+          id="product"
+          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Product"
               title="A canvas that ships with you"
-              description="Designed for creators and communities: build assets, publish fast, and track what people use."
+              description="Create community assets, publish fast, and track what people actually use."
             />
 
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 lg:gap-6 lg:auto-rows-[minmax(240px,auto)] xl:auto-rows-[minmax(260px,auto)]">
-              <BentoCard className="md:col-span-2 lg:col-span-8 lg:row-span-2">
-                <div className="absolute inset-0">
+            <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-12 lg:auto-rows-[minmax(240px,auto)] lg:gap-6 xl:auto-rows-[minmax(260px,auto)]">
+              <BentoCard className="md:col-span-2 lg:col-span-7 lg:row-span-2">
+                <div className="pointer-events-none absolute inset-0">
                   <Image
                     src="/pig-banner.png"
                     alt=""
                     fill
                     sizes="(max-width: 1024px) 100vw, 58vw"
-                    className="object-cover object-[82%_30%] opacity-30 sm:opacity-45"
+                    className="object-contain object-right opacity-20 sm:opacity-35"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/80 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/82 to-transparent" />
                 </div>
 
                 <div className="relative h-full flex flex-col">
@@ -269,76 +275,74 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-	                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xl">
-	                    Start from a project hub, remix on the canvas with Pigcasso assistant, then watch leaderboards evolve from real usage.
-	                  </p>
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                    Start from a project hub, remix on the canvas, then watch
+                    mindshare evolve from real usage.
+                  </p>
 
-	                  <div className="mt-auto pt-6">
-	                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-	                      <div className="flex items-center gap-2">
-	                        <LayoutTemplate className="size-4 text-cyan-500" />
-	                        Avatar frames, stickers, seasonal templates
-	                      </div>
-	                      <div className="flex items-center gap-2">
-	                        <Sparkles className="size-4 text-primary" />
-	                        Assistant: draft → preview → apply
-	                      </div>
-	                      <div className="flex items-center gap-2">
-                        <Trophy className="size-4 text-yellow-500" />
-                        Leaderboards + contribution tracking
-                      </div>
+                  <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                    <div className="flex items-start gap-2">
+                      <LayoutTemplate className="mt-0.5 size-4 text-cyan-500" />
+                      <span>
+                        Asset kits: avatar frames, stickers, seasonal templates
+                      </span>
                     </div>
-
-                    <div className="mt-5 flex flex-col sm:flex-row gap-3">
-                      <Button
-                        type="button"
-                        onClick={() => void openApp("/projects")}
-                        disabled={opening}
-                        className="rounded-2xl bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
-                      >
-                        Explore projects <ArrowRight className="ml-2 size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => void openApp("/app")}
-                        disabled={opening}
-                        className="rounded-2xl bg-white/80 border border-white/60 shadow-soft hover:bg-white"
-                      >
-                        Open editor <Brush className="ml-2 size-4 text-primary" />
-                      </Button>
+                    <div className="flex items-start gap-2">
+                      <Blocks className="mt-0.5 size-4 text-cyan-500" />
+                      <span>Space: bento-style gateway pages</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Mic className="mt-0.5 size-4 text-primary" />
+                      <span>Assistant: voice + preview before apply</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Trophy className="mt-0.5 size-4 text-yellow-500" />
+                      <span>Mindshare signals + leaderboards</span>
                     </div>
                   </div>
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-4">
+              <BentoCard className="lg:col-span-5">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <Brush className="size-5 text-primary" />
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-cyan-400/18 to-indigo-500/10 flex items-center justify-center border border-white/60">
+                        <Blocks className="size-5 text-cyan-500" />
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Editor
+                          Space
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">Canva-like canvas</div>
+                        <div className="text-xl font-extrabold tracking-tight">
+                          Bento-style pages
+                        </div>
                       </div>
                     </div>
                     <BentoBadge>
-                      <LayoutDashboard className="size-3.5 text-yellow-500" />
-                      Fast exports
+                      <BadgeCheck className="size-3.5 text-primary" />
+                      Public URL
                     </BentoBadge>
                   </div>
 
-	                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-	                    Drag, resize, align, and remix. Export with presets so assets look right on every channel.
-	                  </p>
-	                </div>
-	              </BentoCard>
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+                    Build a public gateway page — drag blocks onto your canvas,
+                    move them around, and publish to share in your bio.
+                  </p>
 
-              <BentoCard className="lg:col-span-4">
+                  <div className="mt-auto pt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <Brush className="size-4 text-primary" /> Drag + resize
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <Rocket className="size-4 text-cyan-500" /> Publish +
+                      share
+                    </span>
+                  </div>
+                </div>
+              </BentoCard>
+
+              <BentoCard className="lg:col-span-5">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -349,7 +353,9 @@ export default function LandingPage() {
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           AI
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">Pigcasso assistant</div>
+                        <div className="text-xl font-extrabold tracking-tight">
+                          Pigcasso assistant
+                        </div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -359,7 +365,8 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Ask in natural language (or voice), preview proposed edits, then apply when you’re happy.
+                    Ask in natural language (or voice), preview proposed edits,
+                    then apply when you’re happy.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-col gap-2 text-[11px] text-muted-foreground">
@@ -375,18 +382,20 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-6 xl:col-span-3">
+              <BentoCard className="lg:col-span-6">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-yellow-300/20 to-primary/10 flex items-center justify-center border border-white/60">
-	                        <Trophy className="size-5 text-yellow-500" />
-	                      </div>
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-yellow-300/20 to-primary/10 flex items-center justify-center border border-white/60">
+                        <Trophy className="size-5 text-yellow-500" />
+                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Signals
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">Leaderboards</div>
+                        <div className="text-xl font-extrabold tracking-tight">
+                          Leaderboards
+                        </div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -396,14 +405,26 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Track what’s used in the wild: top projects, assets, and creators.
+                    Track what’s used in the wild: top projects, assets, and
+                    creators.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-wrap gap-2">
                     {[
-                      { label: "Top creators", icon: <Trophy className="size-3.5 text-yellow-500" /> },
-                      { label: "Top assets", icon: <LayoutTemplate className="size-3.5 text-cyan-500" /> },
-                      { label: "Top projects", icon: <Rocket className="size-3.5 text-primary" /> },
+                      {
+                        label: "Top creators",
+                        icon: <Trophy className="size-3.5 text-yellow-500" />,
+                      },
+                      {
+                        label: "Top assets",
+                        icon: (
+                          <LayoutTemplate className="size-3.5 text-cyan-500" />
+                        ),
+                      },
+                      {
+                        label: "Top projects",
+                        icon: <Rocket className="size-3.5 text-primary" />,
+                      },
                     ].map((item) => (
                       <span
                         key={item.label}
@@ -417,53 +438,20 @@ export default function LandingPage() {
                 </div>
               </BentoCard>
 
-              <BentoCard className="lg:col-span-6 xl:col-span-3">
+              <BentoCard className="lg:col-span-6">
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-cyan-400/18 to-indigo-500/10 flex items-center justify-center border border-white/60">
-	                        <ArrowLeftRight className="size-5 text-cyan-500" />
-	                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Identity
-                        </div>
-                        <div className="text-xl font-extrabold tracking-tight">Link socials</div>
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/18 to-yellow-300/12 flex items-center justify-center border border-white/60">
+                        <Coins className="size-5 text-primary" />
                       </div>
-                    </div>
-                    <BentoBadge>
-                      <Wallet className="size-3.5 text-muted-foreground" />
-                      Wallet-first
-                    </BentoBadge>
-                  </div>
-
-                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Connect your wallet today. Link X, Discord, and Telegram for cross-channel attribution (roadmap).
-                  </p>
-
-                  <div className="mt-auto pt-6 flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-primary" /> No passwords
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <Blocks className="size-4 text-cyan-500" /> One identity
-                    </span>
-                  </div>
-                </div>
-              </BentoCard>
-
-              <BentoCard className="lg:col-span-6 xl:col-span-3">
-                <div className="flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
-	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/18 to-yellow-300/12 flex items-center justify-center border border-white/60">
-	                        <Coins className="size-5 text-primary" />
-	                      </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Monetize
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">Template tokens</div>
+                        <div className="text-xl font-extrabold tracking-tight">
+                          Template tokens
+                        </div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -473,58 +461,66 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Launch a token per template on Printr. Narratives combine meme energy + real usage cashflow.
+                    Launch a token per template on Printr. Narratives combine
+                    meme energy + real usage cashflow.
                   </p>
 
                   <div className="mt-auto pt-6 text-xs text-muted-foreground">
-                    Stake-to-use and pay-to-use models are on the roadmap.
-                  </div>
-                </div>
-              </BentoCard>
-
-              <BentoCard className="lg:col-span-6 xl:col-span-3">
-                <div className="flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
-	                      <div className="size-11 rounded-2xl bg-gradient-to-br from-slate-900/8 to-primary/10 flex items-center justify-center border border-white/60">
-	                        <CreditCard className="size-5 text-muted-foreground" />
-	                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Access
-                        </div>
-                        <div className="text-xl font-extrabold tracking-tight">Stake to use</div>
-                      </div>
-                    </div>
-                    <BentoBadge>
-                      <BadgeCheck className="size-3.5 text-primary" />
-                      Coming soon
-                    </BentoBadge>
-                  </div>
-
-                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Unlock premium templates by staking the template token for a period — or pay per use.
-                  </p>
-
-                  <div className="mt-auto pt-6 flex items-center gap-2 text-xs text-muted-foreground">
-                    <ArrowLeftRight className="size-4" />
-                    Flexible pricing model (to be finalized).
+                    Token per template • stake-to-use • pay-to-use (roadmap)
                   </div>
                 </div>
               </BentoCard>
             </div>
+
+            <div className="mt-10 rounded-3xl border border-white/60 bg-white/70 backdrop-blur px-6 py-6 shadow-soft">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
+                    Try it
+                  </div>
+                  <div className="mt-1 text-xl font-extrabold tracking-tight text-gray-900">
+                    Open the app and build your Space
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Connect a wallet, drag blocks, publish, and share.
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    type="button"
+                    onClick={() => void openApp("/app")}
+                    disabled={opening}
+                    className="rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/25 hover:opacity-95"
+                  >
+                    {opening ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : null}
+                    Open app
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void openApp("/space/builder")}
+                    disabled={opening}
+                    className="rounded-full"
+                  >
+                    Build Space
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-	        <section id="how" className="py-20">
-	          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section id="how" className="py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Workflow"
               title="Create → publish → track"
               description="A simple loop for communities and creators."
             />
 
-	            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               <FeatureCard
                 icon={<FolderOpen className="size-5 text-primary" />}
                 title="1) Pick a project"
@@ -540,12 +536,12 @@ export default function LandingPage() {
                 title="3) Ask Pigcasso"
                 description="Use voice or text to draft edits. Preview the changes before applying."
               />
-	              <FeatureCard
-	                icon={<Rocket className="size-5 text-primary" />}
-	                title="4) Publish & track"
-	                description="Publish assets, then watch leaderboards evolve as the community remixes."
-	              />
-	            </div>
+              <FeatureCard
+                icon={<Rocket className="size-5 text-primary" />}
+                title="4) Publish & track"
+                description="Publish assets, then watch leaderboards evolve as the community remixes."
+              />
+            </div>
 
             <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Tilt className="h-full">
@@ -557,7 +553,8 @@ export default function LandingPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    The assistant proposes edits as structured actions, not guessy “magic”.
+                    The assistant proposes edits as structured actions, not
+                    guessy “magic”.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -570,7 +567,8 @@ export default function LandingPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    You can preview changes before committing — iterate without fear.
+                    You can preview changes before committing — iterate without
+                    fear.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -583,7 +581,8 @@ export default function LandingPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    Apply instantly to your existing canvas — or clear the draft and try again.
+                    Apply instantly to your existing canvas — or clear the draft
+                    and try again.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -591,7 +590,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-	        <section id="pricing" className="py-20 bg-white/60 border-y border-white/50">
+        <section
+          id="pricing"
+          className="py-20 bg-white/60 border-y border-white/50"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Plans"
@@ -629,7 +631,9 @@ export default function LandingPage() {
                       disabled={opening}
                       className="w-full rounded-2xl mt-3"
                     >
-                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                      {opening ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
                       Open app
                       <ArrowRight className="ml-2 size-4" />
                     </Button>
@@ -637,38 +641,42 @@ export default function LandingPage() {
                 </Card>
               </Tilt>
 
-	              <Tilt className="h-full">
-	                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
+              <Tilt className="h-full">
+                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
                   <div className="absolute inset-0 opacity-35">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
                     <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
                   </div>
-	                  <CardHeader className="relative pb-2">
-	                    <CardTitle className="flex items-center justify-between gap-4">
-	                      <span>Pro</span>
-	                      <span className="text-sm font-semibold text-white/80">Roadmap</span>
-	                    </CardTitle>
-	                  </CardHeader>
-	                  <CardContent className="relative space-y-3 text-sm text-white/80">
-	                    <div className="flex items-center gap-2">
-	                      <BadgeCheck className="size-4 text-white" />
-	                      Premium templates + higher AI limits
-	                    </div>
-	                    <div className="flex items-center gap-2">
-	                      <BadgeCheck className="size-4 text-white" />
-	                      Partner projects + custom hubs
-	                    </div>
-	                    <div className="flex items-center gap-2">
-	                      <BadgeCheck className="size-4 text-white" />
-	                      Attribution signals + rewards (roadmap)
-	                    </div>
-	                    <Button
-	                      type="button"
-	                      onClick={() => void openApp("/app")}
-                        disabled={opening}
+                  <CardHeader className="relative pb-2">
+                    <CardTitle className="flex items-center justify-between gap-4">
+                      <span>Pro</span>
+                      <span className="text-sm font-semibold text-white/80">
+                        Roadmap
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative space-y-3 text-sm text-white/80">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Premium templates + higher AI limits
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Partner projects + custom hubs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="size-4 text-white" />
+                      Attribution signals + rewards (roadmap)
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => void openApp("/app")}
+                      disabled={opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
-                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                      {opening ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
                       Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -725,8 +733,8 @@ export default function LandingPage() {
                     Ready to ship community assets?
                   </h2>
                   <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
-                    Open the app, join a project hub, and publish assets your community can
-                    actually reuse.
+                    Open the app, join a project hub, and publish assets your
+                    community can actually reuse.
                   </p>
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
@@ -736,7 +744,9 @@ export default function LandingPage() {
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
                     >
-                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                      {opening ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
                       Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -771,13 +781,18 @@ export default function LandingPage() {
           </div>
         </section>
 
-	        <footer className="border-t border-white/50 bg-white/40 backdrop-blur">
+        <footer className="border-t border-white/50 bg-white/40 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 p-0.5 shadow-lg shadow-pink-500/20">
                   <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                    <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} />
+                    <Image
+                      src="/logo-pig.png"
+                      alt="Pigcasso"
+                      width={36}
+                      height={36}
+                    />
                   </div>
                 </div>
                 <div>
@@ -788,18 +803,21 @@ export default function LandingPage() {
                 </div>
               </div>
 
-	              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-	                <span className="inline-flex items-center gap-2">
-	                  <FolderOpen className="size-4" /> Project asset hubs
-	                </span>
-	                <span className="inline-flex items-center gap-2">
-	                  <Trophy className="size-4" /> Lightweight leaderboards
-	                </span>
-	              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2">
+                  <FolderOpen className="size-4" /> Project asset hubs
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <Trophy className="size-4" /> Lightweight leaderboards
+                </span>
+              </div>
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-muted-foreground">
-              <div>© {new Date().getFullYear()} Pigcasso Canvas. All rights reserved.</div>
+              <div>
+                © {new Date().getFullYear()} Pigcasso Canvas. All rights
+                reserved.
+              </div>
               <div className="flex items-center gap-4">
                 <Link href="/app" className="hover:underline">
                   Open app
