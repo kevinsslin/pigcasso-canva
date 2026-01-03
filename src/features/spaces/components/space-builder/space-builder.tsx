@@ -10,9 +10,17 @@ import { SpaceInspector } from "@/features/spaces/components/space-builder/space
 import { SpaceModulesPanel } from "@/features/spaces/components/space-builder/space-modules-panel";
 import { useSpaceBuilder } from "@/features/spaces/hooks/use-space-builder";
 import { SPACE_MODULES } from "@/features/spaces/lib/space-modules";
+import { useMe } from "@/features/auth/api/use-me";
+import { getCanonicalSpaceHandle } from "@/features/spaces/lib/space-handle";
 
 export const SpaceBuilder = () => {
   const builder = useSpaceBuilder();
+  const me = useMe();
+
+  const spaceHandle = me.data?.data.user
+    ? getCanonicalSpaceHandle({ id: me.data.data.user.id, socials: me.data.data.user.socials })
+    : null;
+  const spacePath = spaceHandle ? `/space/${encodeURIComponent(spaceHandle)}` : null;
 
   const savingLabel =
     builder.saveStatus === "saving"
@@ -63,6 +71,8 @@ export const SpaceBuilder = () => {
         onModeChange={builder.setMode}
         onPublish={builder.publish}
         publishDisabled={builder.isSaving}
+        isPublished={builder.isPublished}
+        spacePath={spacePath}
       />
 
       <div className="mx-auto max-w-[1400px] px-4 pb-12 pt-6 sm:px-6">
@@ -77,7 +87,7 @@ export const SpaceBuilder = () => {
               <div className="min-w-0">
                 <div className="text-lg font-extrabold tracking-tight text-gray-900">My Space</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {builder.isPublished ? "Published" : "Draft"} • /space/&lt;your-handle&gt;
+                  {builder.isPublished ? "Published" : "Draft"} • {spacePath ?? "/space/<your-handle>"}
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 shadow-sm">

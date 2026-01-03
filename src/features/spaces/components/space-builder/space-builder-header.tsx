@@ -1,15 +1,19 @@
-import { Eye, GripVertical, Rocket } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, Eye, GripVertical, Rocket } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 import type { SpaceBuilderMode } from "@/features/spaces/hooks/use-space-builder";
+import { CopySpaceLink } from "@/features/spaces/components/copy-space-link";
 
 type SpaceBuilderHeaderProps = {
   mode: SpaceBuilderMode;
   onModeChange: (mode: SpaceBuilderMode) => void;
   onPublish: () => void;
   publishDisabled: boolean;
+  isPublished: boolean;
+  spacePath: string | null;
 };
 
 export const SpaceBuilderHeader = ({
@@ -17,6 +21,8 @@ export const SpaceBuilderHeader = ({
   onModeChange,
   onPublish,
   publishDisabled,
+  isPublished,
+  spacePath,
 }: SpaceBuilderHeaderProps) => {
   return (
     <header className="sticky top-0 z-30 border-b border-white/60 bg-white/75 backdrop-blur-md">
@@ -35,6 +41,16 @@ export const SpaceBuilderHeader = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {spacePath ? (
+            <>
+              <CopySpaceLink path={spacePath} />
+              <Button asChild type="button" variant="secondary" size="sm">
+                <Link href={spacePath} target="_blank" rel="noreferrer">
+                  View live <ExternalLink className="ml-2 size-4" />
+                </Link>
+              </Button>
+            </>
+          ) : null}
           <div className="flex rounded-full bg-white/70 p-1 border border-white/60 shadow-soft">
             <Button
               type="button"
@@ -65,11 +81,10 @@ export const SpaceBuilderHeader = ({
             className="rounded-2xl bg-primary text-white shadow-glow hover:opacity-95"
           >
             <Rocket className="mr-2 size-4" />
-            Publish
+            {isPublished ? "Update live" : "Publish"}
           </Button>
         </div>
       </div>
     </header>
   );
 };
-
