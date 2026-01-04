@@ -14,6 +14,21 @@ const EXPLORER_BASE_BY_CHAIN_ID: Record<number, string> = {
   5000: "https://mantlescan.xyz",
 };
 
+const normalizeExternalLinkUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+};
+
 const buildExplorerTokenUrl = (params: { chainId: number; contractAddress: string; tokenId: string }) => {
   const base = EXPLORER_BASE_BY_CHAIN_ID[params.chainId];
   if (!base) return null;
@@ -125,30 +140,34 @@ export const SpaceBlockCard = ({
             ) : (
               <div className="mt-4 space-y-2">
                 {links.map((link) => {
-                const rowClassName =
-                  "flex w-full items-center justify-between rounded-2xl bg-white/75 px-4 py-2.5 text-sm font-semibold text-gray-900 ring-1 ring-black/5 transition-colors";
+                  const rowClassName =
+                    "flex w-full items-center justify-between rounded-2xl bg-white/75 px-4 py-2.5 text-sm font-semibold text-gray-900 ring-1 ring-black/5 transition-colors";
 
-                if (interactive) {
+                  const href = normalizeExternalLinkUrl(link.url);
+                  if (interactive && href) {
+                    return (
+                      <a
+                        key={`${link.label}-${link.url}`}
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cn(
+                          rowClassName,
+                          "hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                        )}
+                      >
+                        <span className="truncate">{link.label}</span>
+                        <span className="text-xs text-muted-foreground">↗</span>
+                      </a>
+                    );
+                  }
+
                   return (
-                    <a
-                      key={`${link.label}-${link.url}`}
-                      href={link.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={cn(rowClassName, "hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30")}
-                    >
+                    <div key={`${link.label}-${link.url}`} className={rowClassName}>
                       <span className="truncate">{link.label}</span>
                       <span className="text-xs text-muted-foreground">↗</span>
-                    </a>
+                    </div>
                   );
-                }
-
-                return (
-                  <div key={`${link.label}-${link.url}`} className={rowClassName}>
-                    <span className="truncate">{link.label}</span>
-                    <span className="text-xs text-muted-foreground">↗</span>
-                  </div>
-                );
                 })}
               </div>
             )}

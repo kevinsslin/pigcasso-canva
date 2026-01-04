@@ -11,7 +11,20 @@ export type SpaceLayout = z.infer<typeof spaceLayoutSchema>;
 
 export const spaceLinkSchema = z.object({
   label: z.string().trim().min(1).max(80),
-  url: z.string().trim().url(),
+  url: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((value) => {
+      if (!value) return value;
+      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) return value;
+      return `https://${value}`;
+    })
+    .pipe(z.string().url())
+    .refine((value) => {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    }, "URL must start with http:// or https://"),
 });
 
 export type SpaceLink = z.infer<typeof spaceLinkSchema>;

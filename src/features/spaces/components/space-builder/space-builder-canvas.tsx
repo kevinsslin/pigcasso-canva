@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Copy, Eye, EyeOff, GripVertical, Trash2 } from "lucide-react";
-import { verticalCompactor, type Layout } from "react-grid-layout";
+import { noCompactor, type Layout } from "react-grid-layout";
 
 import { cn } from "@/lib/utils";
 
@@ -85,7 +85,7 @@ export const SpaceBuilderCanvas = ({
     return { w: moduleDef.defaultLayout.w, h: moduleDef.defaultLayout.h };
   };
 
-  const onDrop: SpaceGridLayoutProps["onDrop"] = (layout, item, event) => {
+  const onDrop: SpaceGridLayoutProps["onDrop"] = (_layout, item, event) => {
     if (mode !== "edit") return;
 
     const moduleType = getSpaceModuleDragData((event as DragEvent).dataTransfer ?? null);
@@ -93,9 +93,6 @@ export const SpaceBuilderCanvas = ({
 
     const moduleDef = getSpaceModuleDefinition(moduleType);
     if (!moduleDef) return;
-
-    setDraftLayout(layout);
-    onLayoutChange(layout);
 
     const placement: DroppedModulePlacement = {
       x: item?.x ?? 0,
@@ -131,7 +128,7 @@ export const SpaceBuilderCanvas = ({
             isDraggable={mode === "edit"}
             isResizable={mode === "edit"}
             isBounded
-            compactor={verticalCompactor}
+            compactor={noCompactor}
             onDragStop={commitLayout}
             onResizeStop={commitLayout}
             onLayoutChange={onLiveLayoutChange}

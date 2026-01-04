@@ -204,9 +204,7 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
       data: module.createData(),
     } as SpaceBlock;
 
-    const nextBlocks = placement
-      ? normalizeBlocksLayout([...currentDocument.blocks, block], SPACE_GRID_COLUMNS)
-      : insertBlockAvoidingOverlap(currentDocument.blocks, block, SPACE_GRID_COLUMNS);
+    const nextBlocks = insertBlockAvoidingOverlap(currentDocument.blocks, block, SPACE_GRID_COLUMNS);
     const nextDocument: SpaceDocument = { ...currentDocument, blocks: nextBlocks };
     const parsed = spaceDocumentSchema.safeParse(nextDocument);
     if (!parsed.success) {
@@ -242,10 +240,24 @@ export const useSpaceBuilder = (): SpaceBuilderController => {
     const version = changeVersionRef.current;
 
     try {
-      await saveMutation.mutateAsync({ document: currentDocument, isPublished: true });
-      setIsPublished(true);
-      publishedDocumentRef.current = currentDocument;
-      setPublishedDocument(currentDocument);
+      const response = await saveMutation.mutateAsync({ document: currentDocument, isPublished: true });
+      const nextDocument: SpaceDocument = {
+        ...response.data.document,
+        blocks: normalizeBlocksLayout(response.data.document.blocks, SPACE_GRID_COLUMNS),
+      };
+      const nextPublished = response.data.publishedDocument
+        ? ({
+            ...response.data.publishedDocument,
+            blocks: normalizeBlocksLayout(response.data.publishedDocument.blocks, SPACE_GRID_COLUMNS),
+          } satisfies SpaceDocument)
+        : null;
+
+      documentRef.current = nextDocument;
+      publishedDocumentRef.current = nextPublished;
+
+      setDocument(nextDocument);
+      setPublishedDocument(nextPublished);
+      setIsPublished(response.data.isPublished);
       savedVersionRef.current = version;
       setSavedVersion(version);
       toast.success("Space published.");

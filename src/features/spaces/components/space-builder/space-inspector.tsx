@@ -36,6 +36,13 @@ const NFT_CHAIN_OPTIONS = [
 const getChainLabel = (chainId: number) =>
   NFT_CHAIN_OPTIONS.find((option) => option.chainId === chainId)?.label ?? `Chain ${chainId}`;
 
+const normalizeExternalLinkInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
 const UploadImageField = ({
   label,
   description,
@@ -330,18 +337,25 @@ const LinksInspectorFields = ({
                       }}
                     />
                   </div>
-                  <div>
-                    <div className="text-[11px] font-medium text-muted-foreground">URL</div>
-                    <Input
-                      value={link.url}
-                      onChange={(e) => {
-                        const next = [...(block.data.links as SpaceLink[])];
-                        next[index] = { ...next[index], url: e.target.value };
-                        onChange({ ...block, data: { ...block.data, links: next } });
-                      }}
-                    />
-                  </div>
-                </div>
+	                  <div>
+	                    <div className="text-[11px] font-medium text-muted-foreground">URL</div>
+	                    <Input
+	                      value={link.url}
+	                      onChange={(e) => {
+	                        const next = [...(block.data.links as SpaceLink[])];
+	                        next[index] = { ...next[index], url: e.target.value };
+	                        onChange({ ...block, data: { ...block.data, links: next } });
+	                      }}
+	                      onBlur={(e) => {
+	                        const normalizedUrl = normalizeExternalLinkInput(e.target.value);
+	                        if (!normalizedUrl || normalizedUrl === link.url) return;
+	                        const next = [...(block.data.links as SpaceLink[])];
+	                        next[index] = { ...next[index], url: normalizedUrl };
+	                        onChange({ ...block, data: { ...block.data, links: next } });
+	                      }}
+	                    />
+	                  </div>
+	                </div>
                 <Button
                   type="button"
                   size="sm"

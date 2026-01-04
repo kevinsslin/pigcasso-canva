@@ -66,13 +66,27 @@ describe("space layout helpers", () => {
     }
   });
 
-  test("normalizeBlocksLayout compacts a valid layout by default", () => {
+  test("normalizeBlocksLayout preserves a valid layout by default", () => {
     const blocks = [
       makeTextBlock("a", { x: 0, y: 0, w: 1, h: 1 }),
       makeTextBlock("b", { x: 3, y: 2, w: 1, h: 1 }),
     ];
 
     const next = normalizeBlocksLayout(blocks, 4);
+    expect(hasLayoutOverlap(layoutFromBlocks(next))).toBe(false);
+
+    const byId = new Map(next.map((block) => [block.id, block.layout]));
+    expect(byId.get("a")).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+    expect(byId.get("b")).toEqual({ x: 3, y: 2, w: 1, h: 1 });
+  });
+
+  test("normalizeBlocksLayout compacts when compact option is enabled", () => {
+    const blocks = [
+      makeTextBlock("a", { x: 0, y: 0, w: 1, h: 1 }),
+      makeTextBlock("b", { x: 3, y: 2, w: 1, h: 1 }),
+    ];
+
+    const next = normalizeBlocksLayout(blocks, 4, { compact: true });
     expect(hasLayoutOverlap(layoutFromBlocks(next))).toBe(false);
 
     const byId = new Map(next.map((block) => [block.id, block.layout]));

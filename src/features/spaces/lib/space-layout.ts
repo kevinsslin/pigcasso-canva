@@ -1,5 +1,5 @@
 import type { Layout } from "react-grid-layout";
-import { correctBounds, getCompactor, moveElement } from "react-grid-layout/core";
+import { correctBounds, getCompactor } from "react-grid-layout/core";
 
 import type { SpaceBlock } from "@/features/spaces/lib/space-document";
 import { SPACE_GRID_COLUMNS } from "@/features/spaces/lib/space-grid";
@@ -62,14 +62,39 @@ const toMutableLayout = (layout: Layout, cols: number): Layout => {
   });
 };
 
-const compactLayout = (layout: Layout, cols: number): Layout => {
+const correctLayoutBounds = (layout: Layout, cols: number): Layout => {
   const nextLayout = toMutableLayout(layout, cols);
-  const bounded = correctBounds(nextLayout as never, { cols });
+  return correctBounds(nextLayout as never, { cols });
+};
+
+const compactLayout = (layout: Layout, cols: number): Layout => {
+  const bounded = correctLayoutBounds(layout, cols);
   return getCompactor("vertical").compact(bounded, cols);
 };
 
 export const resolveLayoutCollisions = (layout: Layout, cols: number = SPACE_GRID_COLUMNS): Layout => {
-  return compactLayout(layout, cols);
+  const bounded = correctLayoutBounds(layout, cols);
+  const sorted = [...bounded].sort((a, b) => a.y - b.y || a.x - b.x);
+  const placed: LayoutRect[] = [];
+  const resolved: LayoutRect[] = [];
+
+  const overlaps = (a: LayoutRect, b: LayoutRect) =>
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  for (const item of sorted) {
+    const candidate: LayoutRect = { i: item.i, x: item.x, y: item.y, w: item.w, h: item.h };
+    let guard = 0;
+
+    while (guard < 10_000 && placed.some((placedItem) => overlaps(placedItem, candidate))) {
+      candidate.y += 1;
+      guard += 1;
+    }
+
+    placed.push(candidate);
+    resolved.push(candidate);
+  }
+
+  return resolved;
 };
 
 export const insertBlockAvoidingOverlap = (
@@ -77,35 +102,48 @@ export const insertBlockAvoidingOverlap = (
   block: SpaceBlock,
   cols: number = SPACE_GRID_COLUMNS,
 ): SpaceBlock[] => {
-  const baseLayout = layoutFromBlocks(blocks);
-  const bottomY = blocks.reduce((maxY, current) => Math.max(maxY, current.layout.y + current.layout.h), 0);
-  const nextLayout = toMutableLayout(
-    [
-      ...baseLayout,
-      {
-        i: block.id,
-        x: block.layout.x,
-        y: bottomY,
-        w: block.layout.w,
-        h: block.layout.h,
-      },
-    ],
-    cols,
-  );
+  const baseBlocks = normalizeBlocksLayout(blocks, cols, { compact: false });
+  const layout = correctLayoutBounds(layoutFromBlocks(baseBlocks), cols);
 
-  correctBounds(nextLayout as never, { cols });
+  const clampPreferred = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
-  const placed = nextLayout.find((item) => item.i === block.id);
-  if (placed) {
-    moveElement(nextLayout, placed, block.layout.x, block.layout.y, true, false, "vertical", cols, false);
+  const preferredW = Math.max(1, Math.min(Math.floor(block.layout.w), cols));
+  const preferredH = Math.max(1, Math.floor(block.layout.h));
+  const preferredX = clampPreferred(Math.floor(block.layout.x), 0, cols - preferredW);
+  const preferredY = Math.max(0, Math.floor(block.layout.y));
+
+  const overlaps = (a: LayoutRect, b: LayoutRect) =>
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  const candidate: LayoutRect = { i: block.id, x: preferredX, y: preferredY, w: preferredW, h: preferredH };
+  let guard = 0;
+
+  while (guard < 10_000 && layout.some((item) => overlaps(item as LayoutRect, candidate))) {
+    candidate.y += 1;
+    guard += 1;
   }
 
-  const normalized = hasLayoutOverlap(nextLayout) ? resolveLayoutCollisions(nextLayout, cols) : compactLayout(nextLayout, cols);
-  return applyLayoutToBlocks([...blocks, block], normalized);
+  const nextBlock: SpaceBlock = {
+    ...block,
+    layout: { ...block.layout, x: candidate.x, y: candidate.y, w: candidate.w, h: candidate.h },
+  };
+
+  return normalizeBlocksLayout([...baseBlocks, nextBlock], cols, { compact: false });
 };
 
-export const normalizeBlocksLayout = (blocks: SpaceBlock[], cols: number = SPACE_GRID_COLUMNS): SpaceBlock[] => {
+export const normalizeBlocksLayout = (
+  blocks: SpaceBlock[],
+  cols: number = SPACE_GRID_COLUMNS,
+  options?: { compact?: boolean },
+): SpaceBlock[] => {
   const layout = layoutFromBlocks(blocks);
-  const normalized = hasLayoutOverlap(layout) ? resolveLayoutCollisions(layout, cols) : compactLayout(layout, cols);
+  const bounded = correctLayoutBounds(layout, cols);
+  const shouldCompact = options?.compact ?? false;
+
+  const normalized = hasLayoutOverlap(bounded)
+    ? resolveLayoutCollisions(bounded, cols)
+    : shouldCompact
+      ? compactLayout(bounded, cols)
+      : bounded;
   return applyLayoutToBlocks(blocks, normalized);
 };
