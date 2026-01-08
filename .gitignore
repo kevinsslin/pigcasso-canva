@@ -21,6 +21,7 @@
 *.pem
 docs/*
 !docs/PRD.md
+!docs/CHATCANVAS_PIVOT.md
 !docs/foundamental.md
 !docs/QUESTIONS.md
 !docs/space-builder-qa.md
