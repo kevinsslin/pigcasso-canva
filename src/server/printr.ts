@@ -70,3 +70,39 @@ export const toCaip10Account = (params: {
   chain: string;
   address: string;
 }) => `${params.chain}:${params.address}`;
+
+type PrintrPublishPayload = {
+  name: string;
+  imageUrl: string;
+  sourceRepoUrl?: string | null;
+};
+
+export const publishToPrintr = async (payload: PrintrPublishPayload) => {
+  const endpoint = process.env.PRINTR_PUBLISH_URL?.trim();
+  if (!endpoint) {
+    throw new Error("PRINTR_PUBLISH_URL is not configured");
+  }
+
+  const apiKey = process.env.PRINTR_API_KEY?.trim();
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Printr publish failed: ${res.status}`);
+  }
+
+  const json = await res.json().catch(() => null);
+
+  return {
+    message: (json as { message?: unknown } | null)?.message ?? "Published to Printr.",
+    response: json,
+  };
+};

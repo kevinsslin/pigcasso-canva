@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader, TriangleAlert } from "lucide-react";
 
 import { useGetProject } from "@/features/projects/api/use-get-project";
@@ -13,11 +14,14 @@ interface EditorProjectIdPageProps {
   params: {
     projectId: string;
   };
+  searchParams?: Record<string, string | string[] | undefined>;
 };
 
 const EditorProjectIdPage = ({
   params,
+  searchParams,
 }: EditorProjectIdPageProps) => {
+  const router = useRouter();
   const { ready, authenticated } = useRequireAuth(`/editor/${params.projectId}`);
 
   const { 
@@ -26,6 +30,13 @@ const EditorProjectIdPage = ({
     isError,
     error,
   } = useGetProject(params.projectId, { enabled: ready && authenticated });
+
+  const assetParam = searchParams?.asset;
+  const initialImageUrl = Array.isArray(assetParam)
+    ? assetParam[0]
+    : typeof assetParam === "string"
+      ? assetParam
+      : undefined;
 
   if (!ready || !authenticated || isLoading || !data) {
     return (
@@ -51,7 +62,16 @@ const EditorProjectIdPage = ({
     );
   }
 
-  return <Editor initialData={data} />
+  return (
+    <Editor
+      initialData={data}
+      initialImageUrl={initialImageUrl}
+      onConsumeInitialImageUrl={() => {
+        if (!initialImageUrl) return;
+        router.replace(`/editor/${params.projectId}`);
+      }}
+    />
+  );
 };
  
 export default EditorProjectIdPage;

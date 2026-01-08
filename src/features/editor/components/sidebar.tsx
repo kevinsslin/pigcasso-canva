@@ -2,7 +2,9 @@
 
 import { 
   LayoutTemplate,
+  Github,
   ImageIcon,
+  Layers,
   Pencil,
   Settings,
   Shapes,
@@ -30,6 +32,18 @@ export const Sidebar = ({
           label="Design"
           isActive={activeTool === "templates"}
           onClick={() => onChangeActiveTool("templates")}
+        />
+        <SidebarItem
+          icon={Github}
+          label="Repos"
+          isActive={activeTool === "repositories"}
+          onClick={() => onChangeActiveTool("repositories")}
+        />
+        <SidebarItem
+          icon={Layers}
+          label="Layers"
+          isActive={activeTool === "layers"}
+          onClick={() => onChangeActiveTool("layers")}
         />
         <SidebarItem
           icon={ImageIcon}

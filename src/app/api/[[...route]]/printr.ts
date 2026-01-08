@@ -9,7 +9,12 @@ import { requireAuth } from "@/server/hono-auth";
 import { requirePro } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
 import { normalizeDbError } from "@/server/db-errors";
-import { printrFetchJson, hasPrintrConfigured, toCaip10Account } from "@/server/printr";
+import {
+  hasPrintrConfigured,
+  printrFetchJson,
+  publishToPrintr,
+  toCaip10Account,
+} from "@/server/printr";
 
 const caip2ChainSchema = z.string().regex(/^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$/);
 const caip10AccountSchema = z.string().regex(/^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$/);
@@ -522,6 +527,38 @@ const app = new Hono()
         fallbackMessage: "Failed to fetch Printr deployments",
       });
       return c.json(data as any);
+    },
+  )
+  .post(
+    "/publish",
+    requireAuth,
+    zValidator(
+      "json",
+      z
+        .object({
+          name: z.string().min(1),
+          imageUrl: z.string().url(),
+          sourceRepoUrl: z.string().url().optional(),
+        })
+        .strict(),
+    ),
+    async (c) => {
+      const { name, imageUrl, sourceRepoUrl } = c.req.valid("json");
+
+      try {
+        const result = await publishToPrintr({
+          name,
+          imageUrl,
+          sourceRepoUrl: sourceRepoUrl ?? null,
+        });
+
+        return c.json({ data: { message: result.message } });
+      } catch (error) {
+        throw new HttpError(
+          400,
+          error instanceof Error ? error.message : "Printr publish failed",
+        );
+      }
     },
   );
 

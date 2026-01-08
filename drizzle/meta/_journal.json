@@ -71,6 +71,13 @@
       "when": 1767436374856,
       "tag": "0009_perpetual_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1767864000000,
+      "tag": "0010_github_connection",
+      "breakpoints": true
     }
   ]
 }

@@ -56,11 +56,41 @@ export const spaceDocuments = pgTable(
   }),
 );
 
+export const githubConnections = pgTable(
+  "github_connection",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    githubUserId: text("githubUserId").notNull(),
+    githubUsername: text("githubUsername"),
+    accessTokenEncrypted: text("accessTokenEncrypted").notNull(),
+    refreshTokenEncrypted: text("refreshTokenEncrypted"),
+    scopes: text("scopes"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userUnique: uniqueIndex("github_connection_user_unique").on(table.userId),
+  }),
+);
+
+export const githubConnectionsRelations = relations(githubConnections, ({ one }) => ({
+  user: one(users, {
+    fields: [githubConnections.userId],
+    references: [users.id],
+  }),
+}));
+
 export const usersRelations = relations(users, ({ many, one }) => ({
   spaceDocument: one(spaceDocuments, {
     fields: [users.id],
     references: [spaceDocuments.userId],
   }),
+  githubConnections: many(githubConnections),
   projects: many(projects),
   projectHubs: many(projectHubs),
   nftCollections: many(nftCollections),

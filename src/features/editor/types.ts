@@ -94,6 +94,8 @@ export const colors = [
 
 export type ActiveTool =
   | "select"
+  | "repositories"
+  | "layers"
   | "shapes"
   | "text"
   | "images"

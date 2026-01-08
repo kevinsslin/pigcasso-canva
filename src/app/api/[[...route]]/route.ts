@@ -8,6 +8,7 @@ import ai from "./ai";
 import assistant from "./assistant";
 import assets from "./assets";
 import collections from "./collections";
+import github from "./github";
 import images from "./images";
 import leaderboards from "./leaderboards";
 import me from "./me";
@@ -48,6 +49,7 @@ const routes = app
   .route("/assistant", assistant)
   .route("/assets", assets)
   .route("/collections", collections)
+  .route("/github", github)
   .route("/images", images)
   .route("/leaderboards", leaderboards)
   .route("/me", me)

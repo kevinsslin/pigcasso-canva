@@ -28,6 +28,8 @@ import { FilterSidebar } from "@/features/editor/components/filter-sidebar";
 import { DrawSidebar } from "@/features/editor/components/draw-sidebar";
 import { AiSidebar } from "@/features/editor/components/ai-sidebar";
 import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
+import { LayersSidebar } from "@/features/editor/components/layers-sidebar";
+import { RepositoriesSidebar } from "@/features/editor/components/repositories-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
 import { PigcassoAssistant } from "@/features/editor/components/pigcasso-assistant";
@@ -38,6 +40,8 @@ import { useConfirm } from "@/hooks/use-confirm";
 
 type EditorProps = {
   initialData: Project;
+  initialImageUrl?: string;
+  onConsumeInitialImageUrl?: () => void;
 };
 
 type PageMeta = Omit<Project["pages"][number], "json">;
@@ -45,7 +49,11 @@ type PageMeta = Omit<Project["pages"][number], "json">;
 const sortPages = (pages: Project["pages"]) =>
   [...pages].sort((a, b) => a.index - b.index);
 
-export const Editor = ({ initialData }: EditorProps) => {
+export const Editor = ({
+  initialData,
+  initialImageUrl,
+  onConsumeInitialImageUrl,
+}: EditorProps) => {
   const multiPageEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_PAGE === "true";
   const sorted = useMemo(() => sortPages(initialData.pages), [initialData.pages]);
   const initialPage = sorted[0];
@@ -358,6 +366,7 @@ export const Editor = ({ initialData }: EditorProps) => {
   );
 
   const initialLoadRef = useRef(false);
+  const consumedInitialImageRef = useRef(false);
   useEffect(() => {
     if (!editor) return;
     if (initialLoadRef.current) return;
@@ -369,6 +378,12 @@ export const Editor = ({ initialData }: EditorProps) => {
       width: meta.width,
       height: meta.height,
     });
+
+    if (!consumedInitialImageRef.current && initialImageUrl) {
+      consumedInitialImageRef.current = true;
+      editor.addImage(initialImageUrl);
+      onConsumeInitialImageUrl?.();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
@@ -396,6 +411,8 @@ export const Editor = ({ initialData }: EditorProps) => {
         <FontSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <ImageSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <TemplateSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <RepositoriesSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <LayersSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FilterSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <AiSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <RemoveBgSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />

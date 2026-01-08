@@ -1,6 +1,17 @@
 "use client";
 
-import { Crown, FolderOpen, Home, LayoutGrid, RefreshCw, Settings, Trophy, UserRound, Wallet } from "lucide-react";
+import {
+  Crown,
+  FolderOpen,
+  Github,
+  Home,
+  LayoutGrid,
+  RefreshCw,
+  Settings,
+  Trophy,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -65,7 +76,20 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
         </>
       )}
       <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem href="/app" icon={Home} label="Home" isActive={pathname === "/app"} onClick={onNavigate} />
+        <SidebarItem
+          href="/app"
+          icon={Home}
+          label="Home"
+          isActive={pathname === "/app"}
+          onClick={onNavigate}
+        />
+        <SidebarItem
+          href="/repositories"
+          icon={Github}
+          label="Repositories"
+          isActive={pathname === "/repositories"}
+          onClick={onNavigate}
+        />
         <SidebarItem
           href="/projects"
           icon={FolderOpen}
