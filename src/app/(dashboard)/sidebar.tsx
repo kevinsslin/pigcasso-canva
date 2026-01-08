@@ -1,11 +1,5 @@
-import { Logo } from "./logo";
-import { SidebarRoutes } from "./sidebar-routes";
+import { FloatingSidebar } from "./floating-sidebar";
 
 export const Sidebar = () => {
-  return (
-    <aside className="hidden lg:flex fixed flex-col w-[300px] left-0 shrink-0 h-full bg-card/80 backdrop-blur border-r border-border">
-      <Logo />
-      <SidebarRoutes />
-    </aside>
-  );
+  return <FloatingSidebar />;
 };

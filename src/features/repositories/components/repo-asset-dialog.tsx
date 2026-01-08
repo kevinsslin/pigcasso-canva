@@ -8,9 +8,8 @@ import Image from "next/image";
 import { useGenerateRepoAsset } from "@/features/repositories/api/use-generate-repo-asset";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 
-import { uploadFiles } from "@/lib/uploadthing";
-import { getAuthToken } from "@/lib/auth-token";
 import { client } from "@/lib/hono";
+import { uploadImageDataUrl } from "@/lib/upload-data-url";
 import type { Editor } from "@/features/editor/types";
 
 import { Button } from "@/components/ui/button";
@@ -32,32 +31,6 @@ type Repo = {
     login: string;
     avatarUrl: string | null;
   };
-};
-
-const dataUrlToFile = async (dataUrl: string, fileName: string) => {
-  const blob = await (await fetch(dataUrl)).blob();
-  return new File([blob], fileName, { type: blob.type || "image/png" });
-};
-
-const uploadImageDataUrl = async (dataUrl: string, fileName: string) => {
-  const token = await getAuthToken();
-  if (!token) {
-    throw new Error("Missing auth token. Please sign in again.");
-  }
-
-  const file = await dataUrlToFile(dataUrl, fileName);
-
-  const uploaded = await uploadFiles("imageUploader", {
-    files: [file],
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const url = uploaded?.[0]?.url;
-  if (!url) {
-    throw new Error("Failed to upload image");
-  }
-
-  return url;
 };
 
 export const RepoAssetDialog = (props: {

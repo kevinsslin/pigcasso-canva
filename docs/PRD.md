@@ -6,6 +6,60 @@
 
 ---
 
+## 0.1) 2026-01 Pivot：Pigcasso Infinite ChatCanvas（Lovart 風格 + Web3）
+
+我們正在把「Canva clone」路線升級成 **AI-native 無限畫布工作台（ChatCanvas）**：一個大輸入框啟動、右側聊天、中央無限畫布（Talk · Tab · Tune），並保留 Web3 原生能力（token gating、mint、provenance、Printr）。
+
+### 已實作（repo 現況）
+
+- **Lovart-style App Shell**
+  - `/app`：改成 AI-native Home（大 prompt / quick chips / Recent Projects / Creator Hub）
+  - Dashboard：桌面版改成 **floating minimal sidebar**（取代肥肥 sidebar）
+- **ChatCanvas MVP（無限畫布）**
+  - `/canvas/new` → `/canvas/:id`：採用 `tldraw`（infinite canvas + local persistence key）
+  - 右側 Chat panel / 左側工具列（先做 UI 與基本工具切換；chat-to-tools 串接下一步）
+- **AI（Gemini）**
+  - `POST /api/ai/generate-image`：支援 `profile`（`nano-banana` / `nano-banana-pro`，非 Pro 會自動 downgrade）
+  - `POST /api/ai/edit-image`：支援 instruction + base image + reference images
+  - `POST /api/ai/generate-html`：回傳 self-contained HTML（下一步做 sandbox preview）
+- **Repository → Asset**
+  - `/repositories` + Editor sidebar：Privy GitHub OAuth → 列 repo → 一鍵生成 meme asset → 可 publish 到 Printr
+  - Token encryption：OAuth token 存 DB 前使用 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密（缺少會直接回 500）
+  - Setup doc：`docs/integrations/github.md`
+- **IPFS / NFT preview**
+  - 修正 `NEXT_PUBLIC_IPFS_GATEWAY` 設成「無 scheme」時導致 URL 變成相對路徑（例如被拼到 `pigcasso-canva.vercel.app/...`）
+  - 新增 normalize + tests，確保 Pinata gateway / bare CID / `ipfs://` 都能轉成可 preview 的 `https://.../ipfs/...`
+- **Space Builder UX**
+  - Drag reorder：由上往下拖曳碰撞時改成 **swap**（不再把下面物件往下擠）
+  - Drag handle：可直接拖曳整個 block（不再只能抓頂部小點）
+  - Resize：支援四邊 + 四角 resize handles
+  - 單元測試：`src/features/spaces/__tests__/space-grid-swap.test.ts`
+- **移除 Replicate**
+  - 移除 `replicate.delivery` remote allowlist（repo 內不再保留 replicate 相關設定）
+- **Vercel**
+  - `vercel.json` 改為 `bun install --frozen-lockfile` + `bun run build`（避免 `npm ci` 無 lockfile 的問題）
+
+### 尚未實作 / 下一步（需要你確認的決策）
+
+- **ChatCanvas ↔ Projects 的資料模型**
+  - 現在 `/canvas/:id` 是 tldraw 的 local persistence；尚未落 DB / 綁 project id
+  - 需決定：ChatCanvas 要取代 `/editor/:projectId` 成為預設工作區嗎？
+- **Talk · Tab · Tune 真正的「指向式編輯」**
+  - 選取物件/區域 → 一句話修改 → 回填到畫布（inpaint/outpaint/text edit）尚未串起來
+- **HTML 生成與 preview**
+  - 已有 `POST /api/ai/generate-html`，但 preview 的 sandbox / CSP 策略需要定義
+- **Short video（Kling/Veo 等）**
+  - 接入 provider 與 job queue / storage / preview 尚未做
+
+### 需要你回覆（blocking questions）
+
+1. **路由與遷移策略**：要把 `/editor/:projectId` 逐步替換成 `/canvas/:id` 嗎？還是先並行一段時間？
+2. **HTML preview 安全策略**：允許 `allow-scripts` 嗎？允許外部資源（CDN、images）嗎？還是完全 offline？
+3. **Video provider**：你想先接哪一個（Kling / Veo / 其他）？是否需要 Webhook 回調？
+4. **GitHub scopes**：只做 `repo`/`read:user` 足夠嗎？要不要支援 org repo（需要 `read:org`）？
+
+---
+
 ## 0.2) Executive Summary（2026-01）
 
 Pigcasso AI Canvas 讓社群成員用 **Canva-like 畫布** 低門檻產出可用的 **Community Assets**（頭像框、貼紙、節日／活動海報等），並透過 **Twitter/X、Telegram、Discord** 的跨渠道追蹤，把「真實貢獻」沉澱成 **Leaderboard / Mindshare 指標**，最終支援更公平的 **Rewards / Airdrop**，並為未來 Web3 原生變現（發行／交易／分潤）鋪路。

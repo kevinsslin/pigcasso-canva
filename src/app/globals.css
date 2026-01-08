@@ -1,5 +1,6 @@
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
+@import "@tldraw/tldraw/tldraw.css";
 
 @tailwind base;
 @tailwind components;
@@ -12,7 +13,7 @@ body {
 
 @layer base {
   :root {
-    --background: 356 100% 97.3%;
+    --background: 0 0% 98%;
     --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
