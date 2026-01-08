@@ -5,18 +5,11 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftAssets, projectPages, projects } from "@/db/schema";
+import { getIpfsGatewayBase } from "@/lib/ipfs-gateway";
 import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
 import { hasIpfsConfigured, pinFileFromUrlToIpfs, pinJsonToIpfs } from "@/server/ipfs";
-
-const DEFAULT_IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
-
-const getIpfsGatewayBase = () => {
-  const raw = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim();
-  if (!raw) return DEFAULT_IPFS_GATEWAY;
-  return raw.endsWith("/") ? raw : `${raw}/`;
-};
 
 const cidToGatewayUrl = (cid: string) => `${getIpfsGatewayBase()}${cid}`;
 

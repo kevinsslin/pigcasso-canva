@@ -1,4 +1,5 @@
 import { HttpError } from "@/server/http-error";
+import { normalizeIpfsGatewayBase } from "@/lib/ipfs-gateway";
 
 const STATIC_ALLOWED_HOSTS = [
   "utfs.io",
@@ -11,7 +12,6 @@ const STATIC_ALLOWED_HOSTS = [
   "w3s.link",
   "dweb.link",
   "arweave.net",
-  "replicate.delivery",
 ];
 
 const getDynamicAllowedHosts = () => {
@@ -19,7 +19,7 @@ const getDynamicAllowedHosts = () => {
   if (!raw) return [];
 
   try {
-    const url = new URL(raw);
+    const url = new URL(normalizeIpfsGatewayBase(raw));
     return url.hostname ? [url.hostname.toLowerCase()] : [];
   } catch {
     return [];

@@ -1,29 +1,17 @@
-const DEFAULT_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+import { getIpfsGatewayBaseUrl, normalizeIpfsGatewayBase } from "@/lib/ipfs-gateway";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 
-export const getIpfsGatewayBase = () => {
-  const raw = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim();
-  if (raw && raw.length > 0) {
-    return raw.endsWith("/") ? raw : `${raw}/`;
-  }
-  return DEFAULT_GATEWAY;
-};
+export const getIpfsGatewayBase = () => normalizeIpfsGatewayBase(process.env.NEXT_PUBLIC_IPFS_GATEWAY);
 
 export const ipfsToHttpUrl = (uri: string | null | undefined) => {
-  if (!uri) return null;
-  const trimmed = uri.trim();
+  const trimmed = (uri ?? "").trim();
   if (!trimmed) return null;
 
-  if (trimmed.startsWith("ipfs://")) {
-    let path = trimmed.replace("ipfs://", "");
-    if (path.startsWith("ipfs/")) {
-      path = path.slice("ipfs/".length);
-    }
-    return `${getIpfsGatewayBase()}${path}`;
-  }
+  const normalized = normalizeIpfsUrl(trimmed, {
+    defaultGatewayBaseUrl: getIpfsGatewayBaseUrl(),
+  });
 
-  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-    return trimmed;
-  }
-
+  if (!normalized) return null;
+  if (/^(https?:|data:|blob:)/i.test(normalized)) return normalized;
   return null;
 };

@@ -26,6 +26,28 @@ describe("ipfsToHttpUrl", () => {
     expect(ipfsToHttpUrl("   ")).toBeNull();
     expect(ipfsToHttpUrl(null)).toBeNull();
   });
+
+  test("normalizes scheme-less Pinata gateway URLs", () => {
+    const cid = "bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi";
+
+    expect(ipfsToHttpUrl(`plum-high-rook-436.mypinata.cloud/${cid}`)).toBe(
+      `https://plum-high-rook-436.mypinata.cloud/ipfs/${cid}`,
+    );
+
+    expect(ipfsToHttpUrl(`https://plum-high-rook-436.mypinata.cloud/${cid}`)).toBe(
+      `https://plum-high-rook-436.mypinata.cloud/ipfs/${cid}`,
+    );
+
+    expect(ipfsToHttpUrl(`https://pigcasso-canva.vercel.app/plum-high-rook-436.mypinata.cloud/${cid}`)).toBe(
+      `https://plum-high-rook-436.mypinata.cloud/ipfs/${cid}`,
+    );
+  });
+
+  test("converts bare CIDs using configured gateway", () => {
+    expect(ipfsToHttpUrl("bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi")).toBe(
+      "https://gateway.pinata.cloud/ipfs/bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi",
+    );
+  });
 });
 
 describe("getIpfsGatewayBase", () => {
@@ -36,6 +58,18 @@ describe("getIpfsGatewayBase", () => {
     try {
       expect(getIpfsGatewayBase()).toBe("https://example.com/ipfs/");
       expect(ipfsToHttpUrl("ipfs://bafy456")).toBe("https://example.com/ipfs/bafy456");
+    } finally {
+      process.env.NEXT_PUBLIC_IPFS_GATEWAY = previous;
+    }
+  });
+
+  test("normalizes gateway hostnames without scheme", () => {
+    const previous = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY = "plum-high-rook-436.mypinata.cloud";
+
+    try {
+      expect(getIpfsGatewayBase()).toBe("https://plum-high-rook-436.mypinata.cloud/ipfs/");
+      expect(ipfsToHttpUrl("ipfs://bafy123")).toBe("https://plum-high-rook-436.mypinata.cloud/ipfs/bafy123");
     } finally {
       process.env.NEXT_PUBLIC_IPFS_GATEWAY = previous;
     }
