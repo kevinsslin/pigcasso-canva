@@ -6,6 +6,7 @@ import { pickGeminiAspectRatio, type CanvasSize } from "@/server/gemini-image-co
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
 
 export type AiProvider = "gemini";
+export type NanoBananaProfile = "nano-banana" | "nano-banana-pro";
 
 const normalizeModelName = (model: string) => model.trim();
 
@@ -24,6 +25,22 @@ const GEMINI_ASSISTANT_MODEL =
 const GEMINI_IMAGE_MODEL =
   normalizeModelName(process.env.GEMINI_IMAGE_MODEL ?? "") ||
   "gemini-2.5-flash-image-preview";
+
+const GEMINI_IMAGE_MODEL_NANO_BANANA =
+  normalizeModelName(process.env.GEMINI_IMAGE_MODEL_NANO_BANANA ?? "") || "";
+
+const GEMINI_IMAGE_MODEL_NANO_BANANA_PRO =
+  normalizeModelName(process.env.GEMINI_IMAGE_MODEL_NANO_BANANA_PRO ?? "") || "";
+
+const pickGeminiImageModel = (profile?: NanoBananaProfile) => {
+  if (profile === "nano-banana-pro") {
+    return GEMINI_IMAGE_MODEL_NANO_BANANA_PRO || GEMINI_IMAGE_MODEL_NANO_BANANA || GEMINI_IMAGE_MODEL;
+  }
+  if (profile === "nano-banana") {
+    return GEMINI_IMAGE_MODEL_NANO_BANANA || GEMINI_IMAGE_MODEL;
+  }
+  return GEMINI_IMAGE_MODEL;
+};
 
 type GeminiInlineImage = {
   data: string;
@@ -137,8 +154,13 @@ const getRetryDelayMs = (attemptIndex: number) => {
   return base * attemptIndex;
 };
 
-export const generateImage = async (params: { prompt: string; canvas?: CanvasSize }) => {
+export const generateImage = async (params: {
+  prompt: string;
+  canvas?: CanvasSize;
+  profile?: NanoBananaProfile;
+}) => {
   const ai = getGeminiClient();
+  const model = pickGeminiImageModel(params.profile);
 
   const aspectRatio = pickGeminiAspectRatio(params.canvas);
 
@@ -147,7 +169,7 @@ export const generateImage = async (params: { prompt: string; canvas?: CanvasSiz
     let response: unknown;
     try {
       response = await ai.models.generateContent({
-        model: GEMINI_IMAGE_MODEL,
+        model,
         contents: params.prompt,
         config: {
           responseModalities: ["IMAGE"],
@@ -160,7 +182,7 @@ export const generateImage = async (params: { prompt: string; canvas?: CanvasSiz
       });
     } catch (error) {
       const normalized = normalizeGeminiError(error, {
-        model: GEMINI_IMAGE_MODEL,
+        model,
         operation: "generateImage",
       });
       if (attempt < maxAttempts && isRetryableImageError(normalized)) {
@@ -180,7 +202,10 @@ export const generateImage = async (params: { prompt: string; canvas?: CanvasSiz
       throw noImageError;
     }
 
-    return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
+    return {
+      imageUrl: toDataUrl(image.mimeType, image.data),
+      provider: "gemini" as const,
+    };
   }
 
   throw new HttpError(502, "No image generated");
@@ -188,6 +213,7 @@ export const generateImage = async (params: { prompt: string; canvas?: CanvasSiz
 
 export const removeBackground = async (params: { image: string }) => {
   const ai = getGeminiClient();
+  const model = pickGeminiImageModel("nano-banana");
 
   const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
 
@@ -196,7 +222,7 @@ export const removeBackground = async (params: { image: string }) => {
     let response: unknown;
     try {
       response = await ai.models.generateContent({
-        model: GEMINI_IMAGE_MODEL,
+        model,
         contents: [
           { text: "Remove the background and return a transparent PNG." },
           {
@@ -212,7 +238,7 @@ export const removeBackground = async (params: { image: string }) => {
       });
     } catch (error) {
       const normalized = normalizeGeminiError(error, {
-        model: GEMINI_IMAGE_MODEL,
+        model,
         operation: "removeBackground",
       });
       if (attempt < maxAttempts && isRetryableImageError(normalized)) {
@@ -232,10 +258,158 @@ export const removeBackground = async (params: { image: string }) => {
       throw noImageError;
     }
 
-    return { imageUrl: toDataUrl(image.mimeType, image.data), provider: "gemini" as const };
+    return {
+      imageUrl: toDataUrl(image.mimeType, image.data),
+      provider: "gemini" as const,
+    };
   }
 
   throw new HttpError(502, "No image generated");
+};
+
+export const editImage = async (params: {
+  image: string;
+  instruction: string;
+  referenceImages?: string[];
+  canvas?: CanvasSize;
+  profile?: NanoBananaProfile;
+}) => {
+  const ai = getGeminiClient();
+  const model = pickGeminiImageModel(params.profile);
+
+  const base = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
+  const references = await Promise.all(
+    (params.referenceImages ?? []).slice(0, 4).map(async (input) => {
+      return parseDataUrl(input) ?? (await fetchUrlAsBase64(input));
+    }),
+  );
+
+  const aspectRatio = pickGeminiAspectRatio(params.canvas);
+  const prompt = [
+    "Edit the provided image according to the instruction.",
+    "Keep everything else as consistent as possible.",
+    params.instruction.trim(),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const contents: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+    { text: prompt },
+    {
+      inlineData: {
+        mimeType: base.mimeType,
+        data: base.base64,
+      },
+    },
+    ...references.map((ref) => ({
+      inlineData: {
+        mimeType: ref.mimeType,
+        data: ref.base64,
+      },
+    })),
+  ];
+
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let response: unknown;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseModalities: ["IMAGE"],
+          imageConfig: aspectRatio
+            ? {
+                aspectRatio,
+              }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      const normalized = normalizeGeminiError(error, {
+        model,
+        operation: "editImage",
+      });
+      if (attempt < maxAttempts && isRetryableImageError(normalized)) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw normalized;
+    }
+
+    const image = extractInlineImage(response);
+    if (!image) {
+      const noImageError = new HttpError(502, "No image generated");
+      if (attempt < maxAttempts) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+      throw noImageError;
+    }
+
+    return {
+      imageUrl: toDataUrl(image.mimeType, image.data),
+      provider: "gemini" as const,
+    };
+  }
+
+  throw new HttpError(502, "No image generated");
+};
+
+const stripCodeFences = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/```(?:html)?\\s*([\\s\\S]*?)\\s*```/i);
+  return match ? match[1].trim() : trimmed;
+};
+
+export const generateHtml = async (params: { prompt: string }) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new HttpError(501, "AI is currently unavailable.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const model = GEMINI_ASSISTANT_MODEL;
+
+  const system = `
+You are an expert front-end engineer and designer.
+Return a SINGLE self-contained HTML document (no markdown, no code fences).
+Constraints:
+- Inline CSS only (no external stylesheets).
+- Prefer no external network requests (no external images/fonts/libs).
+- Make it responsive, modern, and readable.
+`.trim();
+
+  let response: unknown;
+  try {
+    response = await ai.models.generateContent({
+      model,
+      contents: params.prompt,
+      config: {
+        systemInstruction: system,
+        maxOutputTokens: 2000,
+        temperature: 0.6,
+      },
+    });
+  } catch (error) {
+    throw normalizeGeminiError(error, {
+      model,
+      operation: "generateHtml",
+    });
+  }
+
+  const text =
+    typeof (response as { text?: unknown })?.text === "string"
+      ? ((response as { text?: string }).text ?? "").trim()
+      : "";
+
+  const html = stripCodeFences(text);
+  if (!html) {
+    throw new HttpError(502, "No HTML generated");
+  }
+
+  return { html, provider: "gemini" as const };
 };
 
 export const getAssistantModel = () => GEMINI_ASSISTANT_MODEL;
