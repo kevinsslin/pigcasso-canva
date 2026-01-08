@@ -117,7 +117,7 @@ export const RepoAssetDialog = (props: {
     } finally {
       setBusy(false);
     }
-  }, [ensureGenerated, repo]);
+  }, [generateMutation, repo]);
 
   const onCreateProject = useCallback(async () => {
     if (!repo) return;
@@ -212,7 +212,17 @@ export const RepoAssetDialog = (props: {
       }
 
       const json = await response.json();
-      toast.success(json.data?.message ?? "Published to Printr.");
+      const message =
+        json &&
+        typeof json === "object" &&
+        "data" in json &&
+        (json as any).data &&
+        typeof (json as any).data === "object" &&
+        "message" in (json as any).data &&
+        typeof (json as any).data.message === "string"
+          ? (json as any).data.message
+          : "Published to Printr.";
+      toast.success(message);
       onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to publish to Printr");

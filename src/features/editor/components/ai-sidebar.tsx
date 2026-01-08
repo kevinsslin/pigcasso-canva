@@ -30,7 +30,7 @@ export const AiSidebar = ({
 
   const [value, setValue] = useState("");
   const aiMeta = me.data?.data.ai;
-  const aiEnabled = aiMeta?.configured !== false;
+  const geminiEnabled = aiMeta?.configured !== false;
 
   const remainingText = useMemo(() => {
     const limit = aiMeta?.limits?.generate;
@@ -49,13 +49,14 @@ export const AiSidebar = ({
   ) => {
     e.preventDefault();
 
-    if (!aiEnabled) {
+    const toastId = "pigcasso:ai-generate-image";
+    if (!geminiEnabled) {
       toast.error("AI is currently unavailable.");
       return;
     }
 
     if (!editor) {
-      toast.error("Canvas is not ready yet.");
+      toast.error("Canvas is not ready yet.", { id: toastId, duration: 3000 });
       return;
     }
 
@@ -65,29 +66,37 @@ export const AiSidebar = ({
         ? { width: workspace.width, height: workspace.height }
         : undefined;
 
-    const toastId = "pigcasso:ai-generate-image";
     toast.loading("Generating image…", { id: toastId, duration: Infinity });
 
-    mutation.mutate({ prompt: value, canvas: canvasSize }, {
-      onSuccess: async ({ data }) => {
-        toast.loading("Adding image to canvas…", { id: toastId, duration: Infinity });
-        try {
-          await editor.addImage(data);
-          setValue("");
-          toast.success("Image added to canvas.", { id: toastId, duration: 2000 });
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Failed to add image", { id: toastId, duration: 4000 });
-        }
+    mutation.mutate(
+      { prompt: value, canvas: canvasSize },
+      {
+        onSuccess: async ({ data }) => {
+          toast.loading("Adding image to canvas…", { id: toastId, duration: Infinity });
+          try {
+            await editor.addImage(data);
+            setValue("");
+            toast.success("Image added to canvas.", { id: toastId, duration: 2000 });
+          } catch (error) {
+            toast.error(
+              error instanceof Error ? error.message : "Failed to add image",
+              { id: toastId, duration: 4000 },
+            );
+          }
+        },
+        onError: (err) => {
+          const status = getApiErrorStatus(err);
+          if (status === 429 && err.message.toLowerCase().includes("daily limit")) {
+            toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.", {
+              id: toastId,
+              duration: 4000,
+            });
+            return;
+          }
+          toast.error(err.message || "Failed to generate image", { id: toastId, duration: 4000 });
+        },
       },
-      onError: (err) => {
-        const status = getApiErrorStatus(err);
-        if (status === 429 && err.message.toLowerCase().includes("daily limit")) {
-          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.", { id: toastId, duration: 4000 });
-          return;
-        }
-        toast.error(err.message || "Failed to generate image", { id: toastId, duration: 4000 });
-      }
-    });
+    );
   };
 
   const onClose = () => {
@@ -108,20 +117,18 @@ export const AiSidebar = ({
       <ScrollArea className="flex-1">
         <form onSubmit={onSubmit} className="p-4 space-y-6">
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Powered by Gemini.
-            </p>
+            <p className="text-xs text-muted-foreground">Powered by Gemini.</p>
             {remainingText && (
               <p className="text-xs text-muted-foreground">{remainingText}</p>
             )}
-            {aiMeta?.configured === false ? (
+            {!geminiEnabled ? (
               <p className="text-xs text-muted-foreground">
                 AI is currently unavailable.
               </p>
             ) : null}
           </div>
           <Textarea
-            disabled={mutation.isPending || !aiEnabled}
+            disabled={mutation.isPending || !geminiEnabled}
             placeholder="An astronaut riding a horse on mars, hd, dramatic lighting"
             cols={30}
             rows={10}
@@ -131,7 +138,7 @@ export const AiSidebar = ({
             onChange={(e) => setValue(e.target.value)}
           />
           <Button
-            disabled={mutation.isPending || !aiEnabled}
+            disabled={mutation.isPending || !geminiEnabled}
             type="submit"
             className="w-full"
           >

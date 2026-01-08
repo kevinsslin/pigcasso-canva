@@ -423,16 +423,17 @@ MVP 保留「現有 repo 的 AI 能力」，但改成符合你想要的分級：
 
 模型規劃（可用 env 覆蓋）：
 
-- Generate Image / Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-nano-banana`）
-- Pigcasso Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro`）
+- Generate Image / Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-2.5-flash-image-preview`）
+- Pigcasso Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro-preview`）
 
 工程落點：
 
 - `/api/ai/generate-image`、`/api/ai/remove-bg`：不再接收 `provider` 參數，回傳 meta 仍標註 `provider=gemini`
 - `/api/assistant/action`：可接收「畫布 snapshot」；回傳 action JSON（含 `canvasEdits` ops）
 - 前端：提供 Draft → Preview → Apply（Preview 不改動原畫布）
+> 若缺少 `GEMINI_API_KEY`：UI 停用 AI 功能並提示
 
-> 重要：不管用哪個模型，AI 只負責「出素材」；排版/安全區/可讀性仍由規則化 layout + Editor actions 保證。
+> 重要：AI 只負責「出素材」；排版/安全區/可讀性仍由規則化 layout + Editor actions 保證。
 
 #### 7.4.5 Pigcasso Brand Baseline（v0）
 
@@ -632,8 +633,8 @@ flowchart TD
 - `PIGCASSO_TOKEN_DECIMALS=18`（可選，亦可鏈上讀）
 - `PIGCASSO_PRO_THRESHOLD_RAW=100000000000000000000000`（100000e18）
 - `GEMINI_API_KEY`（Gemini）
-- `GEMINI_ASSISTANT_MODEL=gemini-3-pro`（可選）
-- `GEMINI_IMAGE_MODEL=gemini-nano-banana`（可選）
+- `GEMINI_ASSISTANT_MODEL=gemini-3-pro-preview`（可選）
+- `GEMINI_IMAGE_MODEL=gemini-2.5-flash-image-preview`（可選）
 
 ---
 
@@ -740,7 +741,7 @@ Phase 2（上鏈）可選方向（擇一）：
 - [ ] Pro：一鍵輸出多尺寸 pack（至少 3 種），同時支援 ZIP 與 separate files
 - [ ] Template 可 publish/share + Remix，帶 creator attribution + parent 指標
 - [ ] Pro-only server endpoints 有 server-side enforcement（不只 UI）
-- [ ] AI 用量限制：Free（Generate 5/day、Remove BG 5/day），Pro 額度可調
+- [ ] AI 用量限制：Free（Generate 5/day、Remove BG 5/day），Pro 額度可調；Gemini-only（需 `GEMINI_API_KEY`）
 
 ---
 
@@ -761,7 +762,7 @@ Phase 2（上鏈）可選方向（擇一）：
 - Pack export：同時提供 ZIP 與 separate files（ZIP 失敗則可 fallback）
 - Vibe：先用 `Pigcasso Brand Baseline（v0）` 作為模板與 UI baseline
 - AI 用量：Free（Generate 5/day、Remove BG 5/day）；Pro 額度可調
-- AI provider：Gemini-only（不讓 user 選 provider）
+- AI provider：Gemini-only（`gemini-2.5-flash-image-preview`）
 - Template hub：所有互動都要求 Privy login（free mode 也一樣）
 - Printr：Creator Hub 內提供 Launchpad（Pro-gated），並透過 server-side proxy 保護 API token
 - Printr（Template Token Launchpad）：Phase 1 已支援 quote/create/sign/poll；交易/市場資訊待 Printr API 擴充後上線

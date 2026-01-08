@@ -1,6 +1,6 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { StatusCode } from "hono/utils/http-status";
 
-export const toContentfulStatus = (status: number): ContentfulStatusCode => {
+export const toContentfulStatus = (status: number): StatusCode => {
   const inRange = status >= 200 && status <= 599;
   const isContentless = status === 204 || status === 205 || status === 304;
 
@@ -8,6 +8,5 @@ export const toContentfulStatus = (status: number): ContentfulStatusCode => {
     return 500;
   }
 
-  return status as ContentfulStatusCode;
+  return status as StatusCode;
 };
-

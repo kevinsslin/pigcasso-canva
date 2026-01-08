@@ -133,8 +133,8 @@ sequenceDiagram
 
 ### Models
 
-- Image/Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-nano-banana`）
-- Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro`）
+- Image/Remove BG：`GEMINI_IMAGE_MODEL`（預設 `gemini-2.5-flash-image-preview`）
+- Assistant：`GEMINI_ASSISTANT_MODEL`（預設 `gemini-3-pro-preview`）
 
 ### 用量策略（UTC day）
 

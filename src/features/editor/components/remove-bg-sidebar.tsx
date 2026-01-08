@@ -13,6 +13,7 @@ import { useRemoveBg } from "@/features/ai/api/use-remove-bg";
 
 import { getApiErrorStatus } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -37,12 +38,12 @@ export const RemoveBgSidebar = ({
       return null;
     }
     const imageObject = selectedObject as fabric.Image;
-    const src = imageObject.getSrc();
+    const src = normalizeIpfsUrl(imageObject.getSrc());
     return src || null;
   }, [selectedObject]);
 
   const aiMeta = me.data?.data.ai;
-  const aiEnabled = aiMeta?.configured !== false;
+  const geminiEnabled = aiMeta?.configured !== false;
 
   const remainingText = useMemo(() => {
     const limit = aiMeta?.limits?.removeBg;
@@ -61,17 +62,17 @@ export const RemoveBgSidebar = ({
   };
 
   const onClick = () => {
+    const toastId = "pigcasso:ai-remove-bg";
+
     if (!imageSrc) {
       toast.error("Select an image to remove its background.");
       return;
     }
 
-    if (!aiEnabled) {
+    if (!geminiEnabled) {
       toast.error("AI is currently unavailable.");
       return;
     }
-
-    const toastId = "pigcasso:ai-remove-bg";
     toast.loading("Removing background…", { id: toastId, duration: Infinity });
 
     mutation.mutate({
@@ -125,13 +126,14 @@ export const RemoveBgSidebar = ({
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Powered by Gemini.
-              </p>
+              <p className="text-xs text-muted-foreground">Powered by Gemini.</p>
               {remainingText && (
                 <p className="text-xs text-muted-foreground">{remainingText}</p>
               )}
-              {aiMeta?.configured === false ? (
+              <p className="text-xs text-muted-foreground">
+                Gemini remove-bg is experimental.
+              </p>
+              {!geminiEnabled ? (
                 <p className="text-xs text-muted-foreground">
                   AI is currently unavailable.
                 </p>
@@ -144,12 +146,14 @@ export const RemoveBgSidebar = ({
               <Image
                 src={imageSrc}
                 fill
+                sizes="320px"
                 alt="Image"
+                draggable={false}
                 className="object-cover"
               />
             </div>
             <Button
-              disabled={mutation.isPending || !aiEnabled}
+              disabled={mutation.isPending || !geminiEnabled}
               onClick={onClick}
               className="w-full"
             >

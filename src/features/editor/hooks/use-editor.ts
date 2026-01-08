@@ -32,6 +32,9 @@ import { useAutoResize } from "@/features/editor/hooks/use-auto-resize";
 import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 import { normalizeFabricJson } from "@/features/editor/fabric-json";
+import { applyCanvaLikeResizeControls } from "@/features/editor/fabric-controls";
+import { ALL_CONTROLS_VISIBLE, makeObjectInteractive } from "@/features/editor/fabric-object";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 
 type BaseEditor = Omit<Editor, "loadPage">;
 
@@ -115,6 +118,10 @@ const buildEditor = ({
     const data = normalizeFabricJson(JSON.parse(json));
 
     canvas.loadFromJSON(data, () => {
+      canvas.getObjects().forEach((object) => {
+        makeObjectInteractive(object);
+      });
+
       autoZoom();
     });
   };
@@ -136,6 +143,7 @@ const buildEditor = ({
   };
 
   const addToCanvas = (object: fabric.Object) => {
+    makeObjectInteractive(object);
     center(object);
     canvas.add(object);
     canvas.setActiveObject(object);
@@ -211,6 +219,9 @@ const buildEditor = ({
       });
     },
     addImage: async (value: string) => {
+      const src = normalizeIpfsUrl(value);
+      if (!src) return;
+
       const workspace = getWorkspace();
 
       const fitToWorkspace = (image: fabric.Image) => {
@@ -261,7 +272,7 @@ const buildEditor = ({
             reject(new Error("Failed to load image"));
           };
 
-          img.src = value;
+          img.src = src;
         });
 
       try {
@@ -857,15 +868,30 @@ export const useEditor = ({
       initialCanvas: fabric.Canvas;
       initialContainer: HTMLDivElement;
     }) => {
+      applyCanvaLikeResizeControls(fabric);
+      fabric.Object.prototype.setControlsVisibility(ALL_CONTROLS_VISIBLE);
       fabric.Object.prototype.set({
         cornerColor: "#FFF",
         cornerStyle: "circle",
+        cornerSize: 16,
         borderColor: "#3b82f6",
         borderScaleFactor: 1.5,
         transparentCorners: false,
         borderOpacityWhenMoving: 1,
         cornerStrokeColor: "#3b82f6",
+        hoverCursor: "move",
+        selectable: true,
+        evented: true,
+        hasControls: true,
+        hasBorders: true,
+        lockMovementX: false,
+        lockMovementY: false,
       });
+
+      // @ts-expect-error - `touchCornerSize` exists in Fabric runtime but is missing in @types/fabric.
+      fabric.Object.prototype.touchCornerSize = 32;
+
+      initialCanvas.targetFindTolerance = 12;
 
       const initialWorkspace = new fabric.Rect({
         width: initialWidth.current,

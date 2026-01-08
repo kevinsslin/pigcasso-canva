@@ -16,6 +16,7 @@ import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-hea
 import { ResponseType, useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { cn } from "@/lib/utils";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -100,6 +101,8 @@ export const TemplateSidebar = ({
         <div className="p-4">
           <div className="grid grid-cols-2 gap-4">
             {data && data.map((template) => {
+              const thumbnailSrc = normalizeIpfsUrl(template.thumbnailUrl);
+
               return (
                 <button
                   style={{ 
@@ -109,11 +112,13 @@ export const TemplateSidebar = ({
                   key={template.id}
                   className="relative w-full group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
                 >
-                  {template.thumbnailUrl ? (
+                  {thumbnailSrc ? (
                     <Image
                       fill
-                      src={template.thumbnailUrl}
+                      src={thumbnailSrc}
                       alt={template.name || "Template"}
+                      sizes="180px"
+                      draggable={false}
                       className="object-cover"
                     />
                   ) : (

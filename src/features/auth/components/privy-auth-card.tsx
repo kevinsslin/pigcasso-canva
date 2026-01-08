@@ -2,6 +2,7 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { Loader2, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +17,19 @@ export const PrivyAuthCard = () => {
   const { ready, login } = usePrivy();
 
   return (
-    <Card className="w-full h-full p-8">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle>Sign in to Pigcasso Canvas</CardTitle>
-        <CardDescription>
-          Continue with email, social, or wallet via Privy.
-        </CardDescription>
+    <Card className="w-full p-8 rounded-2xl bg-white/80 backdrop-blur">
+      <CardHeader className="px-0 pt-0 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="relative size-10 shrink-0">
+            <Image src="/logo.svg" alt="Pigcasso Canvas" fill sizes="40px" />
+          </div>
+          <div className="min-w-0">
+            <CardTitle className="text-xl">Sign in to Pigcasso Canvas</CardTitle>
+            <CardDescription>
+              Continue with email, social, or wallet via Privy.
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 px-0 pb-0">
         <Button
@@ -46,4 +54,3 @@ export const PrivyAuthCard = () => {
     </Card>
   );
 };
-

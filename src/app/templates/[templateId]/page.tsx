@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ import { buildPrintrTokenUrl, MANTLE_CAIP2, MANTLE_EXPLORER_BASE_URL } from "@/f
 import { shortHash } from "@/features/printr/lib/format";
 
 import { Button } from "@/components/ui/button";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 
 export default function TemplatePage({
   params,
@@ -80,6 +82,7 @@ export default function TemplatePage({
     deployments.data?.deployments?.find((deployment) => deployment.chain_id === MANTLE_CAIP2) ??
     null;
   const remixCount = usage.data?.remixCount ?? null;
+  const thumbnailSrc = normalizeIpfsUrl(data.thumbnailUrl);
 
   const onRemix = () => {
     remix.mutate(
@@ -125,12 +128,9 @@ export default function TemplatePage({
               <>
                 {" "}
                 · Remixed from{" "}
-                <a
-                  className="underline"
-                  href={`/templates/${data.parentProjectId}`}
-                >
+                <Link className="underline" href={`/templates/${data.parentProjectId}`}>
                   {shortHash(data.parentProjectId)}
-                </a>
+                </Link>
               </>
             ) : null}
           </div>
@@ -156,20 +156,25 @@ export default function TemplatePage({
       ) : null}
 
       <div className="rounded-xl border overflow-hidden bg-muted">
-        {data.thumbnailUrl ? (
-          <div className="relative w-full aspect-[16/9]">
+        <div
+          className="relative w-full"
+          style={{ aspectRatio: `${data.width}/${data.height}` }}
+        >
+          {thumbnailSrc ? (
             <Image
-              src={data.thumbnailUrl}
+              src={thumbnailSrc}
               alt={data.name}
               fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              draggable={false}
               className="object-cover"
             />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
-            No preview available
-          </div>
-        )}
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+              No preview available
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border p-4 space-y-2">

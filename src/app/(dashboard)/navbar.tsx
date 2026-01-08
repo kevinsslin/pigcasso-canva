@@ -1,39 +1,35 @@
-import { Search } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { Menu } from "lucide-react";
 
 import { UserButton } from "@/features/auth/components/user-button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-import { MobileNav } from "./mobile-nav";
+import { Logo } from "./logo";
+import { MobileSidebar } from "./mobile-sidebar";
 
 export const Navbar = () => {
+  const [open, setOpen] = useState(false);
+
   return (
-    <nav className="sticky top-0 z-20 w-full border-b border-border bg-background/70 backdrop-blur px-4 lg:px-6 h-[68px] flex items-center">
-      <div className="flex items-center gap-3 w-full">
-        <div className="flex items-center gap-2 lg:hidden">
-          <MobileNav />
-          <Link href="/app" className="flex md:hidden items-center gap-2">
-            <div className="size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 flex items-center justify-center overflow-hidden shadow-lg">
-              <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} />
-            </div>
-            <span className="text-lg font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 dark:to-cyan-300">
-              Pigcasso
-            </span>
-          </Link>
-        </div>
-        <div className="hidden md:block flex-1 max-w-xl">
-          <div className="relative">
-            <Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input
-              placeholder="Search projects, templates, or ideas…"
-              className="pl-9 rounded-full"
-            />
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <UserButton />
-        </div>
+    <nav className="sticky top-0 z-20 w-full bg-background/70 backdrop-blur h-[68px] flex items-center px-2 lg:px-4">
+      <MobileSidebar open={open} onOpenChange={setOpen} />
+      <div className="lg:hidden flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="size-5" />
+        </Button>
+        <Logo compact onClick={() => setOpen(false)} />
+      </div>
+      <div className="ml-auto pr-2 lg:pr-0">
+        <UserButton />
       </div>
     </nav>
   );

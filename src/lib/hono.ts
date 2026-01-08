@@ -5,7 +5,10 @@ import { AppType } from "@/app/api/[[...route]]/route";
 import { getAuthToken } from "@/lib/auth-token";
 import { dispatchUnauthorizedEvent } from "@/lib/auth-events";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "";
+const baseUrl =
+  typeof window !== "undefined"
+    ? window.location.origin
+    : process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "http://localhost:3000";
 
 export const client = hc<AppType>(baseUrl, {
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {

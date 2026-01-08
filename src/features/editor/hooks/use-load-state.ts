@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
 import { normalizeFabricJson } from "@/features/editor/fabric-json";
+import { makeObjectInteractive } from "@/features/editor/fabric-object";
 
 interface UseLoadStateProps {
   autoZoom: () => void;
@@ -29,6 +30,10 @@ export const useLoadState = ({
 
       suppressSaveRef.current = true;
       canvas.loadFromJSON(data, () => {
+        canvas.getObjects().forEach((object) => {
+          makeObjectInteractive(object);
+        });
+
         const workspace = canvas
           .getObjects()
           .find((object) => object.name === "clip") as fabric.Rect | undefined;

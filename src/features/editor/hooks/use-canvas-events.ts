@@ -15,37 +15,41 @@ export const useCanvasEvents = ({
   clearSelectionCallback,
 }: UseCanvasEventsProps) => {
   useEffect(() => {
-    if (canvas) {
-      canvas.on("object:added", () => save());
-      canvas.on("object:removed", () => save());
-      canvas.on("object:modified", () => save());
-      canvas.on("selection:created", (e) => {
-        setSelectedObjects(e.selected || []);
-      });
-      canvas.on("selection:updated", (e) => {
-        setSelectedObjects(e.selected || []);
-      });
-      canvas.on("selection:cleared", () => {
-        setSelectedObjects([]);
-        clearSelectionCallback?.();
-      });
+    if (!canvas) {
+      return;
     }
 
-    return () => {
-      if (canvas) {
-        canvas.off("object:added");
-        canvas.off("object:removed");
-        canvas.off("object:modified");
-        canvas.off("selection:created");
-        canvas.off("selection:updated");
-        canvas.off("selection:cleared");
-      }
+    const handleObjectAdded = () => save();
+    const handleObjectRemoved = () => save();
+    const handleObjectModified = () => save();
+
+    const handleSelectionCreated = (e: { selected?: fabric.Object[] }) => {
+      setSelectedObjects(e.selected || []);
     };
-  },
-  [
-    save,
-    canvas,
-    clearSelectionCallback,
-    setSelectedObjects // No need for this, this is from setState
-  ]);
+
+    const handleSelectionUpdated = (e: { selected?: fabric.Object[] }) => {
+      setSelectedObjects(e.selected || []);
+    };
+
+    const handleSelectionCleared = () => {
+      setSelectedObjects([]);
+      clearSelectionCallback?.();
+    };
+
+    canvas.on("object:added", handleObjectAdded);
+    canvas.on("object:removed", handleObjectRemoved);
+    canvas.on("object:modified", handleObjectModified);
+    canvas.on("selection:created", handleSelectionCreated);
+    canvas.on("selection:updated", handleSelectionUpdated);
+    canvas.on("selection:cleared", handleSelectionCleared);
+
+    return () => {
+      canvas.off("object:added", handleObjectAdded);
+      canvas.off("object:removed", handleObjectRemoved);
+      canvas.off("object:modified", handleObjectModified);
+      canvas.off("selection:created", handleSelectionCreated);
+      canvas.off("selection:updated", handleSelectionUpdated);
+      canvas.off("selection:cleared", handleSelectionCleared);
+    };
+  }, [save, canvas, clearSelectionCallback, setSelectedObjects]);
 };

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Coins, Crown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 
 interface TemplateCardProps {
   imageSrc: string;
@@ -26,12 +27,15 @@ export const TemplateCard = ({
   isPro,
   hasToken,
 }: TemplateCardProps) => {
+  const normalizedImageSrc = normalizeIpfsUrl(imageSrc);
+
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "space-y-2 group text-left transition flex flex-col",
+        "space-y-2 group text-left transition flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl",
         disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer",
       )}
     >
@@ -39,12 +43,14 @@ export const TemplateCard = ({
         style={{ aspectRatio: `${width}/${height}` }}
         className="relative rounded-xl h-full w-full overflow-hidden border"
       >
-        {imageSrc ? (
+        {normalizedImageSrc ? (
           <Image
             fill
-            src={imageSrc}
+            src={normalizedImageSrc}
             alt={title}
-            className="object-cover transition transform group-hover:scale-105"
+            sizes="(max-width: 768px) 50vw, 25vw"
+            draggable={false}
+            className="object-cover transition transform group-hover:scale-105 group-focus-visible:scale-105"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#FBE9E8] via-[#F7A9B8] to-[#25D6FF]" />
@@ -59,7 +65,7 @@ export const TemplateCard = ({
             <Coins className="size-5 text-white" />
           </div>
         ) : null}
-        <div className="opacity-0 group-hover:opacity-100 transition absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl backdrop-filter backdrop-blur-sm">
+        <div className="pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl backdrop-filter backdrop-blur-sm">
           <p className="text-white font-medium">
             Open in editor
           </p>
@@ -69,7 +75,7 @@ export const TemplateCard = ({
         <p className="text-sm font-medium">
           {title}
         </p>
-        <p className="text-xs text-muted-foreground opacity-0 group-hover:opacity-75 transition">
+        <p className="text-xs text-muted-foreground opacity-75">
           {description}
         </p>
       </div>

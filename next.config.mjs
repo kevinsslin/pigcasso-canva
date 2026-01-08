@@ -29,7 +29,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "replicate.delivery",
+        hostname: "**.mypinata.cloud",
         pathname: "/**",
       },
       {

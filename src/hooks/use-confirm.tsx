@@ -38,7 +38,7 @@ export const useConfirm = (
   const ConfirmationDialog = () => (
     <Dialog
       open={promise !== null}
-      onOpenChange={(open) => {
+      onOpenChange={(open: boolean) => {
         if (!open) {
           handleCancel();
         }
