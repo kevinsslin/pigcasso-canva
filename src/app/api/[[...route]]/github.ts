@@ -5,8 +5,10 @@ import { zValidator } from "@hono/zod-validator";
 
 import { db } from "@/db/drizzle";
 import { githubConnections } from "@/db/schema";
+import { normalizeDbError } from "@/server/db-errors";
 import { requireAuth } from "@/server/hono-auth";
 import { decryptSecret, encryptSecret, getGithubOAuthEncryptionKey } from "@/server/crypto";
+import { HttpError } from "@/server/http-error";
 import {
   getGithubRepoDetails,
   getGithubRepoLanguages,
@@ -23,12 +25,19 @@ const app = new Hono()
   .get("/connection", requireAuth, async (c) => {
     const auth = c.get("authUser");
 
-    const [row] = await db
-      .select({
-        githubUsername: githubConnections.githubUsername,
-      })
-      .from(githubConnections)
-      .where(eq(githubConnections.userId, auth.id));
+    let row: { githubUsername: string | null } | undefined;
+    try {
+      [row] = await db
+        .select({
+          githubUsername: githubConnections.githubUsername,
+        })
+        .from(githubConnections)
+        .where(eq(githubConnections.userId, auth.id));
+    } catch (error) {
+      throw normalizeDbError(error, {
+        fallbackMessage: "Failed to fetch GitHub connection.",
+      });
+    }
 
     return c.json({
       data: {
@@ -53,26 +62,21 @@ const app = new Hono()
       const body = c.req.valid("json");
 
       const viewer = await getGithubViewer(body.accessToken);
-      const key = getGithubOAuthEncryptionKey();
+      let key: Buffer;
+      try {
+        key = getGithubOAuthEncryptionKey();
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
+        throw new HttpError(500, `Server misconfigured: ${message}`);
+      }
 
       const now = new Date();
-      await db
-        .insert(githubConnections)
-        .values({
-          userId: auth.id,
-          githubUserId: viewer.id,
-          githubUsername: viewer.login,
-          accessTokenEncrypted: encryptSecret(body.accessToken, key),
-          refreshTokenEncrypted: body.refreshToken
-            ? encryptSecret(body.refreshToken, key)
-            : null,
-          scopes: body.scopes?.length ? JSON.stringify(body.scopes) : null,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [githubConnections.userId],
-          set: {
+      try {
+        await db
+          .insert(githubConnections)
+          .values({
+            userId: auth.id,
             githubUserId: viewer.id,
             githubUsername: viewer.login,
             accessTokenEncrypted: encryptSecret(body.accessToken, key),
@@ -80,9 +84,27 @@ const app = new Hono()
               ? encryptSecret(body.refreshToken, key)
               : null,
             scopes: body.scopes?.length ? JSON.stringify(body.scopes) : null,
+            createdAt: now,
             updatedAt: now,
-          },
+          })
+          .onConflictDoUpdate({
+            target: [githubConnections.userId],
+            set: {
+              githubUserId: viewer.id,
+              githubUsername: viewer.login,
+              accessTokenEncrypted: encryptSecret(body.accessToken, key),
+              refreshTokenEncrypted: body.refreshToken
+                ? encryptSecret(body.refreshToken, key)
+                : null,
+              scopes: body.scopes?.length ? JSON.stringify(body.scopes) : null,
+              updatedAt: now,
+            },
+          });
+      } catch (error) {
+        throw normalizeDbError(error, {
+          fallbackMessage: "Failed to save GitHub connection.",
         });
+      }
 
       return c.json({
         data: {
@@ -94,27 +116,51 @@ const app = new Hono()
   )
   .post("/disconnect", requireAuth, async (c) => {
     const auth = c.get("authUser");
-    await db.delete(githubConnections).where(eq(githubConnections.userId, auth.id));
+    try {
+      await db.delete(githubConnections).where(eq(githubConnections.userId, auth.id));
+    } catch (error) {
+      throw normalizeDbError(error, {
+        fallbackMessage: "Failed to disconnect GitHub.",
+      });
+    }
     return c.json({ data: { connected: false } });
   })
   .get("/repos", requireAuth, async (c) => {
     const auth = c.get("authUser");
 
-    const [connection] = await db
-      .select({
-        accessTokenEncrypted: githubConnections.accessTokenEncrypted,
-      })
-      .from(githubConnections)
-      .where(eq(githubConnections.userId, auth.id));
+    let connection: { accessTokenEncrypted: string } | undefined;
+    try {
+      [connection] = await db
+        .select({
+          accessTokenEncrypted: githubConnections.accessTokenEncrypted,
+        })
+        .from(githubConnections)
+        .where(eq(githubConnections.userId, auth.id));
+    } catch (error) {
+      throw normalizeDbError(error, {
+        fallbackMessage: "Failed to fetch GitHub connection.",
+      });
+    }
 
     if (!connection) {
       return c.json({ error: "GitHub not connected" }, 404);
     }
 
-    const token = decryptSecret(
-      connection.accessTokenEncrypted,
-      getGithubOAuthEncryptionKey(),
-    );
+    let key: Buffer;
+    try {
+      key = getGithubOAuthEncryptionKey();
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
+      throw new HttpError(500, `Server misconfigured: ${message}`);
+    }
+
+    let token: string;
+    try {
+      token = decryptSecret(connection.accessTokenEncrypted, key);
+    } catch {
+      throw new HttpError(400, "GitHub token could not be decrypted. Please reconnect GitHub.");
+    }
 
     const repos = await listGithubRepos(token);
 
@@ -134,21 +180,39 @@ const app = new Hono()
       const auth = c.get("authUser");
       const { owner, repo } = c.req.valid("param");
 
-      const [connection] = await db
-        .select({
-          accessTokenEncrypted: githubConnections.accessTokenEncrypted,
-        })
-        .from(githubConnections)
-        .where(eq(githubConnections.userId, auth.id));
+      let connection: { accessTokenEncrypted: string } | undefined;
+      try {
+        [connection] = await db
+          .select({
+            accessTokenEncrypted: githubConnections.accessTokenEncrypted,
+          })
+          .from(githubConnections)
+          .where(eq(githubConnections.userId, auth.id));
+      } catch (error) {
+        throw normalizeDbError(error, {
+          fallbackMessage: "Failed to fetch GitHub connection.",
+        });
+      }
 
       if (!connection) {
         return c.json({ error: "GitHub not connected" }, 404);
       }
 
-      const token = decryptSecret(
-        connection.accessTokenEncrypted,
-        getGithubOAuthEncryptionKey(),
-      );
+      let key: Buffer;
+      try {
+        key = getGithubOAuthEncryptionKey();
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
+        throw new HttpError(500, `Server misconfigured: ${message}`);
+      }
+
+      let token: string;
+      try {
+        token = decryptSecret(connection.accessTokenEncrypted, key);
+      } catch {
+        throw new HttpError(400, "GitHub token could not be decrypted. Please reconnect GitHub.");
+      }
 
       const [repoDetails, languages, readme] = await Promise.all([
         getGithubRepoDetails(token, { owner, repo }),
@@ -199,4 +263,3 @@ const app = new Hono()
   );
 
 export default app;
-

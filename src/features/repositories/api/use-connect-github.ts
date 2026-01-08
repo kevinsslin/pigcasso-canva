@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { InferRequestType, InferResponseType } from "hono";
 
 import { client } from "@/lib/hono";
+import { readApiResponse } from "@/lib/api-response";
 
 type ResponseType = InferResponseType<(typeof client.api.github.connect)["$post"], 200>;
 type RequestType = InferRequestType<(typeof client.api.github.connect)["$post"]>["json"];
@@ -13,10 +14,7 @@ export const useConnectGithub = () => {
   return useMutation<ResponseType, Error, RequestType>({
     mutationFn: async (json) => {
       const response = await client.api.github.connect.$post({ json });
-      if (!response.ok) {
-        throw new Error("Failed to connect GitHub");
-      }
-      return await response.json();
+      return readApiResponse<ResponseType>(response, "Failed to connect GitHub");
     },
     onSuccess: (res) => {
       toast.success(
@@ -30,4 +28,3 @@ export const useConnectGithub = () => {
     },
   });
 };
-

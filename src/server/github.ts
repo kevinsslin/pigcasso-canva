@@ -1,3 +1,5 @@
+import { HttpError } from "@/server/http-error";
+
 const GITHUB_API_BASE_URL = "https://api.github.com";
 
 const buildGithubHeaders = (token: string, extra?: HeadersInit): HeadersInit => ({
@@ -36,6 +38,27 @@ export type GithubRepoDetails = GithubRepo & {
   defaultBranch: string;
 };
 
+const readGithubErrorMessage = (raw: string): string => {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const json = JSON.parse(trimmed) as { message?: unknown } | null;
+    if (json && typeof json === "object") {
+      const message = json.message;
+      if (typeof message === "string" && message.trim().length > 0) {
+        return message.trim();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return trimmed;
+};
+
 const githubFetch = async (path: string, options: RequestInit & { token: string }) => {
   const url = `${GITHUB_API_BASE_URL}${path}`;
   const res = await fetch(url, {
@@ -45,8 +68,19 @@ const githubFetch = async (path: string, options: RequestInit & { token: string 
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    const message = text || `${res.status} ${res.statusText}`.trim();
-    throw new Error(`GitHub API error: ${message}`);
+    const detail = readGithubErrorMessage(text);
+
+    const status = res.status === 401 ? 400 : res.status >= 500 ? 502 : res.status;
+    const prefix =
+      res.status === 401
+        ? "GitHub authorization failed"
+        : "GitHub API request failed";
+
+    const message = detail
+      ? `${prefix}: ${detail}`
+      : `${prefix}: ${res.status} ${res.statusText}`.trim();
+
+    throw new HttpError(status, message);
   }
 
   return res;
@@ -169,4 +203,3 @@ export const getGithubRepoReadme = async (
     return null;
   }
 };
-

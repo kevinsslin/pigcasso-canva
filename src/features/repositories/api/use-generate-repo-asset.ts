@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { readApiResponse } from "@/lib/api-response";
 import { client } from "@/lib/hono";
 
 type GenerateResponse = { data: { imageUrl: string } };
@@ -18,21 +19,18 @@ export const useGenerateRepoAsset = () => {
         },
       );
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Daily AI limit reached");
+      return readApiResponse<GenerateResponse>(response, ({ status }) => {
+        if (status === 429) {
+          return "Daily AI limit reached";
         }
-        if (response.status === 404) {
-          throw new Error("GitHub not connected");
+        if (status === 404) {
+          return "GitHub not connected";
         }
-        throw new Error("Failed to generate asset");
-      }
-
-      return await response.json();
+        return "Failed to generate asset";
+      });
     },
     onError: (err) => {
       toast.error(err.message || "Failed to generate asset");
     },
   });
 };
-
