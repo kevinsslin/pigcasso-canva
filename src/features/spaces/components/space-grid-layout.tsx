@@ -22,6 +22,8 @@ export type SpaceGridLayoutProps = {
   droppingItem?: GridLayoutProps["droppingItem"];
   onDrop?: GridLayoutProps["onDrop"];
   onDropDragOver?: GridLayoutProps["onDropDragOver"];
+  onDragStart?: GridLayoutProps["onDragStart"];
+  onDrag?: GridLayoutProps["onDrag"];
   onDragStop?: GridLayoutProps["onDragStop"];
   onResizeStop?: GridLayoutProps["onResizeStop"];
   compactor?: GridLayoutProps["compactor"];
@@ -44,6 +46,8 @@ export const SpaceGridLayout = ({
   droppingItem,
   onDrop,
   onDropDragOver,
+  onDragStart,
+  onDrag,
   onDragStop,
   onResizeStop,
   compactor,
@@ -67,15 +71,18 @@ export const SpaceGridLayout = ({
             bounded: isBounded ?? false,
             threshold: 4,
             handle: draggableHandle,
+            cancel: "button, a, input, textarea, select, option",
           }}
           resizeConfig={{
             enabled: isResizable,
-            handles: ["se"],
+            handles: ["n", "s", "e", "w", "ne", "nw", "se", "sw"],
           }}
           dropConfig={dropConfig}
           droppingItem={droppingItem}
           compactor={compactor}
           onLayoutChange={onLayoutChange}
+          onDragStart={onDragStart}
+          onDrag={onDrag}
           onDragStop={onDragStop}
           onResizeStop={onResizeStop}
           onDrop={onDrop}

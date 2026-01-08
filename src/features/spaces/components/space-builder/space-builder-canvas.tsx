@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Copy, Eye, EyeOff, GripVertical, Trash2 } from "lucide-react";
-import { noCompactor, type Layout } from "react-grid-layout";
+import { Copy, Eye, EyeOff, Trash2 } from "lucide-react";
+import type { Layout } from "react-grid-layout";
+import { noOverlapCompactor } from "react-grid-layout/core";
 
 import { cn } from "@/lib/utils";
 
 import type { SpaceGridLayoutProps } from "@/features/spaces/components/space-grid-layout";
 import { applyLayoutToBlocks, layoutFromBlocks, normalizeBlocksLayout } from "@/features/spaces/lib/space-layout";
+import { applySpaceGridDragSwap } from "@/features/spaces/lib/space-grid-swap";
 import type { SpaceBlock } from "@/features/spaces/lib/space-document";
 import type { SpaceBuilderMode } from "@/features/spaces/hooks/use-space-builder";
 import { getSpaceModuleDragData } from "@/features/spaces/lib/space-dnd";
@@ -55,6 +57,8 @@ export const SpaceBuilderCanvas = ({
 }: SpaceBuilderCanvasProps) => {
   const baseLayout = useMemo(() => layoutFromBlocks(blocks), [blocks]);
   const [draftLayout, setDraftLayout] = useState<Layout>(baseLayout);
+  const isDraggingRef = useRef(false);
+  const lastSwapTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     setDraftLayout(baseLayout);
@@ -62,15 +66,51 @@ export const SpaceBuilderCanvas = ({
 
   const onLiveLayoutChange: SpaceGridLayoutProps["onLayoutChange"] = (layout) => {
     if (mode !== "edit") return;
+    if (isDraggingRef.current) return;
     setDraftLayout(layout);
   };
 
-  const commitLayout: SpaceGridLayoutProps["onDragStop"] = (layout) => {
+  const commitLayout = (layout: Layout) => {
     if (mode !== "edit") return;
     const nextBlocks = normalizeBlocksLayout(applyLayoutToBlocks(blocks, layout), SPACE_GRID_COLUMNS);
     const safeLayout = layoutFromBlocks(nextBlocks);
     setDraftLayout(safeLayout);
     onLayoutChange(safeLayout);
+  };
+
+  const onDragStart: SpaceGridLayoutProps["onDragStart"] = () => {
+    if (mode !== "edit") return;
+    isDraggingRef.current = true;
+    lastSwapTargetRef.current = null;
+  };
+
+  const onDrag: SpaceGridLayoutProps["onDrag"] = (layout, oldItem, newItem) => {
+    if (mode !== "edit") return;
+
+    const result = applySpaceGridDragSwap({
+      layout,
+      oldItem,
+      newItem,
+      lastSwappedWith: lastSwapTargetRef.current,
+    });
+
+    if (result.swappedWith) {
+      lastSwapTargetRef.current = result.swappedWith;
+    } else {
+      lastSwapTargetRef.current = null;
+    }
+
+    if (result.layout !== layout) {
+      setDraftLayout(result.layout);
+    } else {
+      setDraftLayout(layout);
+    }
+  };
+
+  const onDragStop: SpaceGridLayoutProps["onDragStop"] = (layout) => {
+    isDraggingRef.current = false;
+    lastSwapTargetRef.current = null;
+    commitLayout(layout);
   };
 
   const onDropDragOver: SpaceGridLayoutProps["onDropDragOver"] = (event) => {
@@ -124,12 +164,13 @@ export const SpaceBuilderCanvas = ({
             rowHeight={SPACE_GRID_ROW_HEIGHT}
             margin={[SPACE_GRID_GAP, SPACE_GRID_GAP]}
             containerPadding={[0, 0]}
-            draggableHandle=".space-drag-handle"
             isDraggable={mode === "edit"}
             isResizable={mode === "edit"}
             isBounded
-            compactor={noCompactor}
-            onDragStop={commitLayout}
+            compactor={noOverlapCompactor}
+            onDragStart={onDragStart}
+            onDrag={onDrag}
+            onDragStop={onDragStop}
             onResizeStop={commitLayout}
             onLayoutChange={onLiveLayoutChange}
             layout={draftLayout}
@@ -146,6 +187,7 @@ export const SpaceBuilderCanvas = ({
                   <div
                     className={cn(
                       "group relative h-full rounded-3xl transition-shadow duration-200",
+                      mode === "edit" ? "cursor-grab active:cursor-grabbing" : null,
                       isHidden ? "opacity-75" : null,
                       isSelected ? "ring-2 ring-primary/50 shadow-neon" : "hover:ring-1 hover:ring-primary/25 hover:shadow-glow",
                     )}
@@ -201,19 +243,6 @@ export const SpaceBuilderCanvas = ({
                             <Trash2 className="size-4" />
                           </button>
                         ) : null}
-                      </div>
-                    ) : null}
-
-                    {mode === "edit" ? (
-                      <div
-                        className={cn(
-                          "space-drag-handle absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md border border-white/60 bg-white/85 px-2 py-1 shadow-sm transition-opacity",
-                          isSelected
-                            ? "opacity-100"
-                            : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
-                        )}
-                      >
-                        <GripVertical className="size-4 text-muted-foreground" />
                       </div>
                     ) : null}
 
