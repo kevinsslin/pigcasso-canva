@@ -121,7 +121,7 @@ export default function CanvasPage({ params }: PageProps) {
               </span>
             </Link>
             <div className="text-sm font-semibold text-muted-foreground">
-              ChatCanvas <span className="text-foreground">•</span>{" "}
+              Canvas <span className="text-foreground">•</span>{" "}
               <span className="text-foreground">Untitled</span>
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function CanvasPage({ params }: PageProps) {
             </div>
           </aside>
 
-          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-[#fffdf7] dark:bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
             <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
               {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
                 <Button

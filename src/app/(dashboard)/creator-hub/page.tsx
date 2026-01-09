@@ -21,9 +21,9 @@ export default function CreatorHubPage() {
   return (
     <div className="flex flex-col space-y-8 max-w-screen-xl mx-auto pb-10">
       <div>
-        <h1 className="text-2xl font-semibold">Creator Hub</h1>
+        <h1 className="text-2xl font-semibold">Templates</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your templates and explore community creations.
+          Manage your templates and explore community templates.
         </p>
       </div>
 

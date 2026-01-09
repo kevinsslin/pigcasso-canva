@@ -19,6 +19,7 @@ import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetTemplates } from "@/features/projects/api/use-get-templates";
+import { PROMPT_PRESETS } from "@/features/prompts/prompt-presets";
 
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
@@ -107,8 +108,6 @@ export default function AppHomePage() {
   const canUsePro = !isProLoading && isPro;
   const canSelectPro = canUsePro;
 
-  const templateTitle = "Creator Hub";
-
   return (
     <div className="mx-auto w-full max-w-7xl space-y-12 pt-8">
       <section className="flex flex-col items-center text-center">
@@ -117,7 +116,7 @@ export default function AppHomePage() {
             New
           </span>
           <span className="text-muted-foreground">
-            ChatCanvas pivot: Nano Banana / Pro + HTML generation
+            Pick a starter prompt, tweak it, then generate.
           </span>
         </div>
 
@@ -235,19 +234,25 @@ export default function AppHomePage() {
           ) : null}
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              <Sparkles className="size-4 mr-2" />
-              Design
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Branding
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Illustration
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Video
-            </Button>
+            {PROMPT_PRESETS.map((preset) => (
+              <Button
+                key={preset.id}
+                type="button"
+                variant="secondary"
+                className="rounded-full"
+                onClick={() => {
+                  setPrompt(preset.prompt);
+                  requestAnimationFrame(() => {
+                    promptRef.current?.focus();
+                  });
+                }}
+                disabled={busy}
+                title={preset.prompt}
+              >
+                {preset.id === "design" ? <Sparkles className="mr-2 size-4" /> : null}
+                {preset.label}
+              </Button>
+            ))}
           </div>
         </div>
       </section>
@@ -290,8 +295,8 @@ export default function AppHomePage() {
               <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
                 <Sparkles className="size-5" />
               </div>
-              <div className="mt-4 font-semibold">Open ChatCanvas</div>
-              <div className="mt-1 text-xs text-muted-foreground">Infinite canvas (beta).</div>
+              <div className="mt-4 font-semibold">Open Canvas</div>
+              <div className="mt-1 text-xs text-muted-foreground">Infinite canvas (freeform).</div>
             </button>
 
             {recentProjects.slice(0, 7).map((project) => (
@@ -316,8 +321,8 @@ export default function AppHomePage() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">{templateTitle}</h2>
-          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/creator-hub")}>
+          <h2 className="text-lg font-bold tracking-tight">Templates</h2>
+          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/templates")}>
             Browse
           </Button>
         </div>
