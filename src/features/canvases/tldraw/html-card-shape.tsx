@@ -53,14 +53,14 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
       <HTMLContainer id={shape.id} className="rounded-2xl overflow-hidden">
         <iframe
           title="HTML preview"
-        sandbox="allow-scripts"
-        srcDoc={srcDoc}
-        width={toDomPrecision(w)}
-        height={toDomPrecision(h)}
-        draggable={false}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        tabIndex={isEditing ? 0 : -1}
+          sandbox="allow-scripts"
+          srcDoc={srcDoc}
+          width={toDomPrecision(w)}
+          height={toDomPrecision(h)}
+          draggable={false}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          tabIndex={isEditing ? 0 : -1}
           className="w-full h-full bg-white"
           style={{
             border: 0,
