@@ -36,7 +36,8 @@ import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
-import { FloatingSidebar } from "@/components/app-shell/floating-sidebar";
+import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
+import { CANVAS_TOOL_BUTTONS, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -55,17 +56,8 @@ type PageProps = {
   params: { canvasId: string };
 };
 
-type CanvasTool = "select" | "hand" | "draw" | "text" | "frame";
-
-const TOOL_BUTTONS: Array<{ tool: CanvasTool; label: string; icon: ComponentType<{ className?: string }> }> = [
-  { tool: "select", label: "Select", icon: MousePointer2 },
-  { tool: "hand", label: "Pan", icon: Hand },
-  { tool: "draw", label: "Draw", icon: Pencil },
-  { tool: "text", label: "Text", icon: TextCursor },
-  { tool: "frame", label: "Frame", icon: Frame },
-];
-
-const DOCK_BUTTONS = TOOL_BUTTONS;
+const DOCK_BUTTONS: Array<{ tool: CanvasTool; label: string; icon: ComponentType<{ className?: string }> }> =
+  CANVAS_TOOL_BUTTONS;
 
 export default function CanvasPage({ params }: PageProps) {
   const router = useRouter();
@@ -106,6 +98,7 @@ export default function CanvasPage({ params }: PageProps) {
   const hasAutoPromptRef = useRef(false);
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
+  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
     chatInputRef.current = chatInput;
@@ -173,6 +166,37 @@ export default function CanvasPage({ params }: PageProps) {
 
     hydratingRef.current = false;
   }, [canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+
+  useEffect(() => {
+    if (!editor) return;
+    if (!hasLoadedSnapshotRef.current) return;
+    if (hasBootstrappedRef.current) return;
+    if (hydratingRef.current) return;
+
+    hasBootstrappedRef.current = true;
+
+    const shapes = editor.getCurrentPageShapes?.() ?? [];
+    if (shapes.length > 0) return;
+
+    try {
+      const viewport = editor.getViewportPageBounds();
+      const centerX = viewport.x + viewport.w / 2;
+      const centerY = viewport.y + viewport.h / 2;
+      const w = 960;
+      const h = 600;
+
+      editor.createShape({
+        type: "frame",
+        x: centerX - w / 2,
+        y: centerY - h / 2,
+        props: { w, h, name: "Frame 1", color: "black" },
+      } as any);
+
+      editor.zoomToFit({ animation: { duration: 220 } } as any);
+    } catch {
+      // ignore
+    }
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -405,7 +429,6 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
-      <FloatingSidebar />
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -471,6 +494,19 @@ export default function CanvasPage({ params }: PageProps) {
       </header>
 
       <main className="flex-1 overflow-hidden flex">
+        <CanvasToolRail
+          activeTool={activeTool}
+          disabled={!editor}
+          onToolChange={(tool) => {
+            setActiveTool(tool);
+            if (!editor) return;
+            try {
+              editor.setCurrentTool(toTldrawToolId(tool) as any);
+            } catch {
+              // ignore
+            }
+          }}
+        />
         <div className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0">
             <Tldraw
@@ -486,34 +522,6 @@ export default function CanvasPage({ params }: PageProps) {
             />
           </div>
 
-          <aside className="absolute left-24 top-4 z-20 hidden md:flex flex-col gap-2">
-            <div className="rounded-2xl border bg-card/80 backdrop-blur shadow-soft p-2 flex flex-col gap-1">
-              {TOOL_BUTTONS.map(({ tool, label, icon: Icon }) => (
-                <Button
-                  key={tool}
-                  type="button"
-                  size="icon"
-                  variant={activeTool === tool ? "default" : "ghost"}
-                  className="rounded-xl"
-                  onClick={() => {
-                    setActiveTool(tool);
-                    if (!editor) return;
-                    const tldrawTool = tool === "frame" ? "frame" : tool;
-                    try {
-                      editor.setCurrentTool(tldrawTool as any);
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  disabled={!editor}
-                  aria-label={label}
-                >
-                  <Icon className="size-4" />
-                </Button>
-              ))}
-            </div>
-          </aside>
-
           <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
             <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
               {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
@@ -524,9 +532,8 @@ export default function CanvasPage({ params }: PageProps) {
                   onClick={() => {
                     setActiveTool(tool);
                     if (!editor) return;
-                    const tldrawTool = tool === "frame" ? "frame" : tool;
                     try {
-                      editor.setCurrentTool(tldrawTool as any);
+                      editor.setCurrentTool(toTldrawToolId(tool) as any);
                     } catch {
                       // ignore
                     }
