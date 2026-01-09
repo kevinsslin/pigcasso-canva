@@ -15,3 +15,11 @@ export const toTldrawToolId = (tool: CanvasTool) => {
   return tool;
 };
 
+export const fromTldrawToolId = (toolId: string): CanvasTool | null => {
+  if (toolId === "select") return "select";
+  if (toolId === "hand") return "hand";
+  if (toolId === "draw") return "draw";
+  if (toolId === "text") return "text";
+  if (toolId === "frame") return "frame";
+  return null;
+};

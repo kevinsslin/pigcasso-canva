@@ -37,7 +37,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
-import { CANVAS_TOOL_BUTTONS, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,7 @@ export default function CanvasPage({ params }: PageProps) {
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const hasBootstrappedRef = useRef(false);
   const tabPointerDownRef = useRef<{ x: number; y: number } | null>(null);
+  const lastKnownToolIdRef = useRef<string | null>(null);
   const [tabAnchor, setTabAnchor] = useState<{
     screenX: number;
     screenY: number;
@@ -203,6 +204,54 @@ export default function CanvasPage({ params }: PageProps) {
 
     hydratingRef.current = false;
   }, [canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    let raf = 0;
+
+    const sync = () => {
+      try {
+        const currentToolId = editor.getCurrentToolId();
+        if (!currentToolId) return;
+        if (lastKnownToolIdRef.current === currentToolId) return;
+        lastKnownToolIdRef.current = currentToolId;
+
+        const mapped = fromTldrawToolId(currentToolId);
+        if (!mapped) return;
+        setActiveTool(mapped);
+      } catch {
+        // ignore
+      }
+    };
+
+    const onChange = () => {
+      if (typeof window === "undefined") return;
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        sync();
+      });
+    };
+
+    sync();
+    try {
+      editor.on("change" as any, onChange as any);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      if (typeof window !== "undefined" && raf) {
+        window.cancelAnimationFrame(raf);
+      }
+      try {
+        editor.off("change" as any, onChange as any);
+      } catch {
+        // ignore
+      }
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -534,18 +583,24 @@ export default function CanvasPage({ params }: PageProps) {
             >
               Chat
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={aiMode === "point" ? "default" : "ghost"}
-              className="h-8 rounded-full px-3"
-              onClick={() => {
-                setAiMode("point");
-                toast.message("Click edit: click the canvas to anchor an edit.", { duration: 2200 });
-              }}
-              aria-label="Click edit mode"
-            >
-              Click edit
+	            <Button
+	              type="button"
+	              size="sm"
+	              variant={aiMode === "point" ? "default" : "ghost"}
+	              className="h-8 rounded-full px-3"
+	              onClick={() => {
+	                setAiMode("point");
+	                setActiveTool("select");
+	                try {
+	                  editor?.setCurrentTool("select");
+	                } catch {
+	                  // ignore
+	                }
+	                toast.message("Click edit: click the canvas to anchor an edit.", { duration: 2200 });
+	              }}
+	              aria-label="Click edit mode"
+	            >
+	              Click edit
             </Button>
           </div>
 
@@ -607,17 +662,19 @@ export default function CanvasPage({ params }: PageProps) {
           }}
         />
         <div className="flex-1 relative overflow-hidden">
-          <div
-            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
-            onPointerDownCapture={(event) => {
-              if (aiMode !== "point") return;
-              if (event.button !== 0) return;
-              tabPointerDownRef.current = { x: event.clientX, y: event.clientY };
-            }}
-            onPointerUpCapture={(event) => {
-              if (aiMode !== "point") return;
-              if (!editor) return;
-              if (event.button !== 0) return;
+	          <div
+	            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+	            onPointerDownCapture={(event) => {
+	              if (aiMode !== "point") return;
+	              if (activeTool !== "select") return;
+	              if (event.button !== 0) return;
+	              tabPointerDownRef.current = { x: event.clientX, y: event.clientY };
+	            }}
+	            onPointerUpCapture={(event) => {
+	              if (aiMode !== "point") return;
+	              if (activeTool !== "select") return;
+	              if (!editor) return;
+	              if (event.button !== 0) return;
 
               const down = tabPointerDownRef.current;
               tabPointerDownRef.current = null;
@@ -734,11 +791,11 @@ export default function CanvasPage({ params }: PageProps) {
                 </Button>
               </div>
 
-              <div className="mt-2 text-xs text-muted-foreground">
-                Tip: click to anchor. Dragging won’t trigger a Tab edit.
-              </div>
-            </div>
-          ) : null}
+	              <div className="mt-2 text-xs text-muted-foreground">
+	                Tip: click to anchor. Dragging won’t trigger Click edit.
+	              </div>
+	            </div>
+	          ) : null}
 
           <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
             <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">

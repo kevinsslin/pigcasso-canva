@@ -31,8 +31,11 @@ export const CanvasToolRail = ({
                 <Button
                   type="button"
                   size="icon"
-                  variant={activeTool === tool ? "default" : "ghost"}
-                  className="rounded-full"
+                  variant="ghost"
+                  className={cn(
+                    "rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                    activeTool === tool ? "bg-primary/10 text-primary hover:bg-primary/10" : null,
+                  )}
                   onClick={() => onToolChange(tool)}
                   disabled={disabled}
                   aria-label={label}
