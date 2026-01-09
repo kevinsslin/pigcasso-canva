@@ -25,7 +25,6 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/repositories", label: "Repositories", icon: Github, match: matchPrefix("/repositories"), showInDock: false },
   { href: "/projects", label: "Projects", icon: FolderOpen, match: matchPrefix("/projects"), showInDock: true },
   { href: "/leaderboards", label: "Leaderboards", icon: Trophy, match: matchPrefix("/leaderboards"), showInDock: false },
-  { href: "/creator-hub", label: "Creator Hub", icon: LayoutGrid, match: matchPrefix("/creator-hub"), showInDock: false },
   { href: "/space", label: "My Space", icon: UserRound, match: matchPrefix("/space"), showInDock: true },
   {
     href: "/nfts",
