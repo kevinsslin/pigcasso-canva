@@ -76,7 +76,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   const [editor, setEditor] = useState<TldrawEditor | null>(null);
   const [activeTool, setActiveTool] = useState<CanvasTool>("select");
-  const [aiMode, setAiMode] = useState<"talk" | "tab" | "tune">("talk");
+  const [aiMode, setAiMode] = useState<"chat" | "point">("chat");
 
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([]);
@@ -123,7 +123,7 @@ export default function CanvasPage({ params }: PageProps) {
   const [tabInstruction, setTabInstruction] = useState("");
 
   useEffect(() => {
-    if (aiMode !== "tab") {
+    if (aiMode !== "point") {
       setTabAnchor(null);
     }
   }, [aiMode]);
@@ -585,38 +585,25 @@ export default function CanvasPage({ params }: PageProps) {
             <Button
               type="button"
               size="sm"
-              variant={aiMode === "talk" ? "default" : "ghost"}
+              variant={aiMode === "chat" ? "default" : "ghost"}
               className="h-8 rounded-full px-3"
-              onClick={() => setAiMode("talk")}
-              aria-label="Talk mode"
+              onClick={() => setAiMode("chat")}
+              aria-label="Chat mode"
             >
-              Talk
+              Chat
             </Button>
             <Button
               type="button"
               size="sm"
-              variant={aiMode === "tab" ? "default" : "ghost"}
+              variant={aiMode === "point" ? "default" : "ghost"}
               className="h-8 rounded-full px-3"
               onClick={() => {
-                setAiMode("tab");
-                toast.message("Tab mode: click the canvas to anchor an edit.", { duration: 2200 });
+                setAiMode("point");
+                toast.message("Click edit: click the canvas to anchor an edit.", { duration: 2200 });
               }}
-              aria-label="Tab mode"
+              aria-label="Click edit mode"
             >
-              Tab
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={aiMode === "tune" ? "default" : "ghost"}
-              className="h-8 rounded-full px-3"
-              onClick={() => {
-                setAiMode("tune");
-                toast.message("Tune mode (inspector) is coming next.", { duration: 2200 });
-              }}
-              aria-label="Tune mode"
-            >
-              Tune
+              Click edit
             </Button>
           </div>
 
@@ -681,12 +668,12 @@ export default function CanvasPage({ params }: PageProps) {
           <div
             className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
             onPointerDownCapture={(event) => {
-              if (aiMode !== "tab") return;
+              if (aiMode !== "point") return;
               if (event.button !== 0) return;
               tabPointerDownRef.current = { x: event.clientX, y: event.clientY };
             }}
             onPointerUpCapture={(event) => {
-              if (aiMode !== "tab") return;
+              if (aiMode !== "point") return;
               if (!editor) return;
               if (event.button !== 0) return;
 
@@ -744,14 +731,14 @@ export default function CanvasPage({ params }: PageProps) {
             />
           </div>
 
-          {aiMode === "tab" && tabAnchor ? (
+          {aiMode === "point" && tabAnchor ? (
             <div
               className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
               style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-semibold text-muted-foreground">
-                  Tab edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
+                  Click edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
                 </div>
                 <Button
                   type="button"
@@ -759,7 +746,7 @@ export default function CanvasPage({ params }: PageProps) {
                   size="icon"
                   className="h-7 w-7"
                   onClick={() => setTabAnchor(null)}
-                  aria-label="Close Tab edit"
+                  aria-label="Close click edit"
                 >
                   <X className="size-4" />
                 </Button>
@@ -793,7 +780,7 @@ export default function CanvasPage({ params }: PageProps) {
                   size="icon"
                   className="rounded-full"
                   disabled={!tabInstruction.trim() || busy}
-                  aria-label="Send Tab edit"
+                  aria-label="Send click edit"
                   onClick={() => {
                     if (!tabInstruction.trim()) return;
                     const anchor = tabAnchor;

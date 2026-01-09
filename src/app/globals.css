@@ -99,7 +99,7 @@ body {
 
   .pigcasso-paper-tldraw.tl-theme__light,
   .pigcasso-paper-tldraw.tl-theme__dark {
-    --tl-color-background: hsl(45 100% 98.4%);
+    --tl-color-background: #F3F4F5;
   }
 }
 
