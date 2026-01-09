@@ -18,15 +18,6 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
   const { ready, authenticated, login } = usePrivy();
   const [opening, setOpening] = useState(false);
   const handledAutoLoginRef = useRef(false);
-  const [postLoginRedirect, setPostLoginRedirect] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!ready || !authenticated || !postLoginRedirect) {
-      return;
-    }
-    router.replace(postLoginRedirect);
-    setPostLoginRedirect(null);
-  }, [authenticated, postLoginRedirect, ready, router]);
 
   const openApp = async (redirectTo = options?.defaultRedirect ?? "/app") => {
     if (!ready) {
@@ -40,14 +31,7 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
       return;
     }
 
-    handledAutoLoginRef.current = true;
-    setPostLoginRedirect(safeRedirect);
-    setOpening(true);
-    try {
-      await login();
-    } finally {
-      setOpening(false);
-    }
+    router.push(`/?open=1&redirect=${encodeURIComponent(safeRedirect)}`);
   };
 
   useEffect(() => {
@@ -64,9 +48,7 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
     const redirectTo = toSafeRedirectPath(searchParams?.get("redirect"));
 
     if (authenticated) {
-      if (!postLoginRedirect) {
-        router.replace(redirectTo);
-      }
+      router.replace(redirectTo);
       return;
     }
 
@@ -75,11 +57,9 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
     }
     handledAutoLoginRef.current = true;
 
-    setPostLoginRedirect(redirectTo);
     setOpening(true);
     Promise.resolve(login()).finally(() => setOpening(false));
-  }, [authenticated, login, postLoginRedirect, ready, router, searchParams]);
+  }, [authenticated, login, ready, router, searchParams]);
 
   return { openApp, opening, ready, authenticated };
 };
-
