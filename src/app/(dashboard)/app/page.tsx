@@ -2,30 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowUp,
-  Bolt,
-  Globe,
-  Image as ImageIcon,
-  Lightbulb,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
-import { toast } from "sonner";
+import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
-import { usePro } from "@/features/auth/hooks/use-pro";
-import { useGenerateImage } from "@/features/ai/api/use-generate-image";
-import { useCreateProject } from "@/features/projects/api/use-create-project";
+import { useGetCanvases } from "@/features/canvases/api/use-get-canvases";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetTemplates } from "@/features/projects/api/use-get-templates";
-
-import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 import { TemplateCard } from "../template-card";
+
+const PROMPT_STARTERS: Array<{ label: string; prompt: string }> = [
+  { label: "Meme", prompt: "Create a meme-style avatar of a pig astronaut in a colorful pop-art style." },
+  { label: "PFP", prompt: "Design a profile picture for a Web3 creator brand — bold, minimal, high-contrast." },
+  { label: "Poster", prompt: "Design an event poster for a hackathon: title, date/time, and a strong CTA." },
+  { label: "Logo", prompt: "Design a modern logo mark for a product called Pigcasso." },
+  { label: "Sticker Pack", prompt: "Create a sticker pack of 6 cute pig expressions with transparent background." },
+  { label: "Brand Kit", prompt: "Create a simple brand kit: palette + headline style + 3 social post layouts." },
+  { label: "Landing Page", prompt: "HTML landing page for a new AI design tool. Modern, responsive, no external assets." },
+  { label: "Short Video", prompt: "Storyboard a 15s short video ad with 5 scenes and on-screen captions." },
+];
 
 export default function AppHomePage() {
   const router = useRouter();
@@ -34,10 +32,7 @@ export default function AppHomePage() {
   const { ready, authenticated } = useRequireAuth("/app");
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const { isLoading: isProLoading, isPro } = usePro({ enabled: ready && authenticated });
-  const generateImage = useGenerateImage();
-  const createProject = useCreateProject({ toast: false });
-
+  const canvases = useGetCanvases({ enabled: ready && authenticated, limit: 8 });
   const projects = useGetProjects({ enabled: ready && authenticated, limit: 8 });
   const templates = useGetTemplates(
     { page: "1", limit: "8" },
@@ -45,9 +40,9 @@ export default function AppHomePage() {
   );
 
   const [prompt, setPrompt] = useState("");
-  const [profile, setProfile] = useState<"nano-banana" | "nano-banana-pro">("nano-banana");
   const [busy, setBusy] = useState(false);
 
+  const recentCanvases = canvases.data?.pages.flatMap((page) => page.data) ?? [];
   useEffect(() => {
     if (!searchParams) return;
     if (searchParams.get("new") !== "1") return;
@@ -62,52 +57,19 @@ export default function AppHomePage() {
     );
   }
 
-  const recentProjects = projects.data?.pages.flatMap((page) => page.data) ?? [];
-
   const onSubmitPrompt = async () => {
     const trimmed = prompt.trim();
     if (!trimmed) return;
 
-    const toastId = toast.loading("Generating…", {
-      description: profile === "nano-banana-pro" ? "Nano Banana Pro" : "Nano Banana",
-    });
-
     setBusy(true);
     try {
-      const generated = await generateImage.mutateAsync({
-        prompt: trimmed,
-        profile,
-        canvas: { width: 1024, height: 1024 },
-      });
-
-      const uploadedUrl = await uploadImageDataUrl(
-        generated.data,
-        `pigcasso_prompt_${Date.now()}.png`,
-      );
-
-      const created = await createProject.mutateAsync({
-        name: trimmed.slice(0, 80),
-        json: "",
-        width: 1024,
-        height: 1024,
-      });
-
-      toast.success("Opening editor…", { id: toastId, duration: 2500 });
-      router.push(`/editor/${created.data.id}?asset=${encodeURIComponent(uploadedUrl)}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to generate", {
-        id: toastId,
-        duration: 3500,
-      });
+      const canvasId = crypto.randomUUID();
+      router.push(`/canvas/${canvasId}?prompt=${encodeURIComponent(trimmed)}`);
     } finally {
       setBusy(false);
     }
   };
-
-  const canUsePro = !isProLoading && isPro;
-  const canSelectPro = canUsePro;
-
-  const templateTitle = "Creator Hub";
+  const recentProjects = projects.data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-12 pt-8">
@@ -117,7 +79,7 @@ export default function AppHomePage() {
             New
           </span>
           <span className="text-muted-foreground">
-            ChatCanvas pivot: Nano Banana / Pro + HTML generation
+            Infinite canvas + chat — your new creative workspace
           </span>
         </div>
 
@@ -128,7 +90,7 @@ export default function AppHomePage() {
           </span>
         </h1>
         <p className="mt-3 text-muted-foreground max-w-2xl">
-          Start with a prompt. We’ll generate an asset and drop you into the editor.
+          Start with a prompt. We’ll open a canvas and place the results right where you need them.
         </p>
 
         <div className="mt-8 w-full max-w-3xl">
@@ -149,112 +111,105 @@ export default function AppHomePage() {
             />
 
             <div className="flex items-center justify-between gap-3 px-4 pb-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled
-                  aria-label="Attach"
-                >
-                  <ImageIcon className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled
-                  aria-label="Idea"
-                >
-                  <Lightbulb className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled
-                  aria-label="Style"
-                >
-                  <Bolt className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled
-                  aria-label="Web"
-                >
-                  <Globe className="size-4" />
-                </Button>
-              </div>
+              <div className="flex-1" />
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={profile === "nano-banana" ? "default" : "secondary"}
-                  className="rounded-full"
-                  onClick={() => setProfile("nano-banana")}
-                  disabled={busy}
-                >
-                  Nano Banana
-                </Button>
-                <Button
-                  type="button"
-                  variant={profile === "nano-banana-pro" ? "default" : "secondary"}
-                  className="rounded-full"
-                  onClick={() => setProfile("nano-banana-pro")}
-                  disabled={busy || !canSelectPro}
-                  title={!canSelectPro ? "Token-gated: hold 100,000 PIGCASSO to unlock" : undefined}
-                >
-                  Nano Banana Pro
-                </Button>
-
-                <Button
-                  type="button"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() => void onSubmitPrompt()}
-                  disabled={busy || !prompt.trim()}
-                  aria-label="Generate"
-                >
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="icon"
+                className="rounded-full"
+                onClick={() => void onSubmitPrompt()}
+                disabled={busy || !prompt.trim()}
+                aria-label="Open canvas"
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+              </Button>
             </div>
           </div>
 
-          {!canUsePro ? (
-            <div className="mt-3 text-xs text-muted-foreground">
-              Pro is token-gated on Mantle (100,000 PIGCASSO). Non‑Pro requests for Nano Banana Pro
-              will automatically downgrade.
-            </div>
-          ) : null}
-
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              <Sparkles className="size-4 mr-2" />
-              Design
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Branding
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Illustration
-            </Button>
-            <Button type="button" variant="secondary" className="rounded-full" disabled>
-              Video
-            </Button>
+            {PROMPT_STARTERS.map((starter) => (
+              <Button
+                key={starter.label}
+                type="button"
+                variant="secondary"
+                className="rounded-full"
+                disabled={busy}
+                onClick={() => {
+                  setPrompt(starter.prompt);
+                  promptRef.current?.focus();
+                }}
+              >
+                {starter.label === "Meme" ? <Sparkles className="size-4 mr-2" /> : null}
+                {starter.label}
+              </Button>
+            ))}
           </div>
         </div>
       </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">Recent Projects</h2>
+          <h2 className="text-lg font-bold tracking-tight">Recent Canvases</h2>
+          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/canvases")}>
+            View all
+          </Button>
+        </div>
+
+        {canvases.isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="size-6 text-muted-foreground animate-spin" />
+          </div>
+        ) : canvases.isError ? (
+          <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+            {canvases.error?.message || "Failed to load canvases."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              type="button"
+              onClick={() => router.push("/canvas/new")}
+              className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
+            >
+              <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
+                <Sparkles className="size-5" />
+              </div>
+              <div className="mt-4 font-semibold">New canvas</div>
+              <div className="mt-1 text-xs text-muted-foreground">Infinite workspace.</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/projects")}
+              className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
+            >
+              <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
+                <Sparkles className="size-5" />
+              </div>
+              <div className="mt-4 font-semibold">Classic editor</div>
+              <div className="mt-1 text-xs text-muted-foreground">Templates + pages.</div>
+            </button>
+
+            {recentCanvases.slice(0, 7).map((canvas) => (
+              <button
+                key={canvas.id}
+                type="button"
+                onClick={() => router.push(`/canvas/${canvas.id}`)}
+                className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
+              >
+                <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10 border border-border/60" />
+                <div className="mt-4">
+                  <div className="text-sm font-semibold truncate">{canvas.name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Open canvas</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight">Classic Projects</h2>
           <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/projects")}>
             View all
           </Button>
@@ -268,33 +223,9 @@ export default function AppHomePage() {
           <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
             {projects.error?.message || "Failed to load projects."}
           </div>
-        ) : (
+        ) : recentProjects.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button
-              type="button"
-              onClick={() => router.push("/app?new=1")}
-              className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
-            >
-              <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
-                <Sparkles className="size-5" />
-              </div>
-              <div className="mt-4 font-semibold">New project</div>
-              <div className="mt-1 text-xs text-muted-foreground">Start from a prompt.</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push("/canvas/new")}
-              className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
-            >
-              <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
-                <Sparkles className="size-5" />
-              </div>
-              <div className="mt-4 font-semibold">Open ChatCanvas</div>
-              <div className="mt-1 text-xs text-muted-foreground">Infinite canvas (beta).</div>
-            </button>
-
-            {recentProjects.slice(0, 7).map((project) => (
+            {recentProjects.slice(0, 8).map((project) => (
               <button
                 key={project.id}
                 type="button"
@@ -311,13 +242,17 @@ export default function AppHomePage() {
               </button>
             ))}
           </div>
+        ) : (
+          <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
+            No projects yet.
+          </div>
         )}
       </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">{templateTitle}</h2>
-          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/creator-hub")}>
+          <h2 className="text-lg font-bold tracking-tight">Templates</h2>
+          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/templates")}>
             Browse
           </Button>
         </div>

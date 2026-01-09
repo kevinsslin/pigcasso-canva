@@ -33,6 +33,10 @@ export const isAllowedRemoteHost = (hostname: string) => {
     return true;
   }
 
+  if (host.endsWith(".mypinata.cloud")) {
+    return true;
+  }
+
   if (STATIC_ALLOWED_HOSTS.includes(host)) {
     return true;
   }

@@ -20,7 +20,7 @@ export const FloatingSidebar = () => {
             <Link
               href="/app?new=1"
               className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg hover:opacity-90 transition"
-              aria-label="New project"
+              aria-label="New"
             >
               <Plus className="size-5" />
             </Link>

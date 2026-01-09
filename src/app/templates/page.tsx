@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -28,10 +28,7 @@ export default function TemplatesIndexPage() {
   const canPrev = page > 1;
   const canNext = (query.data?.length ?? 0) === limit;
 
-  const title = useMemo(
-    () => (query.data?.length ? "Creator Hub" : "No templates yet"),
-    [query.data?.length],
-  );
+  const title = "Templates";
 
   if (!ready || !authenticated) {
     return (

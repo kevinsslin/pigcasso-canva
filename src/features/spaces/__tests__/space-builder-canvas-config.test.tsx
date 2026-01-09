@@ -3,6 +3,7 @@
 import React from "react";
 import { describe, expect, test, mock } from "bun:test";
 import { renderToString } from "react-dom/server";
+import { noOverlapCompactor } from "react-grid-layout/core";
 
 import type { SpaceGridLayoutProps } from "@/features/spaces/components/space-grid-layout";
 
@@ -50,6 +51,7 @@ describe("SpaceBuilderCanvas (UX regression)", () => {
     expect(capturedProps?.isDraggable).toBe(true);
     expect(capturedProps?.isResizable).toBe(true);
     expect(capturedProps?.draggableHandle).toBeUndefined();
+    expect(capturedProps?.compactor).toBe(noOverlapCompactor);
   });
 
   test("disables dragging/resizing in preview mode", async () => {

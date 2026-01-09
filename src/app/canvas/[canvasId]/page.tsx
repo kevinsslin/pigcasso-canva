@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -19,11 +19,21 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import type { Editor as TldrawEditor } from "tldraw";
+import debounce from "lodash.debounce";
+import { getSnapshot, loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
+import { toast } from "sonner";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { UserButton } from "@/features/auth/components/user-button";
+import { useGenerateImage } from "@/features/ai/api/use-generate-image";
+import { useEditImage } from "@/features/ai/api/use-edit-image";
+import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
+import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
+import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
+import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
 import { cn } from "@/lib/utils";
+import { getApiErrorStatus } from "@/lib/api-error";
+import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -66,8 +76,139 @@ export default function CanvasPage({ params }: PageProps) {
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([]);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [canvasName, setCanvasName] = useState("Untitled");
+  const [busy, setBusy] = useState(false);
+  const [panelTab, setPanelTab] = useState<"chat" | "preview">("chat");
+  const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
 
-  const persistenceKey = useMemo(() => `pigcasso:chatcanvas:${params.canvasId}`, [params.canvasId]);
+  const chatInputRef = useRef(chatInput);
+  const busyRef = useRef(busy);
+
+  const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
+  const tldrawUser = useTldrawUser({
+    userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
+  });
+
+  const generateImage = useGenerateImage();
+  const editImage = useEditImage();
+  const generateHtml = useGenerateHtml();
+
+  const canvasQuery = useGetCanvas(params.canvasId, { enabled: ready && authenticated });
+  const upsertCanvas = useUpsertCanvas({ toast: false });
+  const updateCanvas = useUpdateCanvas({ toast: false, invalidate: false, invalidateList: false });
+
+  const hasUpsertedRef = useRef(false);
+  const hasLoadedSnapshotRef = useRef(false);
+  const hasAutoPromptRef = useRef(false);
+  const hydratingRef = useRef(false);
+  const lastSavedSnapshotRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    chatInputRef.current = chatInput;
+  }, [chatInput]);
+
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  useEffect(() => {
+    if (!ready || !authenticated) return;
+    if (!canvasQuery.isError) return;
+
+    const status = getApiErrorStatus(canvasQuery.error);
+    if (status !== 404) return;
+    if (hasUpsertedRef.current) return;
+
+    hasUpsertedRef.current = true;
+    upsertCanvas.mutate({ id: params.canvasId, name: "Untitled" });
+  }, [authenticated, canvasQuery.error, canvasQuery.isError, params.canvasId, ready, upsertCanvas]);
+
+  useEffect(() => {
+    const serverName = canvasQuery.data?.name;
+    if (!serverName) return;
+    setCanvasName(serverName);
+  }, [canvasQuery.data?.name]);
+
+  useEffect(() => {
+    if (!editor) return;
+    if (hasLoadedSnapshotRef.current) return;
+    if (!canvasQuery.isError && !canvasQuery.isSuccess) return;
+
+    hasLoadedSnapshotRef.current = true;
+    hydratingRef.current = true;
+
+    const tryLoad = (raw: string) => {
+      try {
+        const snapshot = JSON.parse(raw) as unknown;
+        loadSnapshot(editor.store, snapshot as any);
+        lastSavedSnapshotRef.current = raw;
+        try {
+          localStorage.setItem(localSnapshotKey, raw);
+        } catch {
+          // ignore
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const serverSnapshot = canvasQuery.data?.snapshot ?? null;
+    if (serverSnapshot) {
+      tryLoad(serverSnapshot);
+    } else {
+      try {
+        const local = localStorage.getItem(localSnapshotKey);
+        if (local) {
+          tryLoad(local);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    hydratingRef.current = false;
+  }, [canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const save = debounce(() => {
+      if (hydratingRef.current) return;
+
+      let snapshotJson: string;
+      try {
+        snapshotJson = JSON.stringify(getSnapshot(editor.store));
+      } catch {
+        return;
+      }
+
+      if (snapshotJson === lastSavedSnapshotRef.current) return;
+      lastSavedSnapshotRef.current = snapshotJson;
+
+      try {
+        localStorage.setItem(localSnapshotKey, snapshotJson);
+      } catch {
+        // ignore
+      }
+
+      if (canvasQuery.data) {
+        updateCanvas.mutate({
+          param: { id: params.canvasId },
+          json: { snapshot: snapshotJson },
+        });
+      }
+    }, 1100);
+
+    const unsubscribe = editor.store.listen(() => {
+      save();
+    });
+
+    return () => {
+      unsubscribe();
+      save.cancel();
+    };
+  }, [canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
 
   useEffect(() => {
     if (!editor) return;
@@ -88,12 +229,137 @@ export default function CanvasPage({ params }: PageProps) {
       } catch {
         // ignore
       } finally {
+        if (imageUrl) {
+          updateCanvas.mutate({
+            param: { id: params.canvasId },
+            json: { coverImageUrl: imageUrl },
+          });
+        }
         router.replace(`/canvas/${params.canvasId}`);
       }
     };
 
     void insert();
-  }, [editor, params.canvasId, router, searchParams]);
+  }, [editor, params.canvasId, router, searchParams, updateCanvas]);
+
+  const sendMessage = useCallback(async (value?: string) => {
+    const trimmed = (value ?? chatInputRef.current).trim();
+    if (!trimmed) return;
+    if (!editor) return;
+    if (busyRef.current) return;
+
+    busyRef.current = true;
+    chatInputRef.current = "";
+    setBusy(true);
+    setChatInput("");
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
+
+    const selectedShapeId = (() => {
+      try {
+        return editor.getSelectedShapeIds?.()?.[0] ?? null;
+      } catch {
+        return null;
+      }
+    })();
+
+    const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId) as any) : null;
+
+    try {
+      const looksLikeHtmlPrompt =
+        /^\/?html\b/i.test(trimmed) ||
+        /landing page|website|web page|html/i.test(trimmed);
+
+      if (looksLikeHtmlPrompt) {
+        const res = await generateHtml.mutateAsync({ prompt: trimmed });
+        setHtmlPreview(res.data.html);
+        setPanelTab("preview");
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "assistant", content: "Generated an HTML preview." },
+        ]);
+        return;
+      }
+
+      if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
+        const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
+        const src = asset?.props?.src as string | undefined;
+
+        if (!src) {
+          throw new Error("Selected image is missing a source URL.");
+        }
+
+        const res = await editImage.mutateAsync({
+          image: src,
+          instruction: trimmed,
+        });
+
+        const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+
+        try {
+          editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: uploadedUrl } }]);
+        } catch {
+          // ignore
+        }
+
+        updateCanvas.mutate({
+          param: { id: params.canvasId },
+          json: { coverImageUrl: uploadedUrl },
+        });
+
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "assistant", content: "Updated the selected image." },
+        ]);
+        return;
+      }
+
+      const generated = await generateImage.mutateAsync({
+        prompt: trimmed,
+        canvas: { width: 1024, height: 1024 },
+      });
+
+      const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
+
+      await editor.putExternalContent({
+        type: "url",
+        url: uploadedUrl,
+        point: editor.screenToPage({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+        }),
+      });
+
+      updateCanvas.mutate({
+        param: { id: params.canvasId },
+        json: { coverImageUrl: uploadedUrl },
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", content: "Added a new image to your canvas." },
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Something went wrong.";
+      toast.error(message, { duration: 3500 });
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: message }]);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const prompt = searchParams?.get("prompt");
+    if (!prompt) return;
+    if (hasAutoPromptRef.current) return;
+
+    hasAutoPromptRef.current = true;
+    setChatInput(prompt);
+    void sendMessage(prompt);
+    router.replace(`/canvas/${params.canvasId}`);
+  }, [editor, params.canvasId, router, searchParams, sendMessage]);
 
   if (!ready || !authenticated) {
     return (
@@ -104,7 +370,7 @@ export default function CanvasPage({ params }: PageProps) {
   }
 
   return (
-    <div className="h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -121,8 +387,8 @@ export default function CanvasPage({ params }: PageProps) {
               </span>
             </Link>
             <div className="text-sm font-semibold text-muted-foreground">
-              ChatCanvas <span className="text-foreground">•</span>{" "}
-              <span className="text-foreground">Untitled</span>
+              Canvas <span className="text-foreground">•</span>{" "}
+              <span className="text-foreground">{canvasName}</span>
             </div>
           </div>
 
@@ -176,8 +442,10 @@ export default function CanvasPage({ params }: PageProps) {
         <div className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0">
             <Tldraw
-              persistenceKey={persistenceKey}
               hideUi
+              user={tldrawUser}
+              inferDarkMode={false}
+              className="pigcasso-paper-tldraw"
               onMount={(next) => {
                 setEditor(next as unknown as TldrawEditor);
                 return () => setEditor(null);
@@ -278,18 +546,59 @@ export default function CanvasPage({ params }: PageProps) {
         </div>
 
         <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
-          <div className="p-5 border-b border-border/60">
+          <div className="p-5 border-b border-border/60 space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Bot className="size-4 text-muted-foreground" />
               Pigcasso Agent
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Talk · Tab · Tune (MVP): chat is wired next.
+            <div className="text-xs text-muted-foreground">
+              Create with prompts, then select something on the canvas to refine it.
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={panelTab === "chat" ? "default" : "secondary"}
+                className="rounded-full"
+                onClick={() => setPanelTab("chat")}
+              >
+                Chat
+              </Button>
+              <Button
+                type="button"
+                variant={panelTab === "preview" ? "default" : "secondary"}
+                className="rounded-full"
+                onClick={() => setPanelTab("preview")}
+                disabled={!htmlPreview}
+                title={!htmlPreview ? "Generate HTML in chat to enable preview" : undefined}
+              >
+                Preview
+              </Button>
             </div>
           </div>
 
           <div className="flex-1 overflow-auto p-5 space-y-4">
-            {messages.length ? (
+            {panelTab === "preview" ? (
+              htmlPreview ? (
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    Preview is sandboxed (no scripts) for safety.
+                  </div>
+                  <div className="rounded-2xl border overflow-hidden bg-white">
+                    <iframe
+                      title="HTML preview"
+                      sandbox=""
+                      srcDoc={htmlPreview}
+                      className="w-full h-[520px]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Ask for a landing page / HTML in chat to see a preview here.
+                </div>
+              )
+            ) : messages.length ? (
               messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -317,18 +626,13 @@ export default function CanvasPage({ params }: PageProps) {
                 <Input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Describe what you want to change…"
+                  placeholder="Type a prompt… (try: “landing page for…”)"
                   className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                  disabled={busy}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      const trimmed = chatInput.trim();
-                      if (!trimmed) return;
-                      setMessages((prev) => [
-                        ...prev,
-                        { id: crypto.randomUUID(), role: "user", content: trimmed },
-                      ]);
-                      setChatInput("");
+                      void sendMessage();
                     }
                   }}
                 />
@@ -338,19 +642,11 @@ export default function CanvasPage({ params }: PageProps) {
                 type="button"
                 size="icon"
                 className="rounded-full"
-                onClick={() => {
-                  const trimmed = chatInput.trim();
-                  if (!trimmed) return;
-                  setMessages((prev) => [
-                    ...prev,
-                    { id: crypto.randomUUID(), role: "user", content: trimmed },
-                  ]);
-                  setChatInput("");
-                }}
-                disabled={!chatInput.trim()}
+                onClick={() => void sendMessage()}
+                disabled={!chatInput.trim() || busy}
                 aria-label="Send"
               >
-                <ArrowUp className="size-4" />
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
               </Button>
             </div>
           </div>
@@ -365,13 +661,49 @@ export default function CanvasPage({ params }: PageProps) {
                 <Bot className="size-4 text-muted-foreground" />
                 Pigcasso Agent
               </div>
-              <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
-                Close
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={panelTab === "chat" ? "default" : "secondary"}
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setPanelTab("chat")}
+                >
+                  Chat
+                </Button>
+                <Button
+                  type="button"
+                  variant={panelTab === "preview" ? "default" : "secondary"}
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setPanelTab("preview")}
+                  disabled={!htmlPreview}
+                >
+                  Preview
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
+                  Close
+                </Button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-4">
-              {messages.length ? (
+              {panelTab === "preview" ? (
+                htmlPreview ? (
+                  <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground">
+                      Preview is sandboxed (no scripts) for safety.
+                    </div>
+                    <div className="rounded-2xl border overflow-hidden bg-white">
+                      <iframe title="HTML preview" sandbox="" srcDoc={htmlPreview} className="w-full h-[70vh]" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Ask for a landing page / HTML in chat to see a preview here.
+                  </div>
+                )
+              ) : messages.length ? (
                 messages.map((msg) => (
                   <div
                     key={msg.id}
@@ -399,18 +731,13 @@ export default function CanvasPage({ params }: PageProps) {
                   <Input
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Describe what you want to change…"
+                    placeholder="Type a prompt…"
                     className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                    disabled={busy}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        const trimmed = chatInput.trim();
-                        if (!trimmed) return;
-                        setMessages((prev) => [
-                          ...prev,
-                          { id: crypto.randomUUID(), role: "user", content: trimmed },
-                        ]);
-                        setChatInput("");
+                        void sendMessage();
                       }
                     }}
                   />
@@ -420,19 +747,11 @@ export default function CanvasPage({ params }: PageProps) {
                   type="button"
                   size="icon"
                   className="rounded-full"
-                  onClick={() => {
-                    const trimmed = chatInput.trim();
-                    if (!trimmed) return;
-                    setMessages((prev) => [
-                      ...prev,
-                      { id: crypto.randomUUID(), role: "user", content: trimmed },
-                    ]);
-                    setChatInput("");
-                  }}
-                  disabled={!chatInput.trim()}
+                  onClick={() => void sendMessage()}
+                  disabled={!chatInput.trim() || busy}
                   aria-label="Send"
                 >
-                  <ArrowUp className="size-4" />
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                 </Button>
               </div>
             </div>

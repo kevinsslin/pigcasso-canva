@@ -21,8 +21,9 @@
 
 已實作（MVP baseline）：
 
-- ✅ `/app`：AI-native Home（大 prompt + quick chips + recent projects）
-- ✅ `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（含 desktop + mobile layout）
+- ✅ `/app`：AI-native Home（大 prompt + clickable prompt starters；以 Infinite Canvas 為主）
+- ✅ `/canvases`：Canvas documents 列表（DB-backed）
+- ✅ `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（DB persistence + desktop + mobile layout）
 - ✅ AI（Gemini）API：
   - ✅ `POST /api/ai/generate-image`
   - ✅ `POST /api/ai/edit-image`
@@ -43,7 +44,8 @@
 
 進行中 / 未實作（需要你確認的決策）：
 
-- ⏳ ChatCanvas ↔ Projects 的資料模型（目前是 tldraw local persistence，尚未落 DB / 綁 project id）
+- ✅ ChatCanvas persistence（已落 DB，table: `canvas_document`；API: `/api/canvases`）
+- ⏳ ChatCanvas ↔ Projects 的關係（Classic editor 的 project model 是否要遷移/並行？）
 - ⏳ Talk · Tab · Tune 的「指向式編輯」閉環（選取物件/區域 → 一句話修改 → 回填到 canvas）
 - ⏳ HTML 的安全 preview（sandbox / CSP / external resources policy）
 - ⏳ Short video provider（Kling/Veo 等）+ job queue（run log / storage / preview）

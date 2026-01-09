@@ -11,7 +11,8 @@ Last updated: 2026-01-09
 ## 1) 相關路由（請先對齊這三個概念）
 
 - `src/app/page.tsx` → `GET /`：公開 Landing（不需登入）
-- `src/app/(dashboard)/app/page.tsx` → `GET /app`：AI-native Home（大 prompt、Creator Hub、Recent Projects）
+- `src/app/(dashboard)/app/page.tsx` → `GET /app`：AI-native Home（大 prompt、prompt starters、Recent Canvases + Classic Projects + Templates）
+- `src/app/(dashboard)/canvases/page.tsx` → `GET /canvases`：Canvas documents 列表
 - `src/app/canvas/*` → `GET /canvas/new`、`GET /canvas/:id`：ChatCanvas（tldraw infinite canvas）
 
 Landing 的 CTA 應導向：

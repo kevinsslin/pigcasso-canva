@@ -13,15 +13,19 @@
 ### 已實作（repo 現況）
 
 - **Lovart-style App Shell**
-  - `/app`：改成 AI-native Home（大 prompt / quick chips / Recent Projects / Creator Hub）
+  - `/app`：AI-native Home（大 prompt + clickable prompt starters → 直接開新 `/canvas/:id`）
   - Dashboard：桌面版改成 **floating minimal sidebar**（取代肥肥 sidebar）
 - **ChatCanvas MVP（無限畫布）**
-  - `/canvas/new` → `/canvas/:id`：採用 `tldraw`（infinite canvas + local persistence key）
-  - 右側 Chat panel / 左側工具列（先做 UI 與基本工具切換；chat-to-tools 串接下一步）
+  - `/canvases`：Canvas documents 列表（DB-backed）
+  - `/canvas/new` → `/canvas/:id`：採用 `tldraw`（infinite canvas + DB persistence；localStorage snapshot 作為 fallback）
+  - 右側 Chat panel（已串接）：
+    - Talk：prompt → generate image → 上傳 → 落到畫布
+    - Tab（最小版）：選中 image → instruction → edit image → 回填到畫布
+    - Web：prompt → generate HTML → 右側 sandbox preview（no scripts）
 - **AI（Gemini）**
   - `POST /api/ai/generate-image`：支援 `profile`（`nano-banana` / `nano-banana-pro`，非 Pro 會自動 downgrade）
   - `POST /api/ai/edit-image`：支援 instruction + base image + reference images
-  - `POST /api/ai/generate-html`：回傳 self-contained HTML（下一步做 sandbox preview）
+  - `POST /api/ai/generate-html`：回傳 self-contained HTML（前端以 sandbox iframe preview）
 - **Repository → Asset**
   - `/repositories` + Editor sidebar：Privy GitHub OAuth → 列 repo → 一鍵生成 meme asset → 可 publish 到 Printr
   - Token encryption：OAuth token 存 DB 前使用 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密（缺少會回 `500` + `MISSING_GITHUB_OAUTH_ENCRYPTION_KEY`）
@@ -40,10 +44,10 @@
 ### 尚未實作 / 下一步（需要你確認的決策）
 
 - **ChatCanvas ↔ Projects 的資料模型**
-  - 現在 `/canvas/:id` 是 tldraw 的 local persistence；尚未落 DB / 綁 project id
+  - 現在 `/canvas/:id` 已落 DB（`canvas_document` + `/api/canvases`），但尚未與 project model 整合
   - 需決定：ChatCanvas 要取代 `/editor/:projectId` 成為預設工作區嗎？
 - **Talk · Tab · Tune 真正的「指向式編輯」**
-  - 選取物件/區域 → 一句話修改 → 回填到畫布（inpaint/outpaint/text edit）尚未串起來
+  - 目前 Tab 僅做到「選中 image → 整張 edit」；inpaint/outpaint/region edit、文字/排版 edit 尚未完整閉環
 - **HTML 生成與 preview**
   - 已有 `POST /api/ai/generate-html`，但 preview 的 sandbox / CSP 策略需要定義
 - **Short video（Kling/Veo 等）**

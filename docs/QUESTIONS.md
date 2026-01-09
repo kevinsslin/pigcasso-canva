@@ -18,8 +18,8 @@ Last updated: 2026-01-09
   - `/canvas/:id` 是否要變成主工作區？或先與 `/editor/:projectId` 並行？
   - 如果要替換：遷移策略（project model、舊資料兼容、redirect）怎麼做？
 - **ChatCanvas persistence（資料模型）**
-  - 目前 `/canvas/:id` 以 tldraw local persistence 為主；是否要落 DB（可協作/可追溯/可跨裝置）？
-  - 若落 DB：存 snapshot（binary/json）還是存 operation log？
+  - ✅ 已落 DB：`canvas_document` + `/api/canvases`（snapshot string + cover + name）
+  - 下一步：要不要加 versioning（history tree）或 op log（provenance/協作/回溯）？
 - **Talk · Tab · Tune 的「指向式編輯」閉環**
   - MVP 先做哪一種 point-edit：inpaint / outpaint / remove-bg / text edit？
   - 選取單位：object bbox vs marquee region vs comment anchor？

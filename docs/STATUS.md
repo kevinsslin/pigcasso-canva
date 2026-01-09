@@ -11,9 +11,10 @@ Last updated: 2026-01-09
 ### Product / UX
 
 - `/`：Landing（文案/結構已對齊 ChatCanvas pivot；見 `docs/LANDING_PAGE.md`）
-- `/app`：AI-native Home（大 prompt、quick chips、recent projects）
+- `/app`：AI-native Home（大 prompt、clickable prompt starters、Recent Canvases + Classic Projects + Templates）
 - Dashboard navigation：桌面 floating sidebar + mobile 底部 tab bar（native-like）
-- `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（desktop split layout + mobile full-screen chat dialog）
+- `/canvases`：Canvas documents 列表（DB-backed）
+- `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（DB persistence + mobile full-screen chat dialog）
 - Space builder：
   - Drag collision：由上往下拖曳碰撞會 **swap**（不再把其他項目往下擠）
   - Drag handle：可直接拖整個 block
@@ -109,6 +110,8 @@ bun run build
 ```
 
 手動驗收（建議順序）：
+- `/app`：輸入 prompt → 會開新 `/canvas/:id` 並自動跑生成（image / HTML）
+- `/canvases`：能看到 recently updated canvases（cover + updated time）
 - `/repositories`：Link/Authorize GitHub → Refresh → 能看到 repos → Generate asset
 - `/space/builder`：由上往下拖曳碰撞會 swap；resize 四邊可用
 - `/nfts`：tokenURI/image URL 都能點開並 preview（確認 `NEXT_PUBLIC_IPFS_GATEWAY`）

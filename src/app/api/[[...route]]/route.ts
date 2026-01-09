@@ -6,6 +6,7 @@ import { toPublicApiError } from "@/server/api-error-response";
 import ai from "./ai";
 import assistant from "./assistant";
 import assets from "./assets";
+import canvases from "./canvases";
 import collections from "./collections";
 import github from "./github";
 import images from "./images";
@@ -36,6 +37,7 @@ const routes = app
   .route("/ai", ai)
   .route("/assistant", assistant)
   .route("/assets", assets)
+  .route("/canvases", canvases)
   .route("/collections", collections)
   .route("/github", github)
   .route("/images", images)

@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   integer,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -56,6 +57,26 @@ export const spaceDocuments = pgTable(
   }),
 );
 
+export const canvasDocuments = pgTable(
+  "canvas_document",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Untitled"),
+    snapshot: text("snapshot"),
+    coverImageUrl: text("coverImageUrl"),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userUpdatedIdx: index("canvas_document_user_updated_idx").on(table.userId, table.updatedAt),
+  }),
+);
+
 export const githubConnections = pgTable(
   "github_connection",
   {
@@ -90,6 +111,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     fields: [users.id],
     references: [spaceDocuments.userId],
   }),
+  canvasDocuments: many(canvasDocuments),
   githubConnections: many(githubConnections),
   projects: many(projects),
   projectHubs: many(projectHubs),
@@ -100,6 +122,13 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 export const spaceDocumentsRelations = relations(spaceDocuments, ({ one }) => ({
   user: one(users, {
     fields: [spaceDocuments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const canvasDocumentsRelations = relations(canvasDocuments, ({ one }) => ({
+  user: one(users, {
+    fields: [canvasDocuments.userId],
     references: [users.id],
   }),
 }));

@@ -42,7 +42,8 @@ bun dev
 Open `http://localhost:3000`.
 
 - Public landing page: `/`
-- App home (requires Privy auth): `/app`
+- App home (requires Privy auth): `/app` (prompt → opens a new `/canvas/:id`)
+- Canvases list (requires Privy auth): `/canvases`
 - ChatCanvas (requires Privy auth): `/canvas/new`
 - Fabric editor (requires Privy auth): `/editor/:projectId`
 - Repositories (requires Privy auth): `/repositories`

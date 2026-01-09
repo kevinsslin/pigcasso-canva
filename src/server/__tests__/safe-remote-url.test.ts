@@ -12,6 +12,7 @@ describe("isAllowedRemoteHost", () => {
     expect(isAllowedRemoteHost("images.unsplash.com")).toBe(true);
     expect(isAllowedRemoteHost("utfs.io")).toBe(true);
     expect(isAllowedRemoteHost("gateway.pinata.cloud")).toBe(true);
+    expect(isAllowedRemoteHost("plum-high-rook-436.mypinata.cloud")).toBe(true);
     expect(isAllowedRemoteHost("cloudflare-ipfs.com")).toBe(true);
     expect(isAllowedRemoteHost("arweave.net")).toBe(true);
   });
