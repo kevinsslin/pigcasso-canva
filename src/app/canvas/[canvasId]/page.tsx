@@ -8,13 +8,8 @@ import {
   ArrowUp,
   Bot,
   ChevronLeft,
-  Frame,
-  Hand,
   Loader2,
-  MousePointer2,
-  Pencil,
   Plus,
-  TextCursor,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -32,6 +27,8 @@ import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
 import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
+import { withHistorySquash } from "@/features/canvases/tldraw/history";
+import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -246,13 +243,13 @@ export default function CanvasPage({ params }: PageProps) {
 
     const insert = async () => {
       try {
-        await editor.putExternalContent({
-          type: "url",
-          url: imageUrl,
-          point: editor.screenToPage({
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
-          }),
+        const point = getAiInsertPoint(editor as any);
+        await withHistorySquash(editor as any, "insert:image", async () => {
+          await editor.putExternalContent({
+            type: "url",
+            url: imageUrl,
+            point,
+          });
         });
       } catch {
         // ignore
@@ -312,12 +309,16 @@ export default function CanvasPage({ params }: PageProps) {
         setPanelTab("preview");
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
         try {
-          const point = editor.screenToPage({
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
+          const point = getAiInsertPoint(editor as any);
+          const existingShapeId =
+            selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
+          const result = await withHistorySquash(editor as any, "ai:html", async () => {
+            return upsertHtmlCard(editor as any, {
+              html,
+              point,
+              existingShapeId: existingShapeId ?? undefined,
+            });
           });
-          const existingShapeId = selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
-          const result = upsertHtmlCard(editor as any, { html, point, existingShapeId: existingShapeId ?? undefined });
           htmlCardMode = result.mode;
         } catch {
           // ignore (preview still available in the side panel)
@@ -354,7 +355,16 @@ export default function CanvasPage({ params }: PageProps) {
         const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
 
         try {
-          editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: uploadedUrl } }]);
+          await withHistorySquash(editor as any, "ai:edit-image", async () => {
+            editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: uploadedUrl } }]);
+            if (selectedShapeId) {
+              editor.updateShape?.({
+                id: selectedShapeId,
+                type: "image",
+                props: { url: uploadedUrl },
+              });
+            }
+          });
         } catch {
           // ignore
         }
@@ -378,13 +388,13 @@ export default function CanvasPage({ params }: PageProps) {
 
       const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
 
-      await editor.putExternalContent({
-        type: "url",
-        url: uploadedUrl,
-        point: editor.screenToPage({
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2,
-        }),
+      const point = getAiInsertPoint(editor as any);
+      await withHistorySquash(editor as any, "ai:insert-image", async () => {
+        await editor.putExternalContent({
+          type: "url",
+          url: uploadedUrl,
+          point,
+        });
       });
 
       updateCanvas.mutate({
