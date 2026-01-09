@@ -40,6 +40,7 @@ import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
 import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
+import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
 import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
@@ -94,6 +95,9 @@ export default function CanvasPage({ params }: PageProps) {
   const busyRef = useRef(busy);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
+
+  const remountingRef = useRef(false);
+  const hasMountedEditorRef = useRef(false);
 
   const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
   const tldrawUser = useTldrawUser({
@@ -201,6 +205,38 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [busy, mobileChatOpen, messages.length]);
 
+  const handleTldrawMount = useCallback((next: unknown) => {
+    const nextEditor = next as TldrawEditor;
+    remountingRef.current = false;
+    hasMountedEditorRef.current = true;
+    setBoardHydrated(false);
+    setEditor(nextEditor);
+
+    const onCrash = (payload: unknown) => {
+      const message =
+        payload && typeof payload === "object" && "error" in payload && payload.error instanceof Error
+          ? payload.error.message
+          : "The board crashed unexpectedly.";
+      setBoardCrashMessage(message);
+      toast.error("Board crashed. Reload to continue.", { duration: 4000 });
+    };
+
+    try {
+      nextEditor.on("crash" as any, onCrash as any);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        nextEditor.off("crash" as any, onCrash as any);
+      } catch {
+        // ignore
+      }
+      setEditor(null);
+    };
+  }, []);
+
   useEffect(() => {
     if (!ready || !authenticated) return;
     if (!canvasQuery.isError) return;
@@ -212,6 +248,19 @@ export default function CanvasPage({ params }: PageProps) {
     hasUpsertedRef.current = true;
     upsertCanvas.mutate({ id: params.canvasId, name: "Untitled" });
   }, [authenticated, canvasQuery.error, canvasQuery.isError, params.canvasId, ready, upsertCanvas]);
+
+  const handleBoardDisconnect = useCallback(() => {
+    setBoardCrashMessage("Board disconnected. Reload to continue.");
+  }, []);
+
+  useBoardDisconnectGuard({
+    editor,
+    boardHydrated,
+    boardCrashMessage,
+    hasMountedEditor: hasMountedEditorRef.current,
+    remounting: remountingRef.current,
+    onDisconnect: handleBoardDisconnect,
+  });
 
   useEffect(() => {
     const serverName = canvasQuery.data?.name;
@@ -311,33 +360,6 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
-
-    const onCrash = (payload: unknown) => {
-      const message =
-        payload && typeof payload === "object" && "error" in payload && payload.error instanceof Error
-          ? payload.error.message
-          : "The board crashed unexpectedly.";
-      setBoardCrashMessage(message);
-      toast.error("Board crashed. Reload to continue.", { duration: 4000 });
-    };
-
-    try {
-      editor.on("crash" as any, onCrash as any);
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      try {
-        editor.off("crash" as any, onCrash as any);
-      } catch {
-        // ignore
-      }
-    };
-  }, [editor]);
-
-  useEffect(() => {
-    if (!editor) return;
     if (loadedSnapshotEditorRef.current !== editor) return;
     if (bootstrappedEditorRef.current === editor) return;
     if (hydratingRef.current) return;
@@ -365,11 +387,6 @@ export default function CanvasPage({ params }: PageProps) {
     } catch {
       // ignore
     }
-  }, [editor]);
-
-  useEffect(() => {
-    if (!editor) return;
-    setBoardHydrated(false);
   }, [editor]);
 
   useEffect(() => {
@@ -467,6 +484,8 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
 
     const imageUrl = searchParams?.get("image");
     if (!imageUrl) return;
@@ -498,25 +517,29 @@ export default function CanvasPage({ params }: PageProps) {
     };
 
     void insert();
-  }, [editor, params.canvasId, router, searchParams, updateCanvas]);
+  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, router, searchParams, updateCanvas]);
 
   type SendMessageOptions = {
     point?: { x: number; y: number };
     shapeId?: string | null;
   };
 
-  const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
-    const trimmed = (value ?? chatInputRef.current).trim();
-    if (!trimmed) return;
+	  const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
+	    const trimmed = (value ?? chatInputRef.current).trim();
+	    if (!trimmed) return;
 
-    if (!editor) {
+    if (!editor || !boardHydrated || boardCrashMessage) {
+      if (boardCrashMessage) {
+        toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
+        return;
+      }
       toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
       return;
     }
-    if (busyRef.current) {
-      toast.message("Pigcasso is still working…", { duration: 2000 });
-      return;
-    }
+	    if (busyRef.current) {
+	      toast.message("Pigcasso is still working…", { duration: 2000 });
+	      return;
+	    }
 
     busyRef.current = true;
     chatInputRef.current = "";
@@ -667,10 +690,12 @@ export default function CanvasPage({ params }: PageProps) {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+		  }, [boardCrashMessage, boardHydrated, editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
 
   useEffect(() => {
     if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
 
     const prompt = searchParams?.get("prompt");
     if (!prompt) return;
@@ -680,7 +705,7 @@ export default function CanvasPage({ params }: PageProps) {
     setChatInput(prompt);
     void sendMessage(prompt);
     router.replace(`/canvas/${params.canvasId}`);
-  }, [editor, params.canvasId, router, searchParams, sendMessage]);
+  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, router, searchParams, sendMessage]);
 
 	  if (!ready || !authenticated) {
 	    return (
@@ -876,18 +901,15 @@ export default function CanvasPage({ params }: PageProps) {
               }
             }}
           >
-	            <Tldraw
-	              key={tldrawMountKey}
-	              hideUi
-	              user={tldrawUser}
-	              inferDarkMode={false}
-	              shapeUtils={shapeUtils}
-	              className="pigcasso-paper-tldraw"
-	              onMount={(next) => {
-	                setEditor(next as unknown as TldrawEditor);
-	                return () => setEditor(null);
-	              }}
-	            />
+		            <Tldraw
+		              key={tldrawMountKey}
+		              hideUi
+		              user={tldrawUser}
+		              inferDarkMode={false}
+		              shapeUtils={shapeUtils}
+		              className="pigcasso-paper-tldraw"
+		              onMount={handleTldrawMount}
+		            />
 	            {!boardHydrated ? (
 	              <div className="absolute inset-0 z-50 grid place-items-center bg-background/60 backdrop-blur-sm">
 	                <div className="rounded-2xl border bg-card/90 px-4 py-3 shadow-soft flex items-center gap-2 text-sm text-muted-foreground">
@@ -904,15 +926,16 @@ export default function CanvasPage({ params }: PageProps) {
 	                    {boardCrashMessage}
 	                  </div>
 	                  <div className="flex items-center gap-2 pt-1">
-	                    <Button
-	                      type="button"
-	                      className="rounded-full"
-	                      onClick={() => {
-	                        setBoardCrashMessage(null);
-	                        setBoardHydrated(false);
-	                        loadedSnapshotEditorRef.current = null;
-	                        bootstrappedEditorRef.current = null;
-	                        hydratingRef.current = false;
+		                    <Button
+		                      type="button"
+		                      className="rounded-full"
+		                      onClick={() => {
+                        remountingRef.current = true;
+		                        setBoardCrashMessage(null);
+		                        setBoardHydrated(false);
+		                        loadedSnapshotEditorRef.current = null;
+		                        bootstrappedEditorRef.current = null;
+		                        hydratingRef.current = false;
 	                        lastKnownToolIdRef.current = null;
 	                        tabPointerDownRef.current = null;
 	                        setTabAnchor(null);
@@ -960,18 +983,18 @@ export default function CanvasPage({ params }: PageProps) {
                 </Button>
               </div>
 
-              <div className="mt-2 flex items-center gap-2">
-                <Input
-                  value={tabInstruction}
-                  onChange={(e) => setTabInstruction(e.target.value)}
-                  placeholder="Describe the change…"
-                  className="h-10"
-                  autoFocus
-                  disabled={busy}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setTabAnchor(null);
+	              <div className="mt-2 flex items-center gap-2">
+	                <Input
+	                  value={tabInstruction}
+	                  onChange={(e) => setTabInstruction(e.target.value)}
+	                  placeholder="Describe the change…"
+	                  className="h-10"
+	                  autoFocus
+	                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                  onKeyDown={(event) => {
+	                    if (event.key === "Escape") {
+	                      event.preventDefault();
+	                      setTabAnchor(null);
                       return;
                     }
                     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -983,15 +1006,21 @@ export default function CanvasPage({ params }: PageProps) {
                     }
                   }}
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  className="rounded-full"
-                  disabled={!tabInstruction.trim() || busy}
-                  aria-label="Send click edit"
-                  onClick={() => {
-                    if (!tabInstruction.trim()) return;
-                    const anchor = tabAnchor;
+	                <Button
+	                  type="button"
+	                  size="icon"
+	                  className="rounded-full"
+	                  disabled={
+	                    !tabInstruction.trim() ||
+	                    busy ||
+	                    !editor ||
+	                    !boardHydrated ||
+	                    Boolean(boardCrashMessage)
+	                  }
+	                  aria-label="Send click edit"
+	                  onClick={() => {
+	                    if (!tabInstruction.trim()) return;
+	                    const anchor = tabAnchor;
                     setTabAnchor(null);
                     void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
                   }}
@@ -1069,18 +1098,19 @@ export default function CanvasPage({ params }: PageProps) {
 	              Create with prompts, then select something on the canvas to refine it.
 	            </div>
 
-	            <div className="flex flex-wrap gap-2">
-	              {QUICK_PROMPTS.map((item) => (
-	                <Button
-	                  key={item.label}
-                  type="button"
-                  size="sm"
-	                  variant="secondary"
-	                  className="rounded-full"
-	                  onClick={() => {
-	                    chatInputRef.current = item.prompt;
-	                    setChatInput(item.prompt);
-	                  }}
+		            <div className="flex flex-wrap gap-2">
+		              {QUICK_PROMPTS.map((item) => (
+		                <Button
+		                  key={item.label}
+	                  type="button"
+	                  size="sm"
+		                  variant="secondary"
+		                  className="rounded-full"
+		                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+		                  onClick={() => {
+		                    chatInputRef.current = item.prompt;
+		                    setChatInput(item.prompt);
+		                  }}
 	                >
 	                  {item.label}
                 </Button>
@@ -1139,33 +1169,39 @@ export default function CanvasPage({ params }: PageProps) {
 
           <div className="p-4 border-t border-border/60">
             <div className="flex items-center gap-2">
-              <div className="flex-1 rounded-full border bg-background px-4 py-2">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => {
-                    chatInputRef.current = e.target.value;
-                    setChatInput(e.target.value);
-                  }}
-                  placeholder="Type a prompt… (try: “landing page for…”)"
-                  className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                  disabled={busy}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
-                      void sendMessage();
+	              <div className="flex-1 rounded-full border bg-background px-4 py-2">
+	                <Input
+	                  value={chatInput}
+	                  onChange={(e) => {
+	                    chatInputRef.current = e.target.value;
+	                    setChatInput(e.target.value);
+	                  }}
+	                  placeholder={
+	                    boardCrashMessage
+	                      ? "Board unavailable…"
+	                      : !editor || !boardHydrated
+	                        ? "Loading canvas…"
+	                        : "Type a prompt… (try: “landing page for…”)"
+	                  }
+	                  className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+	                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                  onKeyDown={(event) => {
+	                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+	                      event.preventDefault();
+	                      void sendMessage();
                     }
                   }}
                 />
               </div>
 
-              <Button
-                type="button"
-                size="icon"
-                className="rounded-full"
-                onClick={() => void sendMessage()}
-                disabled={!chatInput.trim() || busy}
-                aria-label="Send"
-              >
+	              <Button
+	                type="button"
+	                size="icon"
+	                className="rounded-full"
+	                onClick={() => void sendMessage()}
+	                disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                aria-label="Send"
+	              >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
               </Button>
             </div>
@@ -1230,18 +1266,19 @@ export default function CanvasPage({ params }: PageProps) {
 	                    <div className="text-sm text-muted-foreground">
 	                      Describe what you want to create, then refine by selecting parts on the canvas.
 	                    </div>
-	                    <div className="flex flex-wrap gap-2">
-	                      {QUICK_PROMPTS.map((item) => (
-	                        <Button
-	                          key={item.label}
-	                          type="button"
-	                          size="sm"
-	                          variant="secondary"
-	                          className="rounded-full"
-	                          onClick={() => {
-	                            chatInputRef.current = item.prompt;
-	                            setChatInput(item.prompt);
-	                          }}
+		                    <div className="flex flex-wrap gap-2">
+		                      {QUICK_PROMPTS.map((item) => (
+		                        <Button
+		                          key={item.label}
+		                          type="button"
+		                          size="sm"
+		                          variant="secondary"
+		                          className="rounded-full"
+		                          disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+		                          onClick={() => {
+		                            chatInputRef.current = item.prompt;
+		                            setChatInput(item.prompt);
+		                          }}
 	                        >
 	                          {item.label}
 	                        </Button>
@@ -1255,33 +1292,39 @@ export default function CanvasPage({ params }: PageProps) {
 
             <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
               <div className="flex items-center gap-2">
-                <div className="flex-1 rounded-full border bg-background px-4 py-2">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => {
-                      chatInputRef.current = e.target.value;
-                      setChatInput(e.target.value);
-                    }}
-                    placeholder="Type a prompt…"
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                    disabled={busy}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                        event.preventDefault();
-                        void sendMessage();
+	                <div className="flex-1 rounded-full border bg-background px-4 py-2">
+	                  <Input
+	                    value={chatInput}
+	                    onChange={(e) => {
+	                      chatInputRef.current = e.target.value;
+	                      setChatInput(e.target.value);
+	                    }}
+	                    placeholder={
+	                      boardCrashMessage
+	                        ? "Board unavailable…"
+	                        : !editor || !boardHydrated
+	                          ? "Loading canvas…"
+	                          : "Type a prompt…"
+	                    }
+	                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+	                    disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                    onKeyDown={(event) => {
+	                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+	                        event.preventDefault();
+	                        void sendMessage();
                       }
                     }}
                   />
                 </div>
 
-                <Button
-                  type="button"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() => void sendMessage()}
-                  disabled={!chatInput.trim() || busy}
-                  aria-label="Send"
-                >
+	                <Button
+	                  type="button"
+	                  size="icon"
+	                  className="rounded-full"
+	                  onClick={() => void sendMessage()}
+	                  disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                  aria-label="Send"
+	                >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                 </Button>
               </div>
