@@ -18,7 +18,6 @@ import { usePro } from "@/features/auth/hooks/use-pro";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
-import { useGetTemplates } from "@/features/projects/api/use-get-templates";
 import { PROMPT_PRESETS } from "@/features/prompts/prompt-presets";
 
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -26,7 +25,8 @@ import { uploadImageDataUrl } from "@/lib/upload-data-url";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-import { TemplateCard } from "../template-card";
+import { TemplatesSection } from "../templates-section";
+import { MyTemplatesSection } from "../creator-hub/my-templates-section";
 
 export default function AppHomePage() {
   const router = useRouter();
@@ -40,10 +40,6 @@ export default function AppHomePage() {
   const createProject = useCreateProject({ toast: false });
 
   const projects = useGetProjects({ enabled: ready && authenticated, limit: 8 });
-  const templates = useGetTemplates(
-    { page: "1", limit: "8" },
-    { enabled: ready && authenticated },
-  );
 
   const [prompt, setPrompt] = useState("");
   const [profile, setProfile] = useState<"nano-banana" | "nano-banana-pro">("nano-banana");
@@ -319,44 +315,9 @@ export default function AppHomePage() {
         )}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">Templates</h2>
-          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/templates")}>
-            Browse
-          </Button>
-        </div>
-
-        {templates.isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="size-6 text-muted-foreground animate-spin" />
-          </div>
-        ) : templates.isError ? (
-          <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
-            {templates.error?.message || "Failed to load templates."}
-          </div>
-        ) : templates.data?.length ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {templates.data.map((template) => (
-              <TemplateCard
-                key={template.id}
-                title={template.name}
-                imageSrc={template.thumbnailUrl || ""}
-                onClick={() => router.push(`/templates/${template.id}`)}
-                disabled={false}
-                description={`${template.width} x ${template.height} px`}
-                width={template.width}
-                height={template.height}
-                isPro={template.isPro}
-                hasToken={Boolean(template.token?.printrTokenId)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
-            No templates yet.
-          </div>
-        )}
+      <section className="space-y-8">
+        <MyTemplatesSection />
+        <TemplatesSection />
       </section>
     </div>
   );

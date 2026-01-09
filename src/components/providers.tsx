@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
+import { usePathname, useRouter } from "next/navigation";
 import {
   arbitrum,
   avalanche,
@@ -16,6 +17,7 @@ import {
 import { QueryProvider } from "@/components/query-provider";
 import { AUTH_UNAUTHORIZED_EVENT } from "@/lib/auth-events";
 import { setAuthTokenGetter } from "@/lib/auth-token";
+import { clearPostLoginRedirect, getPostLoginRedirect } from "@/lib/post-login-redirect";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -59,6 +61,46 @@ const PrivyTokenSync = () => {
   return null;
 };
 
+const PostLoginRedirect = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { ready, authenticated } = usePrivy();
+  const hasHandledRedirectRef = useRef(false);
+
+  useEffect(() => {
+    if (!ready || !authenticated) {
+      hasHandledRedirectRef.current = false;
+      return;
+    }
+
+    if (hasHandledRedirectRef.current) {
+      return;
+    }
+
+    const target = getPostLoginRedirect();
+    if (!target) {
+      return;
+    }
+
+    const current =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : pathname ?? "";
+
+    if (current === target) {
+      clearPostLoginRedirect();
+      hasHandledRedirectRef.current = true;
+      return;
+    }
+
+    hasHandledRedirectRef.current = true;
+    clearPostLoginRedirect();
+    router.replace(target);
+  }, [authenticated, pathname, ready, router]);
+
+  return null;
+};
+
 export const Providers = ({ children }: ProvidersProps) => {
   return (
     <PrivyProvider
@@ -76,12 +118,13 @@ export const Providers = ({ children }: ProvidersProps) => {
         defaultChain: mantle,
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "all-users",
+            createOnLogin: "off",
           },
         },
       }}
     >
       <PrivyTokenSync />
+      <PostLoginRedirect />
       <QueryProvider>{children}</QueryProvider>
     </PrivyProvider>
   );

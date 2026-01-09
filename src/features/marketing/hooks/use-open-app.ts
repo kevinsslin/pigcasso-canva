@@ -5,12 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const toSafeRedirectPath = (value: string | null) => {
-  if (!value) return "/app";
-  if (!value.startsWith("/")) return "/app";
-  if (value.startsWith("//")) return "/app";
-  return value;
-};
+import { setPostLoginRedirect, toSafeRedirectPath } from "@/lib/post-login-redirect";
 
 export const useOpenApp = (options?: { defaultRedirect?: string }) => {
   const router = useRouter();
@@ -31,6 +26,7 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
       return;
     }
 
+    setPostLoginRedirect(safeRedirect);
     router.push(`/?open=1&redirect=${encodeURIComponent(safeRedirect)}`);
   };
 
@@ -57,6 +53,7 @@ export const useOpenApp = (options?: { defaultRedirect?: string }) => {
     }
     handledAutoLoginRef.current = true;
 
+    setPostLoginRedirect(redirectTo);
     setOpening(true);
     Promise.resolve(login()).finally(() => setOpening(false));
   }, [authenticated, login, ready, router, searchParams]);

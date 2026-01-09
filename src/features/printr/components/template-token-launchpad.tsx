@@ -91,7 +91,7 @@ export const TemplateTokenLaunchpad = () => {
           </p>
         </div>
         <Button asChild variant="secondary" className="rounded-full">
-          <Link href="/creator-hub">Back to Templates</Link>
+          <Link href="/app">Back</Link>
         </Button>
       </div>
 
