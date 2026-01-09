@@ -120,7 +120,7 @@ export default function RepositoriesPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-4 flex flex-col gap-2">
+      <div className="rounded-xl border border-border bg-card/80 backdrop-blur p-4 flex flex-col gap-2">
         <div className="text-sm font-medium">Connection</div>
         <div className="text-sm text-muted-foreground">
           {githubConnected ? (
@@ -169,7 +169,7 @@ export default function RepositoriesPage() {
             <Loader2 className="size-6 text-muted-foreground animate-spin" />
           </div>
         ) : repos.isError ? (
-          <div className="rounded-xl border bg-white p-4 text-sm">
+          <div className="rounded-xl border border-border bg-card/80 backdrop-blur p-4 text-sm">
             {repos.error.message || "Failed to load repositories."}
           </div>
         ) : visibleRepos.length ? (
@@ -187,12 +187,12 @@ export default function RepositoriesPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card/80 backdrop-blur p-4 text-sm text-muted-foreground">
             No repositories found.
           </div>
         )
       ) : (
-        <div className="rounded-xl border bg-white p-6 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-card/80 backdrop-blur p-6 text-sm text-muted-foreground">
           Connect GitHub to see your repositories here.
         </div>
       )}

@@ -8,6 +8,12 @@ describe("getErrorStatus", () => {
     expect(getErrorStatus(new HttpError(401, "nope"))).toBe(401);
   });
 
+  test("defaults expose=true for 4xx and false for 5xx", () => {
+    expect(new HttpError(400, "bad").expose).toBe(true);
+    expect(new HttpError(500, "bad").expose).toBe(false);
+    expect(new HttpError(500, "bad", { expose: true }).expose).toBe(true);
+  });
+
   test("supports Hono HTTPException", () => {
     expect(getErrorStatus(new HTTPException(418, { message: "teapot" }))).toBe(418);
   });

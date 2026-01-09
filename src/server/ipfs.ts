@@ -55,7 +55,7 @@ export const hasIpfsConfigured = () => Boolean(getPinataJwtAuth() || getPinataKe
 
 const requireIpfsConfigured = () => {
   if (!hasIpfsConfigured()) {
-    throw new HttpError(501, "IPFS pinning is currently unavailable.");
+    throw new HttpError(501, "IPFS pinning is currently unavailable.", { expose: true });
   }
 };
 
@@ -94,6 +94,7 @@ const createPinataMisconfiguredError = (failures: PinataFailure[]) => {
       "For V3 uploads (`jwt-v3`), ensure the key includes `org:files:write` (or use an Admin key). " +
       "For legacy endpoints (`keys-legacy`), ensure `pinFileToIPFS` and `pinJSONToIPFS` are allowed. " +
       "After updating env vars, redeploy Vercel so the runtime picks them up.",
+    { expose: true },
   );
 };
 
@@ -103,6 +104,7 @@ const pinataUploadV3 = async (params: { file: Blob | File; name?: string }): Pro
     throw new HttpError(
       501,
       "IPFS pinning is currently unavailable. Set `PINATA_JWT` for Pinata V3 uploads.",
+      { expose: true },
     );
   }
 
@@ -121,7 +123,7 @@ const pinataUploadV3 = async (params: { file: Blob | File; name?: string }): Pro
   const body = await readApiResponse<{ data?: { cid?: string } }>(res, "Failed to upload file to IPFS");
   const cid = body.data?.cid;
   if (!cid) {
-    throw new HttpError(502, "Invalid IPFS response");
+    throw new HttpError(502, "Invalid IPFS response", { expose: true });
   }
 
   return { cid };
@@ -133,6 +135,7 @@ const pinataPinJsonLegacy = async (params: { json: unknown; name?: string }): Pr
     throw new HttpError(
       501,
       "IPFS pinning is currently unavailable. Set `PINATA_API_KEY` + `PINATA_SECRET_API_KEY` for legacy Pinata endpoints.",
+      { expose: true },
     );
   }
 
@@ -154,7 +157,7 @@ const pinataPinJsonLegacy = async (params: { json: unknown; name?: string }): Pr
   const body = await readApiResponse<{ IpfsHash?: string }>(res, "Failed to upload JSON to IPFS");
   const cid = body.IpfsHash;
   if (!cid) {
-    throw new HttpError(502, "Invalid IPFS response");
+    throw new HttpError(502, "Invalid IPFS response", { expose: true });
   }
 
   return { cid };
@@ -166,6 +169,7 @@ const pinataPinFileLegacy = async (params: { file: Blob | File; name: string }):
     throw new HttpError(
       501,
       "IPFS pinning is currently unavailable. Set `PINATA_API_KEY` + `PINATA_SECRET_API_KEY` for legacy Pinata endpoints.",
+      { expose: true },
     );
   }
 
@@ -188,7 +192,7 @@ const pinataPinFileLegacy = async (params: { file: Blob | File; name: string }):
   const body = await readApiResponse<{ IpfsHash?: string }>(res, "Failed to upload file to IPFS");
   const cid = body.IpfsHash;
   if (!cid) {
-    throw new HttpError(502, "Invalid IPFS response");
+    throw new HttpError(502, "Invalid IPFS response", { expose: true });
   }
 
   return { cid };
@@ -247,7 +251,7 @@ export const pinFileFromUrlToIpfs = async (params: {
   const res = await fetch(remote.toString());
   assertSafeRemoteUrl(res.url, "Invalid image URL");
   if (!res.ok) {
-    throw new HttpError(502, "Failed to fetch image");
+    throw new HttpError(502, "Failed to fetch image", { expose: true });
   }
 
   const contentLengthRaw = res.headers.get("content-length");

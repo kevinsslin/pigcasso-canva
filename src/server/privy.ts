@@ -1,6 +1,7 @@
 import { PrivyClient } from "@privy-io/server-auth";
 
 import { createLazyProxy } from "@/lib/lazy-proxy";
+import { requireEnv } from "@/server/env";
 
 let cachedClient: PrivyClient | null = null;
 
@@ -9,16 +10,8 @@ const getPrivyClient = () => {
     return cachedClient;
   }
 
-  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-  const privyAppSecret = process.env.PRIVY_APP_SECRET;
-
-  if (!privyAppId) {
-    throw new Error("Missing NEXT_PUBLIC_PRIVY_APP_ID");
-  }
-
-  if (!privyAppSecret) {
-    throw new Error("Missing PRIVY_APP_SECRET");
-  }
+  const privyAppId = requireEnv("NEXT_PUBLIC_PRIVY_APP_ID");
+  const privyAppSecret = requireEnv("PRIVY_APP_SECRET");
 
   cachedClient = new PrivyClient(privyAppId, privyAppSecret);
   return cachedClient;

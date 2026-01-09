@@ -790,7 +790,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
       {open ? (
         <div
           ref={panelRef}
-          className="fixed z-[60] w-[min(340px,calc(100vw-24px))] h-[min(460px,calc(100dvh-220px))] bg-white border rounded-2xl shadow-2xl overflow-hidden flex flex-col motion-safe:animate-[pigcasso-enter_220ms_ease-out_0ms_both]"
+          className="fixed z-[60] w-[min(340px,calc(100vw-24px))] h-[min(460px,calc(100dvh-220px))] bg-card/95 backdrop-blur border border-border/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col motion-safe:animate-[pigcasso-enter_220ms_ease-out_0ms_both]"
         >
           <div className="px-3 py-2 border-b flex items-center gap-2">
             <div
@@ -1034,7 +1034,7 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
           onPointerUp={onDragEnd}
           onPointerCancel={onDragEnd}
           className={cn(
-            "relative z-0 rounded-full h-[72px] w-[72px] p-0 bg-white/92 backdrop-blur border border-white/70 shadow-2xl shadow-pink-500/20 cursor-grab active:cursor-grabbing select-none touch-none",
+            "relative z-0 rounded-full h-[72px] w-[72px] p-0 bg-card/90 backdrop-blur border border-border/60 shadow-2xl shadow-pink-500/20 cursor-grab active:cursor-grabbing select-none touch-none",
             "before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-br before:from-primary/25 before:to-cyan-400/25 before:blur-md before:opacity-80 before:-z-10",
             "after:content-[''] after:absolute after:inset-1.5 after:rounded-full after:ring-1 after:ring-white/80 after:opacity-90",
             open ? "ring-2 ring-primary/35 shadow-glow" : "hover:shadow-glow",

@@ -256,7 +256,7 @@ export const LayersSidebar = ({
   return (
     <aside
       className={cn(
-        "bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
+        "bg-card/80 backdrop-blur relative border-r border-border/60 z-[40] w-[360px] h-full flex flex-col",
         activeTool === "layers" ? "visible" : "hidden",
       )}
     >

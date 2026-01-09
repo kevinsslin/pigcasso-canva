@@ -46,9 +46,12 @@ export const normalizeGeminiError = (
     return new HttpError(
       502,
       `Gemini model not found (404). Please update your Gemini model configuration.${suffix ? ` (${suffix})` : ""}`,
+      { expose: true },
     );
   }
 
   const message = rawMessage ? shorten(rawMessage) : "Gemini request failed.";
-  return new HttpError(status ?? 502, suffix ? `${message} (${suffix})` : message);
+  return new HttpError(status ?? 502, suffix ? `${message} (${suffix})` : message, {
+    expose: true,
+  });
 };

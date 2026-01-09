@@ -164,10 +164,10 @@ const toBase64Image = async (input: string): Promise<string> => {
   try {
     res = await fetch(url.toString());
   } catch {
-    throw new HttpError(502, "Failed to fetch image");
+    throw new HttpError(502, "Failed to fetch image", { expose: true });
   }
   if (!res.ok) {
-    throw new HttpError(502, "Failed to fetch image");
+    throw new HttpError(502, "Failed to fetch image", { expose: true });
   }
 
   const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
@@ -179,7 +179,7 @@ const toBase64Image = async (input: string): Promise<string> => {
   try {
     buffer = await res.arrayBuffer();
   } catch {
-    throw new HttpError(502, "Failed to read image");
+    throw new HttpError(502, "Failed to read image", { expose: true });
   }
   if (buffer.byteLength > MAX_IMAGE_BYTES) {
     throw new HttpError(413, "Image too large");
@@ -353,7 +353,7 @@ const app = new Hono()
               ? (printrResponse as { token_id: string }).token_id
               : null,
         });
-        throw new HttpError(502, "Printr returned an unexpected response.");
+        throw new HttpError(502, "Printr returned an unexpected response.", { expose: true });
       }
 
       let created: typeof templateTokens.$inferSelect | undefined;

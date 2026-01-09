@@ -71,7 +71,7 @@ export const SpaceGridLayout = ({
             bounded: isBounded ?? false,
             threshold: 4,
             handle: draggableHandle,
-            cancel: "button, a, input, textarea, select, option",
+            cancel: "button, a, input, textarea, select, option, .react-resizable-handle",
           }}
           resizeConfig={{
             enabled: isResizable,

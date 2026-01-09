@@ -80,7 +80,7 @@ export const RepositoriesSidebar = ({
   return (
     <aside
       className={cn(
-        "bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
+        "bg-card/80 backdrop-blur relative border-r border-border/60 z-[40] w-[360px] h-full flex flex-col",
         activeTool === "repositories" ? "visible" : "hidden",
       )}
     >
@@ -97,7 +97,7 @@ export const RepositoriesSidebar = ({
         description="Repository → Asset: generate meme avatars from code."
       />
 
-      <div className="p-4 border-b space-y-3">
+      <div className="p-4 border-b border-border/60 space-y-3">
         <div className="flex items-center gap-2">
           {githubConnected ? (
             <Button
@@ -201,4 +201,3 @@ export const RepositoriesSidebar = ({
     </aside>
   );
 };
-

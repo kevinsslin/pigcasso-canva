@@ -57,24 +57,31 @@ export const SpaceBuilderCanvas = ({
 }: SpaceBuilderCanvasProps) => {
   const baseLayout = useMemo(() => layoutFromBlocks(blocks), [blocks]);
   const [draftLayout, setDraftLayout] = useState<Layout>(baseLayout);
+  const draftLayoutRef = useRef<Layout>(baseLayout);
   const isDraggingRef = useRef(false);
   const lastSwapTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
+    draftLayoutRef.current = baseLayout;
     setDraftLayout(baseLayout);
   }, [baseLayout, mode]);
+
+  const updateDraftLayout = (layout: Layout) => {
+    draftLayoutRef.current = layout;
+    setDraftLayout(layout);
+  };
 
   const onLiveLayoutChange: SpaceGridLayoutProps["onLayoutChange"] = (layout) => {
     if (mode !== "edit") return;
     if (isDraggingRef.current) return;
-    setDraftLayout(layout);
+    updateDraftLayout(layout);
   };
 
   const commitLayout = (layout: Layout) => {
     if (mode !== "edit") return;
     const nextBlocks = normalizeBlocksLayout(applyLayoutToBlocks(blocks, layout), SPACE_GRID_COLUMNS);
     const safeLayout = layoutFromBlocks(nextBlocks);
-    setDraftLayout(safeLayout);
+    updateDraftLayout(safeLayout);
     onLayoutChange(safeLayout);
   };
 
@@ -87,10 +94,14 @@ export const SpaceBuilderCanvas = ({
   const onDrag: SpaceGridLayoutProps["onDrag"] = (layout, oldItem, newItem) => {
     if (mode !== "edit") return;
 
+    const swapOrigin =
+      newItem?.i ? draftLayoutRef.current.find((item) => item.i === newItem.i) ?? oldItem : oldItem;
+
     const result = applySpaceGridDragSwap({
       layout,
       oldItem,
       newItem,
+      swapOrigin,
       lastSwappedWith: lastSwapTargetRef.current,
     });
 
@@ -101,16 +112,16 @@ export const SpaceBuilderCanvas = ({
     }
 
     if (result.layout !== layout) {
-      setDraftLayout(result.layout);
+      updateDraftLayout(result.layout);
     } else {
-      setDraftLayout(layout);
+      updateDraftLayout(layout);
     }
   };
 
-  const onDragStop: SpaceGridLayoutProps["onDragStop"] = (layout) => {
+  const onDragStop: SpaceGridLayoutProps["onDragStop"] = () => {
     isDraggingRef.current = false;
     lastSwapTargetRef.current = null;
-    commitLayout(layout);
+    commitLayout(draftLayoutRef.current);
   };
 
   const onDropDragOver: SpaceGridLayoutProps["onDropDragOver"] = (event) => {

@@ -24,7 +24,7 @@
   - `POST /api/ai/generate-html`：回傳 self-contained HTML（下一步做 sandbox preview）
 - **Repository → Asset**
   - `/repositories` + Editor sidebar：Privy GitHub OAuth → 列 repo → 一鍵生成 meme asset → 可 publish 到 Printr
-  - Token encryption：OAuth token 存 DB 前使用 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密（缺少會直接回 500）
+  - Token encryption：OAuth token 存 DB 前使用 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密（缺少會回 `500` + `MISSING_GITHUB_OAUTH_ENCRYPTION_KEY`）
   - Setup doc：`docs/integrations/github.md`
 - **IPFS / NFT preview**
   - 修正 `NEXT_PUBLIC_IPFS_GATEWAY` 設成「無 scheme」時導致 URL 變成相對路徑（例如被拼到 `pigcasso-canva.vercel.app/...`）
@@ -34,8 +34,6 @@
   - Drag handle：可直接拖曳整個 block（不再只能抓頂部小點）
   - Resize：支援四邊 + 四角 resize handles
   - 單元測試：`src/features/spaces/__tests__/space-grid-swap.test.ts`
-- **移除 Replicate**
-  - 移除 `replicate.delivery` remote allowlist（repo 內不再保留 replicate 相關設定）
 - **Vercel**
   - `vercel.json` 改為 `bun install --frozen-lockfile` + `bun run build`（避免 `npm ci` 無 lockfile 的問題）
 

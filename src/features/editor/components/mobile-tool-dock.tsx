@@ -52,7 +52,7 @@ export const MobileToolDock = ({
   onChangeActiveTool,
 }: MobileToolDockProps) => {
   return (
-    <nav className="lg:hidden border-t bg-white h-[calc(64px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] shrink-0 overflow-x-auto">
+    <nav className="lg:hidden border-t border-border/60 bg-card/90 backdrop-blur h-[calc(64px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] shrink-0 overflow-x-auto">
       <div className="flex items-stretch h-full">
         <DockButton
           active={activeTool === "templates"}

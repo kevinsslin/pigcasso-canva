@@ -6,7 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "@/server/hono-auth";
 import { normalizeGeminiError } from "@/server/ai-errors";
 import { HttpError } from "@/server/http-error";
-import { getAssistantModel } from "@/server/ai-providers";
+import { getAssistantModel } from "@/server/ai";
 import { canvasOpSchema, canvasSnapshotSchema } from "@/lib/pigcasso-assistant-protocol";
 
 const inputSchema = z.object({
@@ -192,7 +192,7 @@ const app = new Hono().post(
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new HttpError(501, "Assistant is currently unavailable.");
+      throw new HttpError(501, "Assistant is currently unavailable.", { expose: true });
     }
 
     const model = getAssistantModel();

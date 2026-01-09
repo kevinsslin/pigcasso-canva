@@ -1,5 +1,6 @@
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
+import { MobileTabBar } from "./mobile-tab-bar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -7,11 +8,14 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return ( 
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-[100dvh]">
       <Sidebar />
-      <div className="md:pl-24 flex flex-col min-h-screen">
+      <div className="md:pl-24 flex flex-col min-h-[100dvh]">
         <Navbar />
-        <main className="flex-1 overflow-auto px-4 pb-12 sm:px-6 lg:px-12">{children}</main>
+        <main className="flex-1 overflow-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] sm:px-6 lg:px-12 md:pb-12">
+          {children}
+        </main>
+        <MobileTabBar />
       </div>
     </div>
   );

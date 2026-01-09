@@ -3,9 +3,16 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { requireAuth } from "@/server/hono-auth";
-import { editImage, generateHtml, generateImage, removeBackground } from "@/server/ai-providers";
-import { checkAiUsage, incrementAiUsage } from "@/server/ai-usage";
-import { getProStatusForUser } from "@/server/token-gating";
+import {
+  editImage,
+  generateHtml,
+  generateImage,
+  getAiAccessDecision,
+  getAiLimitErrorBody,
+  getEffectiveNanoBananaProfile,
+  removeBackground,
+} from "@/server/ai";
+import { incrementAiUsage } from "@/server/ai-usage";
 
 const app = new Hono()
   .post(
@@ -21,30 +28,13 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { image } = c.req.valid("json");
 
-      const proStatus = await getProStatusForUser({
-        userId: authUser.id,
-        embeddedWalletAddress: authUser.embeddedWalletAddress,
-        externalWalletAddresses: authUser.externalWalletAddresses,
-        externalWalletAddress: authUser.externalWalletAddress,
-      });
-
-      const decision = await checkAiUsage({
-        userId: authUser.id,
-        isPro: proStatus.isPro,
+      const { decision } = await getAiAccessDecision({
+        authUser,
         action: "remove-bg",
       });
 
       if (!decision.allowed || !decision.usageRow) {
-        return c.json(
-          {
-            error: "Daily limit reached",
-            limit: decision.limit,
-            used: decision.used,
-            remaining: decision.remaining,
-            date: decision.date,
-          },
-          429,
-        );
+        return c.json(getAiLimitErrorBody(decision), 429);
       }
 
       const result = await removeBackground({ image });
@@ -75,34 +65,16 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { image, instruction, referenceImages, canvas, profile } = c.req.valid("json");
 
-      const proStatus = await getProStatusForUser({
-        userId: authUser.id,
-        embeddedWalletAddress: authUser.embeddedWalletAddress,
-        externalWalletAddresses: authUser.externalWalletAddresses,
-        externalWalletAddress: authUser.externalWalletAddress,
-      });
-
-      const decision = await checkAiUsage({
-        userId: authUser.id,
-        isPro: proStatus.isPro,
+      const { proStatus, decision } = await getAiAccessDecision({
+        authUser,
         action: "generate",
       });
 
       if (!decision.allowed || !decision.usageRow) {
-        return c.json(
-          {
-            error: "Daily limit reached",
-            limit: decision.limit,
-            used: decision.used,
-            remaining: decision.remaining,
-            date: decision.date,
-          },
-          429,
-        );
+        return c.json(getAiLimitErrorBody(decision), 429);
       }
 
-      const effectiveProfile =
-        profile === "nano-banana-pro" && !proStatus.isPro ? "nano-banana" : profile ?? "nano-banana";
+      const effectiveProfile = getEffectiveNanoBananaProfile(profile, proStatus.isPro);
 
       const result = await editImage({
         image,
@@ -129,30 +101,13 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { prompt } = c.req.valid("json");
 
-      const proStatus = await getProStatusForUser({
-        userId: authUser.id,
-        embeddedWalletAddress: authUser.embeddedWalletAddress,
-        externalWalletAddresses: authUser.externalWalletAddresses,
-        externalWalletAddress: authUser.externalWalletAddress,
-      });
-
-      const decision = await checkAiUsage({
-        userId: authUser.id,
-        isPro: proStatus.isPro,
+      const { decision } = await getAiAccessDecision({
+        authUser,
         action: "generate",
       });
 
       if (!decision.allowed || !decision.usageRow) {
-        return c.json(
-          {
-            error: "Daily limit reached",
-            limit: decision.limit,
-            used: decision.used,
-            remaining: decision.remaining,
-            date: decision.date,
-          },
-          429,
-        );
+        return c.json(getAiLimitErrorBody(decision), 429);
       }
 
       const result = await generateHtml({ prompt });
@@ -181,34 +136,16 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { prompt, canvas, profile } = c.req.valid("json");
 
-      const proStatus = await getProStatusForUser({
-        userId: authUser.id,
-        embeddedWalletAddress: authUser.embeddedWalletAddress,
-        externalWalletAddresses: authUser.externalWalletAddresses,
-        externalWalletAddress: authUser.externalWalletAddress,
-      });
-
-      const decision = await checkAiUsage({
-        userId: authUser.id,
-        isPro: proStatus.isPro,
+      const { proStatus, decision } = await getAiAccessDecision({
+        authUser,
         action: "generate",
       });
 
       if (!decision.allowed || !decision.usageRow) {
-        return c.json(
-          {
-            error: "Daily limit reached",
-            limit: decision.limit,
-            used: decision.used,
-            remaining: decision.remaining,
-            date: decision.date,
-          },
-          429,
-        );
+        return c.json(getAiLimitErrorBody(decision), 429);
       }
 
-      const effectiveProfile =
-        profile === "nano-banana-pro" && !proStatus.isPro ? "nano-banana" : profile ?? "nano-banana";
+      const effectiveProfile = getEffectiveNanoBananaProfile(profile, proStatus.isPro);
 
       const result = await generateImage({ prompt, canvas, profile: effectiveProfile });
       await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });

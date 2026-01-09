@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import { createLazyProxy } from "@/lib/lazy-proxy";
+import { requireEnv } from "@/server/env";
 
 type DrizzleDb = ReturnType<typeof drizzle>;
 
@@ -12,12 +13,10 @@ const getDb = (): DrizzleDb => {
     return cachedDb;
   }
 
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is required. Set it in `.env.local` (see `.env.example`).",
-    );
-  }
+  const databaseUrl = requireEnv("DATABASE_URL", {
+    code: "MISSING_DATABASE_URL",
+    message: "DATABASE_URL is required. Set it in `.env.local` (see `.env.example`).",
+  });
 
   const sql = neon(databaseUrl);
   cachedDb = drizzle(sql);

@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
 
-import { HttpError, getErrorStatus } from "@/server/http-error";
-import { toContentfulStatus } from "@/server/contentful-status";
+import { toPublicApiError } from "@/server/api-error-response";
 
 import ai from "./ai";
 import assistant from "./assistant";
@@ -26,19 +25,8 @@ const app = new Hono()
   .basePath("/api")
   .onError((err, c) => {
     console.error(err);
-    const status = toContentfulStatus(getErrorStatus(err) ?? 500);
-    const message =
-      err instanceof Error && err.message
-        ? err.message
-        : "Internal Server Error";
-
-    const isProd = process.env.NODE_ENV === "production";
-    const safeMessage =
-      isProd && status >= 500 && !(err instanceof HttpError)
-        ? "Internal Server Error"
-        : message;
-
-    return c.json({ error: safeMessage }, status);
+    const { status, body } = toPublicApiError(err);
+    return c.json(body, status);
   })
   .notFound((c) => {
     return c.json({ error: "Not found" }, 404);

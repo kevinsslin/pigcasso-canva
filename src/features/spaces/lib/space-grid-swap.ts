@@ -26,19 +26,23 @@ export const applySpaceGridDragSwap = ({
   layout,
   oldItem,
   newItem,
+  swapOrigin,
   lastSwappedWith,
 }: {
   layout: Layout;
   oldItem: LayoutItem | null;
   newItem: LayoutItem | null;
+  swapOrigin?: Pick<LayoutItem, "x" | "y"> | null;
   lastSwappedWith: string | null;
 }): SpaceGridDragSwapResult => {
-  if (!oldItem || !newItem) {
+  const origin = swapOrigin ?? oldItem;
+
+  if (!origin || !newItem) {
     return { layout, swappedWith: null };
   }
 
   const activeId = newItem.i;
-  const active = (layout.find((item) => item.i === activeId) ?? newItem) as LayoutRect;
+  const active = { i: activeId, x: newItem.x, y: newItem.y, w: newItem.w, h: newItem.h } as LayoutRect;
 
   let bestCollision: LayoutRect | null = null;
   let bestScore = 0;
@@ -66,11 +70,10 @@ export const applySpaceGridDragSwap = ({
       return { ...item, x: bestCollision.x, y: bestCollision.y };
     }
     if (item.i === bestCollision.i) {
-      return { ...item, x: oldItem.x, y: oldItem.y };
+      return { ...item, x: origin.x, y: origin.y };
     }
     return item;
   });
 
   return { layout: nextLayout, swappedWith: bestCollision.i };
 };
-

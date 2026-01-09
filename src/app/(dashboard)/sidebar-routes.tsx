@@ -2,15 +2,7 @@
 
 import {
   Crown,
-  FolderOpen,
-  Github,
-  Home,
-  LayoutGrid,
   RefreshCw,
-  Settings,
-  Trophy,
-  UserRound,
-  Wallet,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
@@ -22,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 
 import { SidebarItem } from "./sidebar-item";
+import { DASHBOARD_NAV_ITEMS, isNavItemActive } from "./nav-items";
 
 export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { ready, authenticated } = usePrivy();
@@ -29,12 +22,6 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
   const refreshMutation = useRefreshTokenGating();
 
   const pathname = usePathname() ?? "";
-  const isNftsActive =
-    pathname === "/nfts" || pathname === "/assets" || pathname === "/collections";
-  const isCreatorHubActive = pathname === "/creator-hub";
-  const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
-  const isLeaderboardsActive = pathname === "/leaderboards";
-  const isSpaceActive = pathname === "/space" || pathname.startsWith("/space/");
 
   return (
     <div className="flex flex-col gap-y-4 flex-1">
@@ -76,62 +63,16 @@ export const SidebarRoutes = ({ onNavigate }: { onNavigate?: () => void }) => {
         </>
       )}
       <ul className="flex flex-col gap-y-1 px-3">
-        <SidebarItem
-          href="/app"
-          icon={Home}
-          label="Home"
-          isActive={pathname === "/app"}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/repositories"
-          icon={Github}
-          label="Repositories"
-          isActive={pathname === "/repositories"}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/projects"
-          icon={FolderOpen}
-          label="Projects"
-          isActive={isProjectsActive}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/leaderboards"
-          icon={Trophy}
-          label="Leaderboards"
-          isActive={isLeaderboardsActive}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/creator-hub"
-          icon={LayoutGrid}
-          label="Creator Hub"
-          isActive={isCreatorHubActive}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/space"
-          icon={UserRound}
-          label="My Space"
-          isActive={isSpaceActive}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/nfts"
-          icon={Wallet}
-          label="NFTs"
-          isActive={isNftsActive}
-          onClick={onNavigate}
-        />
-        <SidebarItem
-          href="/settings"
-          icon={Settings}
-          label="Settings"
-          isActive={pathname === "/settings"}
-          onClick={onNavigate}
-        />
+        {DASHBOARD_NAV_ITEMS.map((item) => (
+          <SidebarItem
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            label={item.label}
+            isActive={isNavItemActive(pathname, item)}
+            onClick={onNavigate}
+          />
+        ))}
       </ul>
     </div>
   );

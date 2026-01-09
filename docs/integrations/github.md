@@ -20,6 +20,8 @@ This integration stores OAuth tokens in Postgres encrypted at rest. Set:
 
 - `GITHUB_OAUTH_ENCRYPTION_KEY`
 
+If missing, the API will respond with `500` and error code `MISSING_GITHUB_OAUTH_ENCRYPTION_KEY`.
+
 Generate a new key (32 bytes, base64) with:
 
 ```bash

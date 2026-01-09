@@ -11,11 +11,11 @@ export const ToolSidebarClose = ({
     <>
       <button
         onClick={onClick}
-        className="hidden lg:flex absolute -right-[1.80rem] h-[70px] bg-white top-1/2 transform -translate-y-1/2 items-center justify-center rounded-r-xl px-1 pr-2 border-r border-y group"
+        className="hidden lg:flex absolute -right-[1.80rem] h-[70px] bg-card/90 backdrop-blur top-1/2 transform -translate-y-1/2 items-center justify-center rounded-r-xl px-1 pr-2 border-r border-y border-border/60 shadow-soft group"
         aria-label="Close sidebar"
         type="button"
       >
-        <ChevronsLeft className="size-4 text-black group-hover:opacity-75 transition" />
+        <ChevronsLeft className="size-4 text-foreground group-hover:opacity-75 transition" />
       </button>
       <button
         onClick={onClick}

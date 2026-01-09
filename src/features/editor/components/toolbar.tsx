@@ -164,12 +164,12 @@ export const Toolbar = ({
 
   if (editor?.selectedObjects.length === 0) {
     return (
-      <div className="shrink-0 h-[56px] border-b bg-white w-full flex items-center overflow-x-auto z-[49] p-2 gap-x-2" />
+      <div className="shrink-0 h-[56px] border-b border-border/60 bg-card/80 backdrop-blur w-full flex items-center overflow-x-auto z-[49] p-2 gap-x-2" />
     );
   }
 
   return (
-    <div className="shrink-0 h-[56px] border-b bg-white w-full flex items-center overflow-x-auto z-[49] p-2 gap-x-2">
+    <div className="shrink-0 h-[56px] border-b border-border/60 bg-card/80 backdrop-blur w-full flex items-center overflow-x-auto z-[49] p-2 gap-x-2">
       {!isImage && (
         <div className="flex items-center h-full justify-center">
           <Hint label="Color" side="bottom" sideOffset={5}>
@@ -178,7 +178,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                activeTool === "fill" && "bg-gray-100"
+                activeTool === "fill" && "bg-muted"
               )}
             >
               <div
@@ -197,11 +197,11 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                activeTool === "stroke-color" && "bg-gray-100"
+                activeTool === "stroke-color" && "bg-muted"
               )}
             >
               <div
-                className="rounded-sm size-4 border-2 bg-white"
+                className="rounded-sm size-4 border-2 bg-background"
                 style={{ borderColor: properties.strokeColor }}
               />
             </Button>
@@ -216,7 +216,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                activeTool === "stroke-width" && "bg-gray-100"
+                activeTool === "stroke-width" && "bg-muted"
               )}
             >
               <BsBorderWidth className="size-4" />
@@ -233,7 +233,7 @@ export const Toolbar = ({
               variant="ghost"
               className={cn(
                 "w-auto px-2 text-sm",
-                activeTool === "font" && "bg-gray-100"
+                activeTool === "font" && "bg-muted"
               )}
             >
               <div className="max-w-[100px] truncate">
@@ -252,7 +252,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.fontWeight > 500 && "bg-gray-100"
+                properties.fontWeight > 500 && "bg-muted"
               )}
             >
               <FaBold className="size-4" />
@@ -268,7 +268,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.fontStyle === "italic" && "bg-gray-100"
+                properties.fontStyle === "italic" && "bg-muted"
               )}
             >
               <FaItalic className="size-4" />
@@ -284,7 +284,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.fontUnderline && "bg-gray-100"
+                properties.fontUnderline && "bg-muted"
               )}
             >
               <FaUnderline className="size-4" />
@@ -300,7 +300,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.fontLinethrough && "bg-gray-100"
+                properties.fontLinethrough && "bg-muted"
               )}
             >
               <FaStrikethrough className="size-4" />
@@ -316,7 +316,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.textAlign === "left" && "bg-gray-100"
+                properties.textAlign === "left" && "bg-muted"
               )}
             >
               <AlignLeft className="size-4" />
@@ -332,7 +332,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.textAlign === "center" && "bg-gray-100"
+                properties.textAlign === "center" && "bg-muted"
               )}
             >
               <AlignCenter className="size-4" />
@@ -348,7 +348,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                properties.textAlign === "right" && "bg-gray-100"
+                properties.textAlign === "right" && "bg-muted"
               )}
             >
               <AlignRight className="size-4" />
@@ -372,7 +372,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                activeTool === "filter" && "bg-gray-100"
+                activeTool === "filter" && "bg-muted"
               )}
             >
               <TbColorFilter className="size-4" />
@@ -388,7 +388,7 @@ export const Toolbar = ({
               size="icon"
               variant="ghost"
               className={cn(
-                activeTool === "remove-bg" && "bg-gray-100"
+                activeTool === "remove-bg" && "bg-muted"
               )}
             >
               <SquareSplitHorizontal className="size-4" />
@@ -424,7 +424,7 @@ export const Toolbar = ({
             onClick={() => onChangeActiveTool("opacity")}
             size="icon"
             variant="ghost"
-            className={cn(activeTool === "opacity" && "bg-gray-100")}
+            className={cn(activeTool === "opacity" && "bg-muted")}
           >
             <RxTransparencyGrid className="size-4" />
           </Button>

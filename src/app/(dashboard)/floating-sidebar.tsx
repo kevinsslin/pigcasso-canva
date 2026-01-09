@@ -2,21 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Github, Home, LayoutGrid, Plus, Settings, Trophy, UserRound, Wallet } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const NAV_ITEMS = [
-  { href: "/app", label: "Home", icon: Home },
-  { href: "/creator-hub", label: "Creator Hub", icon: LayoutGrid },
-  { href: "/repositories", label: "Repositories", icon: Github },
-  { href: "/projects", label: "Projects", icon: FolderOpen },
-  { href: "/leaderboards", label: "Leaderboards", icon: Trophy },
-  { href: "/space", label: "My Space", icon: UserRound },
-  { href: "/nfts", label: "NFTs", icon: Wallet },
-  { href: "/settings", label: "Settings", icon: Settings },
-] as const;
+import { DASHBOARD_NAV_ITEMS, isNavItemActive } from "./nav-items";
 
 export const FloatingSidebar = () => {
   const pathname = usePathname() ?? "";
@@ -38,8 +29,8 @@ export const FloatingSidebar = () => {
         </Tooltip>
 
         <nav className="bg-card/80 backdrop-blur shadow-soft rounded-full py-4 px-2 flex flex-col gap-5 items-center border border-border">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== "/app" && pathname.startsWith(`${href}/`));
+          {DASHBOARD_NAV_ITEMS.map(({ href, label, icon: Icon, match }) => {
+            const isActive = isNavItemActive(pathname, { href, label, icon: Icon, match });
             return (
               <Tooltip key={href}>
                 <TooltipTrigger asChild>

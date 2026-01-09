@@ -27,6 +27,10 @@ export const normalizeDbError = (
     fallbackMessage: string;
   },
 ): HttpError => {
+  if (error instanceof HttpError) {
+    return error;
+  }
+
   const code = getDbErrorCode(error);
   const message = getDbErrorMessage(error);
 
@@ -39,13 +43,18 @@ export const normalizeDbError = (
   }
 
   if (code === "42P01" || code === "42703") {
-    return new HttpError(500, "Database schema is out of date. Please run migrations.");
+    return new HttpError(500, "Database schema is out of date. Please run migrations.", {
+      code: "DB_SCHEMA_OUT_OF_DATE",
+      expose: true,
+    });
   }
 
   if (/column .* does not exist/i.test(message) || /relation .* does not exist/i.test(message)) {
-    return new HttpError(500, "Database schema is out of date. Please run migrations.");
+    return new HttpError(500, "Database schema is out of date. Please run migrations.", {
+      code: "DB_SCHEMA_OUT_OF_DATE",
+      expose: true,
+    });
   }
 
   return new HttpError(500, params.fallbackMessage);
 };
-

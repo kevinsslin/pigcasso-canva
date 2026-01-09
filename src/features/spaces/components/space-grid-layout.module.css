@@ -47,6 +47,22 @@
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
+.layout :global(.react-resizable-handle-n),
+.layout :global(.react-resizable-handle-s) {
+  width: 64px;
+  height: 14px;
+  margin-left: -32px;
+  border-radius: 9999px;
+}
+
+.layout :global(.react-resizable-handle-e),
+.layout :global(.react-resizable-handle-w) {
+  width: 14px;
+  height: 64px;
+  margin-top: -32px;
+  border-radius: 9999px;
+}
+
 .layout :global(.react-resizable-handle::after) {
   content: "";
   position: absolute;
@@ -60,4 +76,11 @@
 .layout :global(.react-grid-item.react-draggable-dragging > .react-resizable-handle) {
   opacity: 1;
   transform: scale(1.02);
+}
+
+@media (hover: none) {
+  .layout :global(.react-resizable-handle) {
+    opacity: 1;
+    transform: none;
+  }
 }

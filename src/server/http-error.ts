@@ -1,12 +1,25 @@
 import { HTTPException } from "hono/http-exception";
 
+export type HttpErrorOptions = {
+  code?: string;
+  expose?: boolean;
+  cause?: unknown;
+};
+
 export class HttpError extends Error {
   status: number;
+  code?: string;
+  expose: boolean;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, options?: HttpErrorOptions) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    this.code = options?.code;
+    this.expose = options?.expose ?? status < 500;
+    if (options?.cause !== undefined) {
+      (this as { cause?: unknown }).cause = options.cause;
+    }
   }
 }
 
@@ -35,4 +48,3 @@ export const getErrorStatus = (error: unknown): number | undefined => {
 
   return undefined;
 };
-

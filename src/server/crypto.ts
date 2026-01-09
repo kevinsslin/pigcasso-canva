@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
+import { requireEnv } from "@/server/env";
+
 const ENCRYPTION_KEY_ENV = "GITHUB_OAUTH_ENCRYPTION_KEY";
 
 const parseEncryptionKey = (raw: string) => {
@@ -25,10 +27,9 @@ const parseEncryptionKey = (raw: string) => {
 };
 
 export const getGithubOAuthEncryptionKey = () => {
-  const raw = process.env[ENCRYPTION_KEY_ENV];
-  if (!raw) {
-    throw new Error(`Missing ${ENCRYPTION_KEY_ENV}`);
-  }
+  const raw = requireEnv(ENCRYPTION_KEY_ENV, {
+    code: "MISSING_GITHUB_OAUTH_ENCRYPTION_KEY",
+  });
   return parseEncryptionKey(raw);
 };
 
@@ -75,4 +76,3 @@ export const decryptSecret = (encrypted: string, key: Buffer) => {
   const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
   return decrypted.toString("utf8");
 };
-

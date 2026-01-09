@@ -111,21 +111,13 @@ const normalizeTokenUri = (value: string | null) => {
   const uri = value?.trim();
   if (!uri) return null;
 
-  if (uri.startsWith("ipfs://")) {
-    return ipfsToHttpUrl(uri);
-  }
-
   if (uri.startsWith("ar://")) {
     const rest = uri.slice("ar://".length);
     if (!rest) return null;
     return `https://arweave.net/${rest}`;
   }
 
-  if (uri.startsWith("https://") || uri.startsWith("http://")) {
-    return uri;
-  }
-
-  return null;
+  return ipfsToHttpUrl(uri);
 };
 
 const parseJsonDataUri = (value: string) => {
@@ -156,13 +148,15 @@ const fetchJsonFromUri = async (uri: string) => {
   assertSafeRemoteUrl(res.url, "Invalid token URI");
 
   if (!res.ok) {
-    throw new HttpError(502, `Failed to fetch token metadata (${res.status})`);
+    throw new HttpError(502, `Failed to fetch token metadata (${res.status})`, {
+      expose: true,
+    });
   }
 
   try {
     return (await res.json()) as unknown;
   } catch {
-    throw new HttpError(502, "Token metadata is not valid JSON");
+    throw new HttpError(502, "Token metadata is not valid JSON", { expose: true });
   }
 };
 
@@ -184,7 +178,7 @@ const extractImageUrl = (metadata: unknown) => {
     extractString(record.imageUri);
 
   if (!candidate) return null;
-  return normalizeTokenUri(candidate) ?? candidate;
+  return normalizeTokenUri(candidate);
 };
 
 const extractName = (metadata: unknown) => {

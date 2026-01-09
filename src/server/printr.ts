@@ -36,7 +36,7 @@ export const printrFetchJson = async <T extends JSONValue = JSONValue>(params: {
   fallbackMessage?: string;
 }): Promise<T> => {
   if (!hasPrintrConfigured()) {
-    throw new HttpError(501, "Printr integration is currently unavailable.");
+    throw new HttpError(501, "Printr integration is currently unavailable.", { expose: true });
   }
 
   const url = joinUrl(getPrintrApiUrl(), params.path);

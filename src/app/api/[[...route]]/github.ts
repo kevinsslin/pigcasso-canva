@@ -17,9 +17,8 @@ import {
   listGithubRepos,
 } from "@/server/github";
 import { buildRepositoryMemePrompt } from "@/server/repository-to-asset";
-import { generateImage } from "@/server/ai-providers";
-import { checkAiUsage, incrementAiUsage } from "@/server/ai-usage";
-import { getProStatusForUser } from "@/server/token-gating";
+import { generateImage, getAiAccessDecision, getAiLimitErrorBody } from "@/server/ai";
+import { incrementAiUsage } from "@/server/ai-usage";
 
 const app = new Hono()
   .get("/connection", requireAuth, async (c) => {
@@ -62,14 +61,7 @@ const app = new Hono()
       const body = c.req.valid("json");
 
       const viewer = await getGithubViewer(body.accessToken);
-      let key: Buffer;
-      try {
-        key = getGithubOAuthEncryptionKey();
-      } catch (error) {
-        const message =
-          error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
-        throw new HttpError(500, `Server misconfigured: ${message}`);
-      }
+      const key = getGithubOAuthEncryptionKey();
 
       const now = new Date();
       try {
@@ -146,14 +138,7 @@ const app = new Hono()
       return c.json({ error: "GitHub not connected" }, 404);
     }
 
-    let key: Buffer;
-    try {
-      key = getGithubOAuthEncryptionKey();
-    } catch (error) {
-      const message =
-        error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
-      throw new HttpError(500, `Server misconfigured: ${message}`);
-    }
+    const key = getGithubOAuthEncryptionKey();
 
     let token: string;
     try {
@@ -198,14 +183,7 @@ const app = new Hono()
         return c.json({ error: "GitHub not connected" }, 404);
       }
 
-      let key: Buffer;
-      try {
-        key = getGithubOAuthEncryptionKey();
-      } catch (error) {
-        const message =
-          error instanceof Error && error.message ? error.message : "Missing GitHub encryption key";
-        throw new HttpError(500, `Server misconfigured: ${message}`);
-      }
+      const key = getGithubOAuthEncryptionKey();
 
       let token: string;
       try {
@@ -226,29 +204,13 @@ const app = new Hono()
         readme,
       });
 
-      const proStatus = await getProStatusForUser({
-        userId: auth.id,
-        embeddedWalletAddress: auth.embeddedWalletAddress,
-        externalWalletAddress: auth.externalWalletAddress,
-      });
-
-      const decision = await checkAiUsage({
-        userId: auth.id,
-        isPro: proStatus.isPro,
+      const { decision } = await getAiAccessDecision({
+        authUser: auth,
         action: "generate",
       });
 
       if (!decision.allowed || !decision.usageRow) {
-        return c.json(
-          {
-            error: "Daily limit reached",
-            limit: decision.limit,
-            used: decision.used,
-            remaining: decision.remaining,
-            date: decision.date,
-          },
-          429,
-        );
+        return c.json(getAiLimitErrorBody(decision), 429);
       }
 
       const result = await generateImage({ prompt });

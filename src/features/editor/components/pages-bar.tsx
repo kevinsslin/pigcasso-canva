@@ -34,7 +34,7 @@ export const PagesBar = ({
   const canDelete = pages.length > 1;
 
   return (
-    <div className="border-t bg-white px-2 py-2 flex items-center gap-2 overflow-x-auto">
+    <div className="border-t border-border/60 bg-card/80 backdrop-blur px-2 py-2 flex items-center gap-2 overflow-x-auto">
       {pages.map((page) => {
         const active = page.id === activePageId;
         const label = page.name?.trim() || `Page ${page.index + 1}`;
@@ -105,4 +105,3 @@ export const PagesBar = ({
     </div>
   );
 };
-

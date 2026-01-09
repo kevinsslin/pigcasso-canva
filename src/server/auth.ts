@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { users } from "@/db/schema";
+import { normalizeDbError } from "@/server/db-errors";
 import { privy } from "@/server/privy";
 import { HttpError, getErrorStatus } from "@/server/http-error";
 
@@ -66,7 +67,7 @@ export const getOrCreateUserFromPrivyToken = async (
   try {
     claims = await privy.verifyAuthToken(token);
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing ")) {
+    if (error instanceof HttpError && error.code?.startsWith("MISSING_")) {
       throw error;
     }
     throw new HttpError(401, "Unauthorized");
@@ -76,7 +77,7 @@ export const getOrCreateUserFromPrivyToken = async (
   try {
     privyUser = await privy.getUser(claims.userId);
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Missing ")) {
+    if (error instanceof HttpError && error.code?.startsWith("MISSING_")) {
       throw error;
     }
 
@@ -85,7 +86,7 @@ export const getOrCreateUserFromPrivyToken = async (
       throw new HttpError(401, "Unauthorized");
     }
 
-    throw new HttpError(502, "Privy request failed");
+    throw new HttpError(502, "Privy request failed", { expose: true });
   }
 
   const { embeddedWalletAddress, externalWalletAddress, externalWalletAddresses } =
@@ -102,10 +103,9 @@ export const getOrCreateUserFromPrivyToken = async (
 
     existingUser = existing[0];
   } catch (error) {
-    throw new HttpError(
-      500,
-      error instanceof Error ? error.message : "Failed to load user",
-    );
+    throw normalizeDbError(error, {
+      fallbackMessage: "Failed to load user",
+    });
   }
 
   if (!existingUser) {
@@ -122,10 +122,9 @@ export const getOrCreateUserFromPrivyToken = async (
         })
         .returning();
     } catch (error) {
-      throw new HttpError(
-        500,
-        error instanceof Error ? error.message : "Failed to create user",
-      );
+      throw normalizeDbError(error, {
+        fallbackMessage: "Failed to create user",
+      });
     }
 
     if (!inserted[0]) {
@@ -166,10 +165,9 @@ export const getOrCreateUserFromPrivyToken = async (
         })
         .where(eq(users.id, existingUser.id));
     } catch (error) {
-      throw new HttpError(
-        500,
-        error instanceof Error ? error.message : "Failed to update user",
-      );
+      throw normalizeDbError(error, {
+        fallbackMessage: "Failed to update user",
+      });
     }
   }
 
