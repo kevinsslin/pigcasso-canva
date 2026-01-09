@@ -19,7 +19,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import type { Editor as TldrawEditor } from "tldraw";
+import { type Editor as TldrawEditor, useTldrawUser } from "tldraw";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { UserButton } from "@/features/auth/components/user-button";
@@ -68,6 +68,9 @@ export default function CanvasPage({ params }: PageProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const persistenceKey = useMemo(() => `pigcasso:chatcanvas:${params.canvasId}`, [params.canvasId]);
+  const tldrawUser = useTldrawUser({
+    userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
+  });
 
   useEffect(() => {
     if (!editor) return;
@@ -104,7 +107,7 @@ export default function CanvasPage({ params }: PageProps) {
   }
 
   return (
-    <div className="h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -178,6 +181,9 @@ export default function CanvasPage({ params }: PageProps) {
             <Tldraw
               persistenceKey={persistenceKey}
               hideUi
+              user={tldrawUser}
+              inferDarkMode={false}
+              className="pigcasso-paper-tldraw"
               onMount={(next) => {
                 setEditor(next as unknown as TldrawEditor);
                 return () => setEditor(null);
