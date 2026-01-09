@@ -31,7 +31,7 @@ import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
 import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
-import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
@@ -604,22 +604,22 @@ export default function CanvasPage({ params }: PageProps) {
           </div>
 
           <div className="flex-1 overflow-auto p-5 space-y-4">
-            {panelTab === "preview" ? (
-              htmlPreview ? (
-                <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">
-                    Preview is sandboxed (no scripts) for safety.
-                  </div>
-                  <div className="rounded-2xl border overflow-hidden bg-white">
-                    <iframe
-                      title="HTML preview"
-                      sandbox=""
-                      srcDoc={htmlPreview}
-                      className="w-full h-[520px]"
-                    />
-                  </div>
-                </div>
-              ) : (
+	            {panelTab === "preview" ? (
+	              htmlPreview ? (
+	                <div className="space-y-3">
+	                  <div className="text-xs text-muted-foreground">
+	                    Preview is sandboxed for safety.
+	                  </div>
+	                  <div className="rounded-2xl border overflow-hidden bg-white">
+	                    <iframe
+	                      title="HTML preview"
+	                      sandbox="allow-scripts"
+	                      srcDoc={createHtmlCardSrcDoc(htmlPreview)}
+	                      className="w-full h-[520px]"
+	                    />
+	                  </div>
+	                </div>
+	              ) : (
                 <div className="text-sm text-muted-foreground">
                   Ask for a landing page / HTML in chat to see a preview here.
                 </div>
@@ -714,18 +714,23 @@ export default function CanvasPage({ params }: PageProps) {
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-4">
-              {panelTab === "preview" ? (
-                htmlPreview ? (
-                  <div className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      Preview is sandboxed (no scripts) for safety.
-                    </div>
-                    <div className="rounded-2xl border overflow-hidden bg-white">
-                      <iframe title="HTML preview" sandbox="" srcDoc={htmlPreview} className="w-full h-[70vh]" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">
+	              {panelTab === "preview" ? (
+	                htmlPreview ? (
+	                  <div className="space-y-3">
+	                    <div className="text-xs text-muted-foreground">
+	                      Preview is sandboxed for safety.
+	                    </div>
+	                    <div className="rounded-2xl border overflow-hidden bg-white">
+	                      <iframe
+	                        title="HTML preview"
+	                        sandbox="allow-scripts"
+	                        srcDoc={createHtmlCardSrcDoc(htmlPreview)}
+	                        className="w-full h-[70vh]"
+	                      />
+	                    </div>
+	                  </div>
+	                ) : (
+	                  <div className="text-sm text-muted-foreground">
                     Ask for a landing page / HTML in chat to see a preview here.
                   </div>
                 )
