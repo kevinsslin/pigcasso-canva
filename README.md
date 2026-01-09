@@ -1,13 +1,23 @@
 # Pigcasso Canvas
 
-Web3-native, Canva-like editor built on Next.js: Fabric.js canvas editor, projects/templates, AI tools, token-gated Pro, and remixable creator templates.
+Pigcasso Canvas is an **AI-native design workspace** with Web3 primitives:
+
+- **ChatCanvas (infinite canvas)** powered by `tldraw` (`/canvas/*`)
+- **Canva-like editor** powered by Fabric.js (`/editor/*`)
+- **Web3-native**: Privy auth, token-gated Pro, IPFS/NFT export, Printr publishing
+- **Repository → Asset**: connect GitHub and generate/mint/share assets from code
 
 Product scope and implementation notes:
 - `docs/PRD.md`
-- `docs/foundamental.md`
+- `docs/STATUS.md` (progress + unblock checklist)
+- `docs/ENV_SETUP.md` (env setup, Vercel checklist)
+- `docs/LANDING_PAGE.md` (landing messaging + structure)
+- `docs/foundamental.md` (architecture + flows)
 - `docs/integrations/project-hubs.md`
 - `docs/integrations/printr.md`
-- Open questions: `docs/QUESTIONS.md`
+- `docs/integrations/github.md`
+- `docs/integrations/nft-export.md`
+- Open questions / decisions: `docs/QUESTIONS.md`
 
 ## Tech Stack
 
@@ -17,8 +27,8 @@ Product scope and implementation notes:
 - Drizzle ORM + Postgres (Neon serverless driver)
 - Tailwind CSS + shadcn/ui + Radix UI
 - TanStack React Query
-- Fabric.js editor
-- Integrations: UploadThing, Unsplash, Gemini
+- Fabric.js editor + tldraw infinite canvas
+- Integrations: UploadThing, Unsplash, Gemini, Pinata IPFS, GitHub, Printr
 
 ## Quickstart (Local)
 
@@ -32,27 +42,33 @@ bun dev
 Open `http://localhost:3000`.
 
 - Public landing page: `/`
-- App (requires Privy auth): `/app`
-- Project hubs (requires Privy auth): `/projects`
-- Global leaderboards (requires Privy auth): `/leaderboards`
+- App home (requires Privy auth): `/app`
+- ChatCanvas (requires Privy auth): `/canvas/new`
+- Fabric editor (requires Privy auth): `/editor/:projectId`
+- Repositories (requires Privy auth): `/repositories`
 
 ### Minimal `.env.local`
 
-To get the basic flow working (Privy login → dashboard → editor), start with:
+To get the basic flow working (Privy login → dashboard), start with:
 
 - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
 - `DATABASE_URL=postgres://...` (required for Drizzle)
 - `NEXT_PUBLIC_PRIVY_APP_ID=...`
 - `PRIVY_APP_SECRET=...`
-- `MANTLE_RPC_URL=...` (Alchemy RPC on Mantle Mainnet)
 
-Optional features require additional keys (see `.env.example`): UploadThing, Gemini, Unsplash.
+Optional features require additional keys (see `.env.example`):
+
+- Pro gating (Mantle): `MANTLE_RPC_URL=...`
+- Uploads: `UPLOADTHING_TOKEN=...`
+- AI (Gemini): `GEMINI_API_KEY=...`
+- GitHub → Asset: `GITHUB_OAUTH_ENCRYPTION_KEY=...`
+- IPFS pinning (NFT export): `PINATA_JWT=...` (or legacy Pinata keys)
 
 ### Unsplash setup
 
 Unsplash is used only for stock image browsing in the editor. Set:
 
-- `UNSPLASH_ACCESS_KEY=...` (use the Unsplash **Access Key**)
+- `UNSPLASH_ACCESS_KEY=...` (or `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY`)
 
 You do not need to add your Unsplash Secret key for this feature.
 
@@ -75,8 +91,12 @@ bun run db:studio   # open Drizzle Studio
 
 ### Vercel deployments
 
-- Ensure `DATABASE_URL` is set in Vercel env vars.
-- Use `npm run vercel-build` (runs Drizzle migrations, then `next build`).
+- This repo includes `vercel.json` to force Bun:
+  - `installCommand`: `bun install --frozen-lockfile`
+  - `buildCommand`: `bun run build`
+- `bun run build` runs `node scripts/build.mjs`, which:
+  - runs `drizzle-kit migrate` only if `DATABASE_URL` is set and `SKIP_DB_MIGRATE !== "1"`
+  - then runs `next build`
 
 ## Troubleshooting
 
@@ -93,7 +113,3 @@ bun run db:studio   # open Drizzle Studio
 ### Tests
 
 - Unit tests live in `src/**/__tests__/*.test.ts` and should stay fast (no DB / no network).
-
-## Notes
-
-- `docs/` is mostly gitignored; only the tracked MVP docs are committed (PRD/foundamental/questions).

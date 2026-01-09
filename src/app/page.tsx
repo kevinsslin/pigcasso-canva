@@ -8,15 +8,12 @@ import {
   Blocks,
   Brush,
   Coins,
-  Flame,
   FolderOpen,
-  LayoutTemplate,
+  Github,
   Loader2,
   Mic,
   Rocket,
-  Search,
   Sparkles,
-  Trophy,
   Wand2,
 } from "lucide-react";
 
@@ -29,7 +26,6 @@ import { BentoCard } from "@/features/marketing/components/bento-card";
 import { FAQItem } from "@/features/marketing/components/faq-item";
 import { FeatureCard } from "@/features/marketing/components/feature-card";
 import { SectionTitle } from "@/features/marketing/components/section-title";
-import { StatChip } from "@/features/marketing/components/stat-chip";
 import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
 export default function LandingPage() {
@@ -70,6 +66,12 @@ export default function LandingPage() {
             </a>
             <a
               className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
+              href="#pricing"
+            >
+              Plans
+            </a>
+            <a
+              className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
               href="#faq"
             >
               FAQ
@@ -79,14 +81,14 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={() => void openApp("/app")}
+              onClick={() => void openApp("/canvas/new")}
               disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
               {opening ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
-              Open app
+              Open ChatCanvas
               <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
@@ -109,28 +111,27 @@ export default function LandingPage() {
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/75 backdrop-blur border border-white/50 shadow-sm motion-safe:animate-[pigcasso-enter_650ms_ease-out_0ms_both]">
                   <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
                   <span className="text-xs font-bold tracking-wider text-foreground/80">
-                    Canva-like for Web3 communities
+                    Infinite ChatCanvas for Web3
                   </span>
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight motion-safe:animate-[pigcasso-enter_780ms_ease-out_120ms_both]">
-                  Create community assets with{" "}
+                  Design on an infinite canvas with{" "}
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-400">
-                    Pigcasso AI
+                    Pigcasso
                   </span>
                 </h1>
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
-                  Browse project hubs, remix templates, and ship polished assets
-                  for X, Discord, and Telegram. Track what people actually use
-                  with built-in leaderboards — and unlock rewards &amp;
-                  cross-channel attribution on the roadmap.
+                  Talk to an AI design agent, iterate on an infinite canvas, and
+                  publish what you make as verifiable assets (IPFS/NFT).
+                  Repository → Asset turns GitHub repos into memes in one click.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
                   <Button
                     type="button"
-                    onClick={() => void openApp("/app")}
+                    onClick={() => void openApp("/canvas/new")}
                     disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
@@ -140,19 +141,19 @@ export default function LandingPage() {
                     ) : (
                       <Brush className="mr-2 size-5" />
                     )}
-                    {opening ? "Opening…" : "Open app"}
+                    {opening ? "Opening…" : "Open ChatCanvas"}
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => void openApp("/projects")}
+                    onClick={() => void openApp("/app")}
                     disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-white/75 border border-white/60 shadow-soft hover:bg-white/90"
                   >
                     <FolderOpen className="mr-2 size-5 text-primary" />
-                    Explore projects
+                    Explore Creator Hub
                   </Button>
                 </div>
 
@@ -168,16 +169,16 @@ export default function LandingPage() {
 
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
                   <BentoBadge>
-                    <FolderOpen className="size-3.5 text-primary" />
-                    Project hubs
+                    <Blocks className="size-3.5 text-primary" />
+                    ChatCanvas
                   </BentoBadge>
                   <BentoBadge>
-                    <Sparkles className="size-3.5 text-primary" />
-                    Assistant edits
+                    <Github className="size-3.5 text-primary" />
+                    Repository → Asset
                   </BentoBadge>
                   <BentoBadge>
-                    <Trophy className="size-3.5 text-yellow-500" />
-                    Leaderboards
+                    <Coins className="size-3.5 text-yellow-500" />
+                    Mint-ready
                   </BentoBadge>
                 </div>
               </div>
@@ -231,8 +232,8 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Product"
-              title="A canvas that ships with you"
-              description="Create community assets, publish fast, and track what people actually use."
+              title="A canvas that turns ideas into assets"
+              description="ChatCanvas for creation — plus GitHub, IPFS/NFT, and Printr for publishing."
             />
 
             <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-12 lg:auto-rows-[minmax(240px,auto)] lg:gap-6 xl:auto-rows-[minmax(260px,auto)]">
@@ -252,52 +253,50 @@ export default function LandingPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="size-11 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                        <FolderOpen className="size-5 text-primary" />
+                        <Blocks className="size-5 text-primary" />
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Projects × Canvas
+                          ChatCanvas
                         </div>
                         <div className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                          Create assets. Track mindshare.
+                          Talk. Iterate. Ship.
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <BentoBadge>
-                        <BadgeCheck className="size-3.5 text-primary" />
-                        B2B-ready
+                        <Blocks className="size-3.5 text-primary" />
+                        Infinite
                       </BentoBadge>
                       <BentoBadge>
-                        <Sparkles className="size-3.5 text-primary" />
-                        AI-native
+                        <Coins className="size-3.5 text-yellow-500" />
+                        Web3-native
                       </BentoBadge>
                     </div>
                   </div>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                    Start from a project hub, remix on the canvas, then watch
-                    mindshare evolve from real usage.
+                    Start with a prompt, drop outputs onto a board, and keep
+                    context in one workspace.
                   </p>
 
                   <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
                     <div className="flex items-start gap-2">
-                      <LayoutTemplate className="mt-0.5 size-4 text-cyan-500" />
-                      <span>
-                        Asset kits: avatar frames, stickers, seasonal templates
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
                       <Blocks className="mt-0.5 size-4 text-cyan-500" />
-                      <span>Space: bento-style gateway pages</span>
+                      <span>Infinite canvas (tldraw) + pan/zoom</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <Mic className="mt-0.5 size-4 text-primary" />
-                      <span>Assistant: voice + preview before apply</span>
+                      <span>Chat-driven iterations (Talk)</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <Trophy className="mt-0.5 size-4 text-yellow-500" />
-                      <span>Mindshare signals + leaderboards</span>
+                      <Github className="mt-0.5 size-4 text-primary" />
+                      <span>Repository → Asset (GitHub)</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Coins className="mt-0.5 size-4 text-yellow-500" />
+                      <span>IPFS/NFT export + publish</span>
                     </div>
                   </div>
                 </div>
@@ -326,8 +325,8 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Build a public gateway page — drag blocks onto your canvas,
-                    move them around, and publish to share in your bio.
+                    Build a public gateway page — drag blocks, swap order,
+                    resize, and publish to share in your bio.
                   </p>
 
                   <div className="mt-auto pt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -365,8 +364,8 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Ask in natural language (or voice), preview proposed edits,
-                    then apply when you’re happy.
+                    Generate images (Nano Banana tiers), edit images, and draft
+                    HTML — always in a draft-first loop.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-col gap-2 text-[11px] text-muted-foreground">
@@ -387,43 +386,41 @@ export default function LandingPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="size-11 rounded-2xl bg-gradient-to-br from-yellow-300/20 to-primary/10 flex items-center justify-center border border-white/60">
-                        <Trophy className="size-5 text-yellow-500" />
+                        <Github className="size-5 text-gray-900" />
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Signals
+                          Repositories
                         </div>
                         <div className="text-xl font-extrabold tracking-tight">
-                          Leaderboards
+                          Repository → Asset
                         </div>
                       </div>
                     </div>
                     <BentoBadge>
-                      <Flame className="size-3.5 text-primary" />
-                      Mindshare
+                      <BadgeCheck className="size-3.5 text-primary" />
+                      GitHub OAuth
                     </BentoBadge>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Track what’s used in the wild: top projects, assets, and
-                    creators.
+                    Connect GitHub, browse repos, and generate meme assets from
+                    code context. Publish to Printr when ready.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-wrap gap-2">
                     {[
                       {
-                        label: "Top creators",
-                        icon: <Trophy className="size-3.5 text-yellow-500" />,
+                        label: "Public + private repos",
+                        icon: <FolderOpen className="size-3.5 text-primary" />,
                       },
                       {
-                        label: "Top assets",
-                        icon: (
-                          <LayoutTemplate className="size-3.5 text-cyan-500" />
-                        ),
+                        label: "Org repos (read:org)",
+                        icon: <Github className="size-3.5 text-gray-900" />,
                       },
                       {
-                        label: "Top projects",
-                        icon: <Rocket className="size-3.5 text-primary" />,
+                        label: "Tokens encrypted at rest",
+                        icon: <BadgeCheck className="size-3.5 text-yellow-500" />,
                       },
                     ].map((item) => (
                       <span
@@ -447,26 +444,26 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Monetize
+                          Publish
                         </div>
                         <div className="text-xl font-extrabold tracking-tight">
-                          Template tokens
+                          IPFS / Mint / Printr
                         </div>
                       </div>
                     </div>
                     <BentoBadge>
-                      <Rocket className="size-3.5 text-primary" />
-                      Coming soon
+                      <BadgeCheck className="size-3.5 text-primary" />
+                      Live
                     </BentoBadge>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Launch a token per template on Printr. Narratives combine
-                    meme energy + real usage cashflow.
+                    Export to IPFS, mint as an NFT, and publish to Printr.
+                    Template tokens can be layered on top (roadmap).
                   </p>
 
                   <div className="mt-auto pt-6 text-xs text-muted-foreground">
-                    Token per template • stake-to-use • pay-to-use (roadmap)
+                    IPFS metadata • tokenURI/image URLs • marketplace links
                   </div>
                 </div>
               </BentoCard>
@@ -479,23 +476,23 @@ export default function LandingPage() {
                     Try it
                   </div>
                   <div className="mt-1 text-xl font-extrabold tracking-tight text-gray-900">
-                    Open the app and build your Space
+                    Open ChatCanvas and start creating
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Connect a wallet, drag blocks, publish, and share.
+                    Generate, arrange, export, and publish — all in one place.
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     type="button"
-                    onClick={() => void openApp("/app")}
+                    onClick={() => void openApp("/canvas/new")}
                     disabled={opening}
                     className="rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/25 hover:opacity-95"
                   >
                     {opening ? (
                       <Loader2 className="mr-2 size-4 animate-spin" />
                     ) : null}
-                    Open app
+                    Open ChatCanvas
                   </Button>
                   <Button
                     type="button"
@@ -516,30 +513,30 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Workflow"
-              title="Create → publish → track"
-              description="A simple loop for communities and creators."
+              title="Talk → canvas → publish"
+              description="A simple loop from idea to verifiable assets."
             />
 
             <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               <FeatureCard
-                icon={<FolderOpen className="size-5 text-primary" />}
-                title="1) Pick a project"
-                description="Jump into a project hub and choose the templates your community actually uses."
+                icon={<Sparkles className="size-5 text-primary" />}
+                title="1) Start with a prompt"
+                description="Generate an image, edit an existing one, or draft HTML in seconds."
               />
               <FeatureCard
-                icon={<Search className="size-5 text-cyan-500" />}
-                title="2) Create assets"
-                description="Upload images, search stock, and remix templates on a Canva-like canvas."
+                icon={<Blocks className="size-5 text-cyan-500" />}
+                title="2) Drop onto ChatCanvas"
+                description="Pan/zoom on an infinite canvas and keep your context visible."
               />
               <FeatureCard
-                icon={<Mic className="size-5 text-yellow-500" />}
-                title="3) Ask Pigcasso"
-                description="Use voice or text to draft edits. Preview the changes before applying."
+                icon={<Wand2 className="size-5 text-yellow-500" />}
+                title="3) Tab/Tune (in progress)"
+                description="Select parts and iterate with point-and-chat edits (coming soon)."
               />
               <FeatureCard
                 icon={<Rocket className="size-5 text-primary" />}
-                title="4) Publish & track"
-                description="Publish assets, then watch leaderboards evolve as the community remixes."
+                title="4) Export & publish"
+                description="Export to IPFS/NFT, then publish to Printr or share anywhere."
               />
             </div>
 
@@ -549,12 +546,12 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Sparkles className="size-4 text-primary" />
-                      Draft
+                      Talk
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    The assistant proposes edits as structured actions, not
-                    guessy “magic”.
+                    Describe what you want. Outputs land on your canvas as
+                    draftable assets.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -563,12 +560,12 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Wand2 className="size-4 text-cyan-500" />
-                      Preview
+                      Tab
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    You can preview changes before committing — iterate without
-                    fear.
+                    Click a part and ask for a change (in progress — coming
+                    soon).
                   </CardContent>
                 </Card>
               </Tilt>
@@ -577,12 +574,11 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <BadgeCheck className="size-4 text-yellow-500" />
-                      Apply
+                      Tune
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    Apply instantly to your existing canvas — or clear the draft
-                    and try again.
+                    Iterate until it’s ready — then export/mint/publish.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -598,7 +594,7 @@ export default function LandingPage() {
             <SectionTitle
               eyebrow="Plans"
               title="Start free, upgrade when you’re ready"
-              description="A simple model that fits creator workflows."
+              description="Free to start. Pro unlocks via token gating — no credit card."
             />
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -615,26 +611,26 @@ export default function LandingPage() {
                   <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      Core editor + presets
+                      ChatCanvas + editor workspace
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      Gemini AI (limits apply)
+                      Gemini AI (daily limits apply)
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      Uploads + stock search
+                      GitHub repos + Space builder
                     </div>
                     <Button
                       type="button"
-                      onClick={() => void openApp("/app")}
+                      onClick={() => void openApp("/canvas/new")}
                       disabled={opening}
                       className="w-full rounded-2xl mt-3"
                     >
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open app
+                      Open ChatCanvas
                       <ArrowRight className="ml-2 size-4" />
                     </Button>
                   </CardContent>
@@ -651,33 +647,33 @@ export default function LandingPage() {
                     <CardTitle className="flex items-center justify-between gap-4">
                       <span>Pro</span>
                       <span className="text-sm font-semibold text-white/80">
-                        Roadmap
+                        Token-gated
                       </span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative space-y-3 text-sm text-white/80">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
-                      Premium templates + higher AI limits
+                      Nano Banana Pro + higher AI limits
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
-                      Partner projects + custom hubs
+                      Token-gated access (hold PIG threshold)
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
-                      Attribution signals + rewards (roadmap)
+                      More soon: template tokens + attribution
                     </div>
                     <Button
                       type="button"
-                      onClick={() => void openApp("/app")}
+                      onClick={() => void openApp("/canvas/new")}
                       disabled={opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open app
+                      Open ChatCanvas
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                   </CardContent>
@@ -697,23 +693,27 @@ export default function LandingPage() {
             <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <FAQItem
                 question="Do I need a wallet to use Pigcasso?"
-                answer="You can start with email/social sign-in. A wallet unlocks Web3-native features like token-gated Pro and onchain exports (roadmap)."
+                answer="You can start with email/social sign-in. Privy creates an embedded wallet. Connecting an external wallet unlocks token-gated Pro and onchain exports."
               />
               <FAQItem
-                question="How does the assistant change my design?"
-                answer="It reads a snapshot of the canvas and returns structured draft actions. You can preview and then apply."
+                question="What is ChatCanvas?"
+                answer="A Lovart-style infinite workspace where chat and assets live on the same canvas."
               />
               <FAQItem
-                question="What is a Project?"
-                answer="A Project is a hub that groups templates and community assets for a partner community, plus lightweight tracking and leaderboards."
+                question="How does Repository → Asset work?"
+                answer="Authorize GitHub, pick a repo, and Pigcasso generates a meme-style asset you can publish (Printr) or mint (NFT)."
               />
               <FAQItem
-                question="How do leaderboards work?"
-                answer="Leaderboards start with in-app signals (templates/remixes). Cross-channel attribution for X/Discord/TG is a roadmap milestone."
+                question="Why can’t my NFT preview load?"
+                answer="Most wallets require HTTPS gateway URLs. Set NEXT_PUBLIC_IPFS_GATEWAY (we normalize hostnames). If your tokenURI/image was minted as a relative URL, you must re-export + re-mint."
               />
               <FAQItem
-                question="What are template tokens?"
-                answer="Template tokens let creators launch a tradable token for a template on Printr. Stake-to-use/pay-to-use is on the roadmap."
+                question="Why can’t I see my GitHub repositories?"
+                answer="Ensure your GitHub scopes include 'repo' and 'read:org', then click “Authorize GitHub”. Some orgs require approving the OAuth app/SSO before repos appear."
+              />
+              <FAQItem
+                question="How does Pro work?"
+                answer="No Stripe. Pro unlocks via token gating when your wallet holds enough PIG (threshold is configurable via env)."
               />
             </div>
           </div>
@@ -730,16 +730,16 @@ export default function LandingPage() {
 
                 <div className="relative p-10 md:p-14 text-center">
                   <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-                    Ready to ship community assets?
+                    Ready to turn ideas into assets?
                   </h2>
                   <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
-                    Open the app, join a project hub, and publish assets your
-                    community can actually reuse.
+                    Open ChatCanvas, generate your first board, then
+                    export/mint/publish in one workflow.
                   </p>
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
                       type="button"
-                      onClick={() => void openApp("/app")}
+                      onClick={() => void openApp("/canvas/new")}
                       disabled={opening}
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
@@ -747,7 +747,7 @@ export default function LandingPage() {
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open app
+                      Open ChatCanvas
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                     <Button
@@ -755,10 +755,10 @@ export default function LandingPage() {
                       variant="secondary"
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white/10 text-white border border-white/20 hover:bg-white/15"
-                      onClick={() => void openApp("/projects")}
+                      onClick={() => void openApp("/app")}
                       disabled={opening}
                     >
-                      Explore projects
+                      Explore Creator Hub
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                     <Button
@@ -798,17 +798,20 @@ export default function LandingPage() {
                 <div>
                   <div className="font-bold">Pigcasso Canvas</div>
                   <div className="text-xs text-muted-foreground">
-                    Canva-like community asset hub
+                    Infinite ChatCanvas + Web3 asset layer
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
-                  <FolderOpen className="size-4" /> Project asset hubs
+                  <Blocks className="size-4" /> ChatCanvas
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <Trophy className="size-4" /> Lightweight leaderboards
+                  <Github className="size-4" /> Repository → Asset
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <Coins className="size-4" /> IPFS/NFT export
                 </span>
               </div>
             </div>
@@ -821,6 +824,9 @@ export default function LandingPage() {
               <div className="flex items-center gap-4">
                 <Link href="/app" className="hover:underline">
                   Open app
+                </Link>
+                <Link href="/canvas/new" className="hover:underline">
+                  Open ChatCanvas
                 </Link>
                 <a href="#faq" className="hover:underline">
                   FAQ

@@ -31,6 +31,7 @@ NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
 - `PINATA_JWT` 僅能存在 server-side（不可暴露到 client）。
 - `NEXT_PUBLIC_NFT_FACTORY_ADDRESS` 會進入 client bundle（公開的合約地址可接受）。
 - `NEXT_PUBLIC_NFT_MARKETPLACE_URL_TEMPLATE` 是可選的 marketplace link（Mantle 不一定支援 OpenSea）。
+- `NEXT_PUBLIC_IPFS_GATEWAY` 也可以只填 hostname（例如 `plum-high-rook-436.mypinata.cloud`），系統會自動 normalize 成 `https://<host>/ipfs/`。
 
 ## 3) API（Hono /api）
 
@@ -75,7 +76,9 @@ NEXT_PUBLIC_NFT_MARKETPLACE_LABEL=
 - 圖片在 metadata 裡的 `image` / `image_url` 欄位。
   - 新版本會用 `https://…/ipfs/<cid>`（gateway URL）提升錢包/瀏覽器相容性。
   - 同時保留 `properties.image_ipfs=ipfs://<cid>` 方便追溯來源。
-- 已上鏈的 tokenURI 無法被前端「修正」：如果是舊版 mint 造成 tokenURI / metadata 使用 `ipfs://` 而你的錢包不支援，需重新 export + mint。
+- 已上鏈的 tokenURI 無法被前端「修正」：
+  - 如果是舊版 mint 造成 tokenURI/image URL 是「無 scheme 的相對路徑」（例如 `plum-high-rook-436.mypinata.cloud/<cid>`），多數錢包會直接壞掉。
+  - 請重新 export + mint（確保 `NEXT_PUBLIC_IPFS_GATEWAY` 是可被外部錢包讀取的 **完整 https URL**）。
 
 ## 6) Smart Contracts（Factory Pattern）
 

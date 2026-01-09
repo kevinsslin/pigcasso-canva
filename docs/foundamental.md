@@ -49,12 +49,17 @@ bun dev
 
 - `PRINTR_API_TOKEN=...`
 
+要啟用 Repository → Asset（GitHub）：
+
+- `GITHUB_OAUTH_ENCRYPTION_KEY=...`（加密存 DB 的 GitHub OAuth tokens）
+- （可選）`PRINTR_PUBLISH_URL=...` + `PRINTR_API_KEY=...`（若要 publish 到外部 Printr endpoint）
+
 要啟用 NFT export（IPFS + Mantle mint）：
 
 - `PINATA_JWT=...`（Pinata JWT，推薦）
   - 或：`PINATA_API_KEY=...` + `PINATA_SECRET_API_KEY=...`（legacy）
 - `NEXT_PUBLIC_NFT_FACTORY_ADDRESS=0x...`（Mantle 上的 factory）
-- （可選）`NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/`
+- （可選）`NEXT_PUBLIC_IPFS_GATEWAY=...`（可填完整 URL 或純 hostname，系統會 normalize 成 `https://<host>/ipfs/`）
 
 ---
 
@@ -69,6 +74,9 @@ flowchart TD
   API --> RPC["Mantle RPC (ERC20 balanceOf)"]
   API --> Gemini["Gemini (image + remove-bg + assistant)"]
   NX --> UT["UploadThing (files)"]
+  API --> Pinata["Pinata (IPFS pinning)"]
+  API --> GitHub["GitHub API (repos)"]
+  API --> Printr["Printr (template tokens / publish)"]
 ```
 
 重點：
@@ -144,7 +152,7 @@ sequenceDiagram
 
 工程檔案：
 
-- Providers：`src/server/ai-providers.ts`
+- Providers：`src/server/ai/`（Gemini + access guard；`src/server/ai-providers.ts` 只是 re-export）
 - Limits：`src/server/ai-usage.ts` + table `ai_daily_usage`
 - API：`src/app/api/[[...route]]/ai.ts`
 - UI：`src/features/editor/components/ai-sidebar.tsx`、`src/features/editor/components/remove-bg-sidebar.tsx`
@@ -155,20 +163,29 @@ sequenceDiagram
 
 ### Tables（MVP）
 
-- `user`：`privyUserId`、wallets、pro cache、timestamps
-- `project`：projects/templates + creator hub fields
+- `user`：Privy identity + wallets + Pro cache
+- `space_document`：Space builder 的 draft/published JSON
+- `github_connection`：GitHub OAuth tokens（加密存 DB）
+- `project_hub`：B2B curated hubs（分類瀏覽 templates）
+- `project` / `project_page`：Projects/Templates + multi-page editor
+- `template_token` / `template_usage_event`：Printr token mapping + usage events
 - `ai_daily_usage`：每日 AI 計數（unique: userId+date）
-- `nft_collection`：NFT collection/series（factory pattern 預留；可先為 null address）
-- `nft_asset`：作品資產（project → asset），追蹤 mint 狀態（draft → minted）與 metadata/image URI
+- `nft_collection` / `nft_asset`：IPFS export + mint 狀態（metadata/image URIs）
 
 Migration：
 
-- `drizzle/0001_pigcasso_mvp.sql`（從原始 canva clone schema 過渡到 Pigcasso schema）
-- `drizzle/0003_fantastic_swordsman.sql`（新增 `nft_collection` / `nft_asset` scaffolding）
+- migrations 在 `drizzle/`（例如：NFT export、Printr、GitHub connection、Space documents）
+- 以 `bun run db:migrate` 套用到你的 `DATABASE_URL`
 
 ---
 
 ## 主要流程（你會最常動到）
+
+### 0) ChatCanvas（tldraw infinite canvas）
+
+- 路由：`/canvas/new`、`/canvas/:id`
+- 目前狀態：以 tldraw 的 local persistence 為主（尚未綁 DB project）
+- 目標體感：Lovart-style 的「無限畫布 + 右側 Chat」工作區（Talk/Tab/Tune 的閉環會在下一階段接起來）
 
 ### 1) 建立 Project（Dashboard Presets）
 
@@ -226,16 +243,23 @@ Share page：`src/app/templates/[templateId]/page.tsx`（顯示 attribution + Re
 
 ---
 
-## NFT（Coming soon scaffolding）
+## Integrations（User-facing）
 
-目前只先做到「可接合約前」的 scaffolding（頁面會顯示 Coming soon，等合約 report/地址/ABI 到位再接）。
+### 1) Repository → Asset（GitHub）
 
-- Pages：`/nfts`（legacy `/assets`、`/collections`、`/settings/web3` 會 redirect）
-  - `src/app/(dashboard)/nfts/page.tsx`
-  - `src/app/(dashboard)/assets/page.tsx`（redirect）
-  - `src/app/(dashboard)/collections/page.tsx`（redirect）
-  - `src/app/(dashboard)/settings/web3/page.tsx`（redirect）
+- Route：`/repositories`（Dashboard）+ Editor sidebar「Repositories」
+- Flow：Link GitHub（Privy）→ Authorize scopes → list repos → generate meme asset →（可選）publish to Printr
+- Docs：`docs/integrations/github.md`
+
+### 2) Space（bento.me-like）
+
+- Routes：`/space`（入口）、`/space/builder`（編輯）、`/space/:handle`（公開頁）
+- Drag/resize UX：swap 排序、可拖整個 block、支援四邊 resize（詳見 QA）
+- Docs：`docs/space-builder-qa.md`
+
+### 3) NFT Export（IPFS + Mantle）
+
+- Pages：`/nfts`（legacy `/assets`、`/collections` 會 redirect）
 - API：`/api/assets`、`/api/collections`
-  - `src/app/api/[[...route]]/assets.ts`
-  - `src/app/api/[[...route]]/collections.ts`
-- DB schema：`src/db/schema.ts`（tables：`nft_collection`, `nft_asset`）
+- IPFS gateway normalization：支援 `plum-high-rook-436.mypinata.cloud/<cid>` 這種缺 scheme/缺 `/ipfs` 的 URL
+- Docs：`docs/integrations/nft-export.md`

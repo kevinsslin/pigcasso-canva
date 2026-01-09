@@ -17,6 +17,39 @@
 
 ---
 
+## 0.2) Repo 現況（已實作 / 進行中）
+
+已實作（MVP baseline）：
+
+- ✅ `/app`：AI-native Home（大 prompt + quick chips + recent projects）
+- ✅ `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（含 desktop + mobile layout）
+- ✅ AI（Gemini）API：
+  - ✅ `POST /api/ai/generate-image`
+  - ✅ `POST /api/ai/edit-image`
+  - ✅ `POST /api/ai/generate-html`（輸出 self-contained HTML string）
+- ✅ Nano Banana / Pro 的產品層 profile：
+  - ✅ `nano-banana` / `nano-banana-pro`（非 Pro 會自動 downgrade）
+  - ✅ 每日用量限制（Free/Pro 分流）
+- ✅ Repository → Asset：
+  - ✅ `/repositories`（Privy GitHub OAuth → list repos → generate meme asset）
+  - ✅ `POST /api/printr/publish`（server-to-server publish）
+  - ✅ OAuth token 以 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密存 DB
+- ✅ IPFS/NFT preview：
+  - ✅ 修正「Pinata gateway 沒 scheme / 沒 /ipfs」導致的錯誤 URL
+- ✅ Space Builder UX：
+  - ✅ Drag collision：由上往下也會 swap（不再往下擠）
+  - ✅ Drag handle：可拖整個 block
+  - ✅ Resize：4 邊 + 4 角 resize
+
+進行中 / 未實作（需要你確認的決策）：
+
+- ⏳ ChatCanvas ↔ Projects 的資料模型（目前是 tldraw local persistence，尚未落 DB / 綁 project id）
+- ⏳ Talk · Tab · Tune 的「指向式編輯」閉環（選取物件/區域 → 一句話修改 → 回填到 canvas）
+- ⏳ HTML 的安全 preview（sandbox / CSP / external resources policy）
+- ⏳ Short video provider（Kling/Veo 等）+ job queue（run log / storage / preview）
+
+> 進一步的 roadmap 與 unblock 問題請看：`docs/STATUS.md`、`docs/PRD.md`、`docs/QUESTIONS.md`。
+
 ## 1) Lovart 可觀測產品範式（公開訊號）
 
 以下內容取自 Lovart 公開 changelog 的 banner/文案（`https://lovart.ai/changelog`），我們拿來對齊「體感」與「能力」：
@@ -137,4 +170,3 @@ MVP 取捨：
 3) HTML generate + preview（最快做出 wow）
 4) Video job API（先 stub，拿到 provider 後補）
 5) Web3：選 Frame/Asset → export → IPFS → mint（你們現有 NFT pipeline 可沿用）
-

@@ -33,10 +33,14 @@ This checklist is meant for quick, repeatable smoke testing while iterating on t
 ### 3) Drag/resize behavior (no permanent overlap)
 
 - Drag a block across others:
-  - Other blocks reflow quickly.
+  - Dragging **from top → down** swaps step-by-step with the block you collide with (no “push everything down”).
+  - Dragging **from bottom → up** also swaps step-by-step.
+  - You can drag the **entire block** (no special handle required).
   - After dropping, the layout remains collision-free (no overlapping blocks).
 - Resize a block:
-  - After resizing ends, layout normalizes (no overlap).
+  - Resize handles exist on **4 edges + 4 corners**.
+  - Resizing does **not** accidentally trigger dragging.
+  - After resizing ends, layout remains collision-free (no overlap).
 
 ### 4) Preview → publish → live consistency
 
@@ -64,4 +68,3 @@ This checklist is meant for quick, repeatable smoke testing while iterating on t
 
 - If **View live** differs from preview, re-test publish dialog: it should publish the captured snapshot, not the current draft.
 - If drag feels “laggy”, check grid item transition timing in `src/features/spaces/components/space-grid-layout.module.css`.
-

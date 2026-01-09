@@ -33,6 +33,14 @@ PRINTR_API_TOKEN=...
 - `PRINTR_API_TOKEN` 絕對不能在 client bundle 內曝光（本 repo 透過 `/api/printr/*` server proxy 保護）。
 - `PRINTR_API_URL` 可保留預設，不設也會 fallback 到 preview server。
 
+（可選）Repository → Asset publish（server-to-server）：
+
+```bash
+PRINTR_PUBLISH_URL=...
+# Optional: if your publish endpoint requires a bearer token
+PRINTR_API_KEY=...
+```
+
 （可選 / UI）Printr token 詳情頁的跳轉網址：
 
 ```bash
@@ -82,6 +90,12 @@ Auth：`Authorization: Bearer <PRINTR_API_TOKEN>`
 
 - `GET /api/printr/status`
   - 回 `{ configured: boolean }`
+
+### 4.4 Publish endpoint（Repository → Asset）
+
+- `POST /api/printr/publish`
+  - body: `{ name, imageUrl, sourceRepoUrl? }`
+  - behavior: server 會轉送到 `PRINTR_PUBLISH_URL`（若 `PRINTR_API_KEY` 有設，會以 Bearer token 帶上）
 
 ## 5) 資料模型（DB）
 
