@@ -78,10 +78,9 @@ export default function RepositoriesPage() {
       <RepoAssetDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        mode="dashboard"
         repo={selectedRepo}
-        onNavigateToEditor={({ projectId, assetUrl }) => {
-          router.push(`/editor/${projectId}?asset=${encodeURIComponent(assetUrl)}`);
+        onNavigateToCanvas={({ canvasId, imageUrl }) => {
+          router.push(`/canvas/${canvasId}?image=${encodeURIComponent(imageUrl)}`);
         }}
       />
 

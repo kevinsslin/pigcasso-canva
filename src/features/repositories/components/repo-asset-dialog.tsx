@@ -6,11 +6,9 @@ import { toast } from "sonner";
 import Image from "next/image";
 
 import { useGenerateRepoAsset } from "@/features/repositories/api/use-generate-repo-asset";
-import { useCreateProject } from "@/features/projects/api/use-create-project";
 
 import { client } from "@/lib/hono";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
-import type { Editor } from "@/features/editor/types";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,20 +35,11 @@ export const RepoAssetDialog = (props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   repo: Repo | null;
-} & (
-  | {
-      mode: "dashboard";
-      onNavigateToEditor: (options: { projectId: string; assetUrl: string }) => void;
-    }
-  | {
-      mode: "editor";
-      editor: Editor | undefined;
-    }
-)) => {
+  onNavigateToCanvas: (options: { canvasId: string; imageUrl: string }) => void;
+}) => {
   const { open, onOpenChange, repo } = props;
 
   const generateMutation = useGenerateRepoAsset();
-  const createProjectMutation = useCreateProject();
 
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -92,12 +81,8 @@ export const RepoAssetDialog = (props: {
     }
   }, [generateMutation, repo]);
 
-  const onCreateProject = useCallback(async () => {
+  const onOpenCanvas = useCallback(async () => {
     if (!repo) return;
-
-    if (props.mode !== "dashboard") {
-      return;
-    }
 
     setBusy(true);
     try {
@@ -106,42 +91,11 @@ export const RepoAssetDialog = (props: {
         dataUrl,
         `repo_asset_${repo.owner.login}_${repo.name}.png`,
       );
-
-      const created = await createProjectMutation.mutateAsync({
-        name: `Repo Asset: ${repo.fullName}`,
-        json: "",
-        width: 1024,
-        height: 1024,
-      });
-
+      const canvasId = crypto.randomUUID();
       onOpenChange(false);
-      props.onNavigateToEditor({ projectId: created.data.id, assetUrl: uploadedUrl });
+      props.onNavigateToCanvas({ canvasId, imageUrl: uploadedUrl });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create project");
-    } finally {
-      setBusy(false);
-    }
-  }, [createProjectMutation, ensureGenerated, onOpenChange, props, repo]);
-
-  const onAddToCanvas = useCallback(async () => {
-    if (!repo) return;
-    if (props.mode !== "editor") {
-      return;
-    }
-
-    if (!props.editor) {
-      toast.error("Editor not ready yet.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const dataUrl = await ensureGenerated();
-      props.editor.addImage(dataUrl);
-      toast.success("Added to canvas.");
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to add to canvas");
+      toast.error(error instanceof Error ? error.message : "Failed to open canvas");
     } finally {
       setBusy(false);
     }
@@ -306,15 +260,9 @@ export const RepoAssetDialog = (props: {
           <Button type="button" variant="secondary" onClick={onPublishToPrintr} disabled={busy}>
             Publish to Printr
           </Button>
-          {props.mode === "dashboard" ? (
-            <Button type="button" onClick={onCreateProject} disabled={busy}>
-              Open in editor
-            </Button>
-          ) : (
-            <Button type="button" onClick={onAddToCanvas} disabled={busy}>
-              Add to canvas
-            </Button>
-          )}
+          <Button type="button" onClick={onOpenCanvas} disabled={busy}>
+            Open in canvas
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

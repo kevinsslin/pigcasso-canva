@@ -6,7 +6,6 @@ import {
   Pencil,
   Settings,
   Shapes,
-  Sparkles,
   Type,
 } from "lucide-react";
 
@@ -83,12 +82,6 @@ export const MobileToolDock = ({
           label="Draw"
           icon={<Pencil className="size-5 stroke-2" />}
           onClick={() => onChangeActiveTool("draw")}
-        />
-        <DockButton
-          active={activeTool === "ai"}
-          label="AI"
-          icon={<Sparkles className="size-5 stroke-2" />}
-          onClick={() => onChangeActiveTool("ai")}
         />
         <DockButton
           active={activeTool === "settings"}

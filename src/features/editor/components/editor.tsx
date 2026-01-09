@@ -26,13 +26,10 @@ import { FontSidebar } from "@/features/editor/components/font-sidebar";
 import { ImageSidebar } from "@/features/editor/components/image-sidebar";
 import { FilterSidebar } from "@/features/editor/components/filter-sidebar";
 import { DrawSidebar } from "@/features/editor/components/draw-sidebar";
-import { AiSidebar } from "@/features/editor/components/ai-sidebar";
 import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { LayersSidebar } from "@/features/editor/components/layers-sidebar";
-import { RepositoriesSidebar } from "@/features/editor/components/repositories-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
-import { PigcassoAssistant } from "@/features/editor/components/pigcasso-assistant";
 import { MobileToolDock } from "@/features/editor/components/mobile-tool-dock";
 import { PagesBar, type PageBarItem } from "@/features/editor/components/pages-bar";
 
@@ -411,10 +408,8 @@ export const Editor = ({
         <FontSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <ImageSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <TemplateSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
-        <RepositoriesSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <LayersSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FilterSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
-        <AiSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <RemoveBgSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <DrawSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <SettingsSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
@@ -439,7 +434,6 @@ export const Editor = ({
             />
           ) : null}
           <Footer editor={editor} />
-          <PigcassoAssistant editor={editor} />
         </main>
       </div>
       <MobileToolDock activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />

@@ -273,9 +273,21 @@ export default function CanvasPage({ params }: PageProps) {
         const res = await generateHtml.mutateAsync({ prompt: trimmed });
         setHtmlPreview(res.data.html);
         setPanelTab("preview");
+        try {
+          await editor.putExternalContent({
+            type: "text",
+            text: res.data.html,
+            point: editor.screenToPage({
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 2,
+            }),
+          });
+        } catch {
+          // ignore (preview still available in the side panel)
+        }
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Generated an HTML preview." },
+          { id: crypto.randomUUID(), role: "assistant", content: "Added the HTML to your canvas (Preview tab available)." },
         ]);
         return;
       }
@@ -630,7 +642,7 @@ export default function CanvasPage({ params }: PageProps) {
                   className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
                   disabled={busy}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       void sendMessage();
                     }
@@ -735,7 +747,7 @@ export default function CanvasPage({ params }: PageProps) {
                     className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
                     disabled={busy}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") {
+                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                         event.preventDefault();
                         void sendMessage();
                       }

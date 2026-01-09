@@ -103,10 +103,12 @@ export default function AppHomePage() {
               className="min-h-[120px] resize-none border-0 bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={busy}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                if (event.key !== "Enter") return;
+                if (event.nativeEvent.isComposing) return;
+                if (event.shiftKey) return;
+
                   event.preventDefault();
                   void onSubmitPrompt();
-                }
               }}
             />
 

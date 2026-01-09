@@ -2,13 +2,11 @@
 
 import { 
   LayoutTemplate,
-  Github,
   ImageIcon,
   Layers,
   Pencil,
   Settings,
   Shapes,
-  Sparkles,
   Type,
 } from "lucide-react";
 
@@ -32,12 +30,6 @@ export const Sidebar = ({
           label="Design"
           isActive={activeTool === "templates"}
           onClick={() => onChangeActiveTool("templates")}
-        />
-        <SidebarItem
-          icon={Github}
-          label="Repos"
-          isActive={activeTool === "repositories"}
-          onClick={() => onChangeActiveTool("repositories")}
         />
         <SidebarItem
           icon={Layers}
@@ -68,12 +60,6 @@ export const Sidebar = ({
           label="Draw"
           isActive={activeTool === "draw"}
           onClick={() => onChangeActiveTool("draw")}
-        />
-        <SidebarItem
-          icon={Sparkles}
-          label="AI"
-          isActive={activeTool === "ai"}
-          onClick={() => onChangeActiveTool("ai")}
         />
         <SidebarItem
           icon={Settings}
