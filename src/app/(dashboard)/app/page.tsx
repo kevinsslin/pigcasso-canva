@@ -128,10 +128,10 @@ export default function AppHomePage() {
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {PROMPT_STARTERS.map((starter) => (
-              <Button
-                key={starter.label}
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {PROMPT_STARTERS.map((starter) => (
+            <Button
+              key={starter.label}
                 type="button"
                 variant="secondary"
                 className="rounded-full"
@@ -151,7 +151,7 @@ export default function AppHomePage() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">Recent Canvases</h2>
+          <h2 className="text-lg font-bold tracking-tight">Recent Boards</h2>
           <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/canvases")}>
             View all
           </Button>
@@ -175,7 +175,7 @@ export default function AppHomePage() {
               <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
                 <Sparkles className="size-5" />
               </div>
-              <div className="mt-4 font-semibold">New canvas</div>
+              <div className="mt-4 font-semibold">New board</div>
               <div className="mt-1 text-xs text-muted-foreground">Infinite workspace.</div>
             </button>
 

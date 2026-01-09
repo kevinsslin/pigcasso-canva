@@ -22,7 +22,7 @@ export const isNavItemActive = (pathname: string, item: DashboardNavItem) => {
 
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/app", label: "Home", icon: Home, match: matchPrefix("/app"), showInDock: true },
-  { href: "/canvases", label: "Canvases", icon: LayoutGrid, match: matchPrefix("/canvases"), showInDock: true },
+  { href: "/canvases", label: "Boards", icon: LayoutGrid, match: matchPrefix("/canvases"), showInDock: true },
   { href: "/repositories", label: "Repositories", icon: Github, match: matchPrefix("/repositories"), showInDock: false },
   { href: "/projects", label: "Projects", icon: FolderOpen, match: matchPrefix("/projects"), showInDock: true },
   { href: "/leaderboards", label: "Leaderboards", icon: Trophy, match: matchPrefix("/leaderboards"), showInDock: false },
@@ -38,4 +38,3 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
 ];
 
 export const MOBILE_DOCK_ITEMS = DASHBOARD_NAV_ITEMS.filter((item) => item.showInDock);
-

@@ -29,15 +29,15 @@ export default function CanvasesPage() {
     <div className="max-w-screen-xl mx-auto space-y-6 pb-10">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Canvases</h1>
+          <h1 className="text-2xl font-semibold">Boards</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your infinite canvases — backed by your account.
+            Your boards — an infinite canvas with chat.
           </p>
         </div>
 
         <Button type="button" onClick={() => router.push("/canvas/new")} className="rounded-full">
           <Plus className="size-4 mr-2" />
-          New canvas
+          New board
         </Button>
       </div>
 
@@ -116,4 +116,3 @@ export default function CanvasesPage() {
     </div>
   );
 }
-

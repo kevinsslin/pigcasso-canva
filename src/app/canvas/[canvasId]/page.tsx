@@ -516,12 +516,12 @@ export default function CanvasPage({ params }: PageProps) {
               <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black">
                 P
               </span>
-            </Link>
-            <div className="text-sm font-semibold text-muted-foreground">
-              Canvas <span className="text-foreground">•</span>{" "}
-              <span className="text-foreground">{canvasName}</span>
-            </div>
-          </div>
+	            </Link>
+	            <div className="text-sm font-semibold text-muted-foreground">
+	              Board <span className="text-foreground">•</span>{" "}
+	              <span className="text-foreground">{canvasName}</span>
+	            </div>
+	          </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
             <Button
