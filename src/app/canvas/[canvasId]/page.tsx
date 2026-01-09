@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   Loader2,
   Plus,
+  RotateCcw,
+  Scan,
   X,
   ZoomIn,
   ZoomOut,
@@ -83,6 +85,9 @@ export default function CanvasPage({ params }: PageProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [canvasName, setCanvasName] = useState("Untitled");
   const [busy, setBusy] = useState(false);
+  const [boardHydrated, setBoardHydrated] = useState(false);
+  const [boardCrashMessage, setBoardCrashMessage] = useState<string | null>(null);
+  const [tldrawMountKey, setTldrawMountKey] = useState(0);
 
   const chatInputRef = useRef(chatInput);
   const busyRef = useRef(busy);
@@ -104,13 +109,13 @@ export default function CanvasPage({ params }: PageProps) {
   const updateCanvas = useUpdateCanvas({ toast: false, invalidate: false, invalidateList: false });
 
   const hasUpsertedRef = useRef(false);
-  const hasLoadedSnapshotRef = useRef(false);
+  const loadedSnapshotEditorRef = useRef<TldrawEditor | null>(null);
   const hasAutoPromptRef = useRef(false);
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
-  const hasBootstrappedRef = useRef(false);
+  const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
   const tabPointerDownRef = useRef<{ x: number; y: number } | null>(null);
-  const lastKnownToolIdRef = useRef<string | null>(null);
+  const lastKnownToolIdRef = useRef<CanvasTool | null>(null);
   const [tabAnchor, setTabAnchor] = useState<{
     screenX: number;
     screenY: number;
@@ -122,8 +127,16 @@ export default function CanvasPage({ params }: PageProps) {
   useEffect(() => {
     if (aiMode !== "point") {
       setTabAnchor(null);
+      tabPointerDownRef.current = null;
     }
   }, [aiMode]);
+
+  useEffect(() => {
+    if (aiMode !== "point") return;
+    if (activeTool === "select") return;
+    tabPointerDownRef.current = null;
+    setTabAnchor(null);
+  }, [activeTool, aiMode]);
 
   useEffect(() => {
     chatInputRef.current = chatInput;
@@ -166,10 +179,10 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
-    if (hasLoadedSnapshotRef.current) return;
+    if (loadedSnapshotEditorRef.current === editor) return;
     if (!canvasQuery.isError && !canvasQuery.isSuccess) return;
 
-    hasLoadedSnapshotRef.current = true;
+    loadedSnapshotEditorRef.current = editor;
     hydratingRef.current = true;
 
     const tryLoad = (raw: string) => {
@@ -203,6 +216,7 @@ export default function CanvasPage({ params }: PageProps) {
     }
 
     hydratingRef.current = false;
+    setBoardHydrated(true);
   }, [canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
 
   useEffect(() => {
@@ -214,11 +228,11 @@ export default function CanvasPage({ params }: PageProps) {
       try {
         const currentToolId = editor.getCurrentToolId();
         if (!currentToolId) return;
-        if (lastKnownToolIdRef.current === currentToolId) return;
-        lastKnownToolIdRef.current = currentToolId;
 
         const mapped = fromTldrawToolId(currentToolId);
         if (!mapped) return;
+        if (lastKnownToolIdRef.current === mapped) return;
+        lastKnownToolIdRef.current = mapped;
         setActiveTool(mapped);
       } catch {
         // ignore
@@ -255,11 +269,38 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
-    if (!hasLoadedSnapshotRef.current) return;
-    if (hasBootstrappedRef.current) return;
+
+    const onCrash = (payload: unknown) => {
+      const message =
+        payload && typeof payload === "object" && "error" in payload && payload.error instanceof Error
+          ? payload.error.message
+          : "The board crashed unexpectedly.";
+      setBoardCrashMessage(message);
+      toast.error("Board crashed. Reload to continue.", { duration: 4000 });
+    };
+
+    try {
+      editor.on("crash" as any, onCrash as any);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        editor.off("crash" as any, onCrash as any);
+      } catch {
+        // ignore
+      }
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    if (loadedSnapshotEditorRef.current !== editor) return;
+    if (bootstrappedEditorRef.current === editor) return;
     if (hydratingRef.current) return;
 
-    hasBootstrappedRef.current = true;
+    bootstrappedEditorRef.current = editor;
 
     const shapes = editor.getCurrentPageShapes?.() ?? [];
     if (shapes.length > 0) return;
@@ -286,32 +327,89 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
+    setBoardHydrated(false);
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    let idleHandle: number | null = null;
+    let idleMode: "idle" | "timeout" | null = null;
+
+    const cancelIdle = () => {
+      if (typeof window === "undefined") return;
+      if (idleHandle === null || idleMode === null) return;
+      try {
+        if (idleMode === "idle" && typeof (window as any).cancelIdleCallback === "function") {
+          (window as any).cancelIdleCallback(idleHandle);
+        } else if (idleMode === "timeout") {
+          window.clearTimeout(idleHandle);
+        }
+      } catch {
+        // ignore
+      } finally {
+        idleHandle = null;
+        idleMode = null;
+      }
+    };
 
     const save = debounce(() => {
+      if (!boardHydrated) return;
       if (hydratingRef.current) return;
+      if (boardCrashMessage) return;
 
-      let snapshotJson: string;
-      try {
-        snapshotJson = JSON.stringify(getSnapshot(editor.store));
-      } catch {
+      cancelIdle();
+
+      const run = () => {
+        let snapshotJson: string;
+        try {
+          snapshotJson = JSON.stringify(getSnapshot(editor.store));
+        } catch {
+          return;
+        }
+
+        if (snapshotJson === lastSavedSnapshotRef.current) return;
+        lastSavedSnapshotRef.current = snapshotJson;
+
+        try {
+          localStorage.setItem(localSnapshotKey, snapshotJson);
+        } catch {
+          // ignore
+        }
+
+        if (canvasQuery.data) {
+          updateCanvas.mutate({
+            param: { id: params.canvasId },
+            json: { snapshot: snapshotJson },
+          });
+        }
+      };
+
+      if (typeof window === "undefined") {
+        run();
         return;
       }
 
-      if (snapshotJson === lastSavedSnapshotRef.current) return;
-      lastSavedSnapshotRef.current = snapshotJson;
+      const requestIdle = (window as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout?: number }) => number)
+        | undefined;
 
-      try {
-        localStorage.setItem(localSnapshotKey, snapshotJson);
-      } catch {
-        // ignore
+      if (typeof requestIdle === "function") {
+        idleMode = "idle";
+        idleHandle = requestIdle(() => {
+          idleHandle = null;
+          idleMode = null;
+          run();
+        }, { timeout: 2000 });
+        return;
       }
 
-      if (canvasQuery.data) {
-        updateCanvas.mutate({
-          param: { id: params.canvasId },
-          json: { snapshot: snapshotJson },
-        });
-      }
+      idleMode = "timeout";
+      idleHandle = window.setTimeout(() => {
+        idleHandle = null;
+        idleMode = null;
+        run();
+      }, 0);
     }, 1100);
 
     const unsubscribe = editor.store.listen(() => {
@@ -321,8 +419,9 @@ export default function CanvasPage({ params }: PageProps) {
     return () => {
       unsubscribe();
       save.cancel();
+      cancelIdle();
     };
-  }, [canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
+  }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
 
   useEffect(() => {
     if (!editor) return;
@@ -549,8 +648,8 @@ export default function CanvasPage({ params }: PageProps) {
     );
   }
 
-  return (
-    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+	  return (
+	    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4 relative">
           <div className="flex items-center gap-3">
@@ -604,10 +703,10 @@ export default function CanvasPage({ params }: PageProps) {
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1 rounded-lg border bg-card px-2 py-1 shadow-soft">
-              <Button
-                type="button"
+	          <div className="flex items-center gap-2">
+	            <div className="hidden sm:flex items-center gap-1 rounded-lg border bg-card px-2 py-1 shadow-soft">
+	              <Button
+	                type="button"
                 size="icon"
                 variant="ghost"
                 className="h-8 w-8"
@@ -617,18 +716,36 @@ export default function CanvasPage({ params }: PageProps) {
               >
                 <ZoomOut className="size-4" />
               </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => editor?.zoomIn()}
-                disabled={!editor}
-                aria-label="Zoom in"
-              >
-                <ZoomIn className="size-4" />
-              </Button>
-            </div>
+	              <Button
+	                type="button"
+	                size="icon"
+	                variant="ghost"
+	                className="h-8 w-8"
+	                onClick={() => editor?.zoomIn()}
+	                disabled={!editor}
+	                aria-label="Zoom in"
+	              >
+	                <ZoomIn className="size-4" />
+	              </Button>
+	              <Button
+	                type="button"
+	                size="icon"
+	                variant="ghost"
+	                className="h-8 w-8"
+	                onClick={() => {
+	                  if (!editor) return;
+	                  try {
+	                    editor.zoomToFit({ animation: { duration: 220 } } as any);
+	                  } catch {
+	                    // ignore
+	                  }
+	                }}
+	                disabled={!editor}
+	                aria-label="Zoom to content"
+	              >
+	                <Scan className="size-4" />
+	              </Button>
+	            </div>
 
             <Button
               type="button"
@@ -647,13 +764,13 @@ export default function CanvasPage({ params }: PageProps) {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden flex">
-        <CanvasToolRail
-          activeTool={activeTool}
-          disabled={!editor}
-          onToolChange={(tool) => {
-            setActiveTool(tool);
-            if (!editor) return;
+	      <main className="flex-1 overflow-hidden flex">
+	        <CanvasToolRail
+	          activeTool={activeTool}
+	          disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	          onToolChange={(tool) => {
+	            setActiveTool(tool);
+	            if (!editor) return;
             try {
               editor.setCurrentTool(toTldrawToolId(tool) as any);
             } catch {
@@ -661,7 +778,7 @@ export default function CanvasPage({ params }: PageProps) {
             }
           }}
         />
-        <div className="flex-1 relative overflow-hidden">
+	        <div className="flex-1 relative overflow-hidden">
 	          <div
 	            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
 	            onPointerDownCapture={(event) => {
@@ -717,18 +834,68 @@ export default function CanvasPage({ params }: PageProps) {
               }
             }}
           >
-            <Tldraw
-              hideUi
-              user={tldrawUser}
-              inferDarkMode={false}
-              shapeUtils={shapeUtils}
-              className="pigcasso-paper-tldraw"
-              onMount={(next) => {
-                setEditor(next as unknown as TldrawEditor);
-                return () => setEditor(null);
-              }}
-            />
-          </div>
+	            <Tldraw
+	              key={tldrawMountKey}
+	              hideUi
+	              user={tldrawUser}
+	              inferDarkMode={false}
+	              shapeUtils={shapeUtils}
+	              className="pigcasso-paper-tldraw"
+	              onMount={(next) => {
+	                setEditor(next as unknown as TldrawEditor);
+	                return () => setEditor(null);
+	              }}
+	            />
+	            {!boardHydrated ? (
+	              <div className="absolute inset-0 z-50 grid place-items-center bg-background/60 backdrop-blur-sm">
+	                <div className="rounded-2xl border bg-card/90 px-4 py-3 shadow-soft flex items-center gap-2 text-sm text-muted-foreground">
+	                  <Loader2 className="size-4 animate-spin" />
+	                  Loading board…
+	                </div>
+	              </div>
+	            ) : null}
+	            {boardCrashMessage ? (
+	              <div className="absolute inset-0 z-[60] grid place-items-center bg-background/80 backdrop-blur-sm p-6">
+	                <div className="w-full max-w-md rounded-2xl border bg-card shadow-soft p-5 space-y-3">
+	                  <div className="text-sm font-semibold">Board crashed</div>
+	                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+	                    {boardCrashMessage}
+	                  </div>
+	                  <div className="flex items-center gap-2 pt-1">
+	                    <Button
+	                      type="button"
+	                      className="rounded-full"
+	                      onClick={() => {
+	                        setBoardCrashMessage(null);
+	                        setBoardHydrated(false);
+	                        loadedSnapshotEditorRef.current = null;
+	                        bootstrappedEditorRef.current = null;
+	                        hydratingRef.current = false;
+	                        lastKnownToolIdRef.current = null;
+	                        tabPointerDownRef.current = null;
+	                        setTabAnchor(null);
+	                        setActiveTool("select");
+	                        setTldrawMountKey((prev) => prev + 1);
+	                      }}
+	                    >
+	                      <RotateCcw className="mr-2 size-4" />
+	                      Reload board
+	                    </Button>
+	                    <Button
+	                      type="button"
+	                      variant="secondary"
+	                      className="rounded-full"
+	                      onClick={() => {
+	                        setBoardCrashMessage(null);
+	                      }}
+	                    >
+	                      Close
+	                    </Button>
+	                  </div>
+	                </div>
+	              </div>
+	            ) : null}
+	          </div>
 
           {aiMode === "point" && tabAnchor ? (
             <div
@@ -797,13 +964,13 @@ export default function CanvasPage({ params }: PageProps) {
 	            </div>
 	          ) : null}
 
-          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
-              {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
-                <Button
-                  key={tool}
-                  type="button"
-                  variant="ghost"
+	          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+	            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
+	              {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
+	                <Button
+	                  key={tool}
+	                  type="button"
+	                  variant="ghost"
                   onClick={() => {
                     setActiveTool(tool);
                     if (!editor) return;
@@ -812,26 +979,26 @@ export default function CanvasPage({ params }: PageProps) {
                     } catch {
                       // ignore
                     }
-                  }}
-                  disabled={!editor}
-                  className={cn(
-                    "min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl",
-                    activeTool === tool ? "bg-muted text-primary" : undefined,
-                  )}
-                  aria-label={label}
-                >
+	                  }}
+	                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                  className={cn(
+	                    "min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl",
+	                    activeTool === tool ? "bg-muted text-primary" : undefined,
+	                  )}
+	                  aria-label={label}
+	                >
                   <Icon className="size-5" />
                   <span className="text-[10px] leading-none">{label}</span>
                 </Button>
               ))}
 
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setMobileChatOpen(true)}
-                className="min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl"
-                aria-label="Chat"
-              >
+	              <Button
+	                type="button"
+	                variant="ghost"
+	                onClick={() => setMobileChatOpen(true)}
+	                className="min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl"
+	                aria-label="Chat"
+	              >
                 <Bot className="size-5" />
                 <span className="text-[10px] leading-none">Chat</span>
               </Button>

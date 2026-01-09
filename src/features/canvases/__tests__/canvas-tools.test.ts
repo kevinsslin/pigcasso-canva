@@ -13,6 +13,7 @@ describe("canvas tools helpers", () => {
 
   test("fromTldrawToolId maps tldraw ids to tools", () => {
     expect(fromTldrawToolId("select")).toBe("select");
+    expect(fromTldrawToolId("select.dragging")).toBe("select");
     expect(fromTldrawToolId("hand")).toBe("hand");
     expect(fromTldrawToolId("draw")).toBe("draw");
     expect(fromTldrawToolId("text")).toBe("text");
@@ -20,4 +21,3 @@ describe("canvas tools helpers", () => {
     expect(fromTldrawToolId("geo")).toBe(null);
   });
 });
-
