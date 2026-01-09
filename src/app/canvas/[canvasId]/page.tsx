@@ -39,6 +39,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
+import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
 import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
@@ -107,6 +108,47 @@ export default function CanvasPage({ params }: PageProps) {
   const canvasQuery = useGetCanvas(params.canvasId, { enabled: ready && authenticated });
   const upsertCanvas = useUpsertCanvas({ toast: false });
   const updateCanvas = useUpdateCanvas({ toast: false, invalidate: false, invalidateList: false });
+  const renameCanvas = useUpdateCanvas({ toast: false, invalidate: false });
+
+  const handleRenameBoard = useCallback(
+    async (nextName: string) => {
+      try {
+        await renameCanvas.mutateAsync({
+          param: { id: params.canvasId },
+          json: { name: nextName },
+        });
+        setCanvasName(nextName);
+        return;
+      } catch (error) {
+        const status = getApiErrorStatus(error);
+        if (status !== 404) {
+          toast.error((error as Error).message || "Failed to rename board");
+          throw error;
+        }
+      }
+
+      try {
+        try {
+          await upsertCanvas.mutateAsync({ id: params.canvasId, name: nextName });
+        } catch (error) {
+          const status = getApiErrorStatus(error);
+          if (status !== 409) {
+            throw error;
+          }
+        }
+
+        await renameCanvas.mutateAsync({
+          param: { id: params.canvasId },
+          json: { name: nextName },
+        });
+        setCanvasName(nextName);
+      } catch (error) {
+        toast.error((error as Error).message || "Failed to rename board");
+        throw error;
+      }
+    },
+    [params.canvasId, renameCanvas, upsertCanvas],
+  );
 
   const hasUpsertedRef = useRef(false);
   const loadedSnapshotEditorRef = useRef<TldrawEditor | null>(null);
@@ -640,16 +682,16 @@ export default function CanvasPage({ params }: PageProps) {
     router.replace(`/canvas/${params.canvasId}`);
   }, [editor, params.canvasId, router, searchParams, sendMessage]);
 
-  if (!ready || !authenticated) {
-    return (
-      <div className="h-[100dvh] w-[100dvw] grid place-items-center bg-background">
-        <Loader2 className="size-6 text-muted-foreground animate-spin" />
-      </div>
-    );
-  }
+	  if (!ready || !authenticated) {
+	    return (
+	      <div className="h-[100dvh] w-[100dvw] grid place-items-center bg-background">
+	        <Loader2 className="size-6 text-muted-foreground animate-spin" />
+	      </div>
+	    );
+	  }
 
-	  return (
-	    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+  return (
+    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4 relative">
           <div className="flex items-center gap-3">
@@ -664,12 +706,12 @@ export default function CanvasPage({ params }: PageProps) {
               <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black">
                 P
               </span>
-	            </Link>
-	            <div className="text-sm font-semibold text-muted-foreground">
-	              Board <span className="text-foreground">•</span>{" "}
-	              <span className="text-foreground">{canvasName}</span>
-	            </div>
-	          </div>
+            </Link>
+            <EditableBoardTitle
+              name={canvasName}
+              onRename={handleRenameBoard}
+            />
+          </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
             <Button

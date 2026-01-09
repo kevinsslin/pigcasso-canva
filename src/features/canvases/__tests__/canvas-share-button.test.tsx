@@ -3,7 +3,6 @@
 import React, { act } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { createRoot } from "react-dom/client";
 
 let copiedText: string | null = null;
 
@@ -45,6 +44,7 @@ afterEach(() => {
 describe("CanvasShareButton", () => {
   test("copies a share URL on click", async () => {
     const { CanvasShareButton } = await import("../components/canvas-share-button");
+    const { createRoot } = await import("react-dom/client");
 
     const container = document.getElementById("root");
     expect(container).not.toBeNull();

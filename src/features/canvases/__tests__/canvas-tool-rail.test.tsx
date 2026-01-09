@@ -3,7 +3,6 @@
 import React, { act } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { createRoot } from "react-dom/client";
 
 const globals = {
   window: globalThis.window,
@@ -30,6 +29,7 @@ afterEach(() => {
 describe("CanvasToolRail", () => {
   test("renders tool buttons and emits tool changes", async () => {
     const { CanvasToolRail } = await import("../components/canvas-tool-rail");
+    const { createRoot } = await import("react-dom/client");
 
     const container = document.getElementById("root");
     expect(container).not.toBeNull();
@@ -64,4 +64,3 @@ describe("CanvasToolRail", () => {
     root.unmount();
   });
 });
-
