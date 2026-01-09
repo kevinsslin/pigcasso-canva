@@ -248,8 +248,16 @@ export default function CanvasPage({ params }: PageProps) {
   const sendMessage = useCallback(async (value?: string) => {
     const trimmed = (value ?? chatInputRef.current).trim();
     if (!trimmed) return;
-    if (!editor) return;
-    if (busyRef.current) return;
+    setPanelTab("chat");
+
+    if (!editor) {
+      toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
+      return;
+    }
+    if (busyRef.current) {
+      toast.message("Pigcasso is still working…", { duration: 2000 });
+      return;
+    }
 
     busyRef.current = true;
     chatInputRef.current = "";
@@ -651,7 +659,10 @@ export default function CanvasPage({ params }: PageProps) {
               <div className="flex-1 rounded-full border bg-background px-4 py-2">
                 <Input
                   value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
+                  onChange={(e) => {
+                    chatInputRef.current = e.target.value;
+                    setChatInput(e.target.value);
+                  }}
                   placeholder="Type a prompt… (try: “landing page for…”)"
                   className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
                   disabled={busy}
@@ -761,7 +772,10 @@ export default function CanvasPage({ params }: PageProps) {
                 <div className="flex-1 rounded-full border bg-background px-4 py-2">
                   <Input
                     value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
+                    onChange={(e) => {
+                      chatInputRef.current = e.target.value;
+                      setChatInput(e.target.value);
+                    }}
                     placeholder="Type a prompt…"
                     className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
                     disabled={busy}
