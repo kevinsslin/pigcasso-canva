@@ -26,14 +26,14 @@ import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
 import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
-import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
-import { getSelectedHtmlCard } from "@/features/canvases/tldraw/selected-html-card";
 import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
@@ -83,13 +83,9 @@ export default function CanvasPage({ params }: PageProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [canvasName, setCanvasName] = useState("Untitled");
   const [busy, setBusy] = useState(false);
-  const [panelTab, setPanelTab] = useState<"chat" | "preview">("chat");
-  const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
-  const [selectedHtmlCard, setSelectedHtmlCard] = useState<{ shapeId: string; html: string } | null>(null);
 
   const chatInputRef = useRef(chatInput);
   const busyRef = useRef(busy);
-  const selectedHtmlCardRef = useRef<{ shapeId: string; html: string } | null>(null);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,7 +133,6 @@ export default function CanvasPage({ params }: PageProps) {
   }, [busy]);
 
   useEffect(() => {
-    if (panelTab !== "chat") return;
     if (typeof window === "undefined") return;
 
     const raf = window.requestAnimationFrame(() => {
@@ -148,57 +143,7 @@ export default function CanvasPage({ params }: PageProps) {
     return () => {
       window.cancelAnimationFrame(raf);
     };
-  }, [busy, mobileChatOpen, panelTab, messages.length]);
-
-  useEffect(() => {
-    if (!editor) return;
-
-    const update = () => {
-      const next = getSelectedHtmlCard(editor as any);
-      if (next?.shapeId === selectedHtmlCardRef.current?.shapeId && next?.html === selectedHtmlCardRef.current?.html) {
-        return;
-      }
-      selectedHtmlCardRef.current = next;
-      setSelectedHtmlCard(next);
-    };
-
-    update();
-
-    const unsubscribe = editor.store.listen(
-      () => {
-        update();
-      },
-      { scope: "session" } as any,
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [editor]);
-
-  const activePreviewHtml = selectedHtmlCard?.html ?? htmlPreview;
-  const activePreviewSrcDoc = useMemo(() => {
-    if (!activePreviewHtml) return "";
-    return createHtmlCardSrcDoc(activePreviewHtml);
-  }, [activePreviewHtml]);
-
-  const previewBlobUrl = useMemo(() => {
-    if (!activePreviewSrcDoc) return null;
-    if (typeof window === "undefined") return null;
-    if (!("URL" in window) || typeof window.URL?.createObjectURL !== "function") return null;
-    return window.URL.createObjectURL(new Blob([activePreviewSrcDoc], { type: "text/html" }));
-  }, [activePreviewSrcDoc]);
-
-  useEffect(() => {
-    return () => {
-      if (!previewBlobUrl) return;
-      try {
-        window.URL.revokeObjectURL(previewBlobUrl);
-      } catch {
-        // ignore
-      }
-    };
-  }, [previewBlobUrl]);
+  }, [busy, mobileChatOpen, messages.length]);
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -336,30 +281,28 @@ export default function CanvasPage({ params }: PageProps) {
     const imageUrl = searchParams?.get("image");
     if (!imageUrl) return;
 
-      const insert = async () => {
-        try {
-          const point = getAiInsertPoint(editor as any);
-          await withHistorySquash(editor as any, "insert:image", async () => {
-            await editor.putExternalContent({
-              type: "url",
-              url: imageUrl,
-              point,
-            });
+    const insert = async () => {
+      try {
+        const point = getAiInsertPoint(editor as any);
+        await withHistorySquash(editor as any, "insert:image", async () => {
+          await editor.putExternalContent({
+            type: "url",
+            url: imageUrl,
+            point,
           });
-          try {
-            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-          } catch {
-            // ignore
-          }
+        });
+        try {
+          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
         } catch {
           // ignore
-        } finally {
-          if (imageUrl) {
-          updateCanvas.mutate({
-            param: { id: params.canvasId },
-            json: { coverImageUrl: imageUrl },
-          });
         }
+      } catch {
+        // ignore
+      } finally {
+        updateCanvas.mutate({
+          param: { id: params.canvasId },
+          json: { coverImageUrl: imageUrl },
+        });
         router.replace(`/canvas/${params.canvasId}`);
       }
     };
@@ -375,7 +318,6 @@ export default function CanvasPage({ params }: PageProps) {
   const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
     const trimmed = (value ?? chatInputRef.current).trim();
     if (!trimmed) return;
-    setPanelTab("chat");
 
     if (!editor) {
       toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
@@ -411,10 +353,7 @@ export default function CanvasPage({ params }: PageProps) {
       if (looksLikeHtmlPrompt) {
         const res = await generateHtml.mutateAsync({ prompt: trimmed });
         const html = res.data.html;
-        setHtmlPreview(html);
-        setPanelTab("preview");
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
-        let htmlCardId: string | null = null;
         try {
           const point = options?.point ?? getAiInsertPoint(editor as any);
           const existingShapeId =
@@ -427,7 +366,6 @@ export default function CanvasPage({ params }: PageProps) {
             });
           });
           htmlCardMode = result.mode;
-          htmlCardId = result.id;
           try {
             editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
           } catch {
@@ -435,7 +373,13 @@ export default function CanvasPage({ params }: PageProps) {
           }
         } catch (error) {
           htmlCardMode = "failed";
-          toast.error(error instanceof Error ? error.message : "Failed to add HTML card to canvas.", { duration: 3500 });
+          const copied = await copyTextToClipboard(html);
+          toast.error(
+            copied
+              ? "Couldn’t add the HTML card. HTML copied to clipboard."
+              : "Couldn’t add the HTML card to the canvas.",
+            { duration: 3500 },
+          );
         }
         setMessages((prev) => [
           ...prev,
@@ -444,12 +388,10 @@ export default function CanvasPage({ params }: PageProps) {
             role: "assistant",
             content:
               htmlCardMode === "updated"
-                ? "Updated your HTML card (Preview tab available)."
+                ? "Updated the HTML card on your canvas."
                 : htmlCardMode === "created"
-                  ? "Added an HTML card to your canvas (Preview tab available)."
-                  : htmlCardId
-                    ? "Generated HTML (Preview tab available)."
-                    : "Generated HTML, but couldn’t add it to the canvas (Preview tab available).",
+                  ? "Added an HTML card to your canvas."
+                  : "Generated HTML, but couldn’t add it to the canvas.",
           },
         ]);
         return;
@@ -851,131 +793,83 @@ export default function CanvasPage({ params }: PageProps) {
           </nav>
         </div>
 
-        <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
-          <div className="p-5 border-b border-border/60 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Bot className="size-4 text-muted-foreground" />
-              Pigcasso Agent
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Create with prompts, then select something on the canvas to refine it.
-            </div>
+	        <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
+	          <div className="p-5 border-b border-border/60 space-y-3">
+	            <div className="flex items-center gap-2 text-sm font-semibold">
+	              <Bot className="size-4 text-muted-foreground" />
+	              Pigcasso Agent
+	            </div>
+	            <div className="text-xs text-muted-foreground">
+	              Create with prompts, then select something on the canvas to refine it.
+	            </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={panelTab === "chat" ? "default" : "secondary"}
-                className="rounded-full"
-                onClick={() => setPanelTab("chat")}
-              >
-                Chat
-              </Button>
-              <Button
-                type="button"
-                variant={panelTab === "preview" ? "default" : "secondary"}
-                className="rounded-full"
-                onClick={() => setPanelTab("preview")}
-                disabled={!activePreviewHtml}
-                title={!activePreviewHtml ? "Select or generate an HTML card to enable preview" : undefined}
-              >
-                Preview
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map((item) => (
-                <Button
-                  key={item.label}
+	            <div className="flex flex-wrap gap-2">
+	              {QUICK_PROMPTS.map((item) => (
+	                <Button
+	                  key={item.label}
                   type="button"
                   size="sm"
-                  variant="secondary"
-                  className="rounded-full"
-                  onClick={() => {
-                    setPanelTab("chat");
-                    chatInputRef.current = item.prompt;
-                    setChatInput(item.prompt);
-                  }}
-                >
-                  {item.label}
+	                  variant="secondary"
+	                  className="rounded-full"
+	                  onClick={() => {
+	                    chatInputRef.current = item.prompt;
+	                    setChatInput(item.prompt);
+	                  }}
+	                >
+	                  {item.label}
                 </Button>
               ))}
-            </div>
-          </div>
+	            </div>
+	          </div>
 
-          <div className="flex-1 overflow-auto p-5 space-y-4">
-            {panelTab === "preview" ? (
-              activePreviewHtml ? (
-                <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">
-                    Previewing {selectedHtmlCard ? "selected HTML card" : "last generated HTML"} • sandboxed for safety.
-                  </div>
-                  <div className="rounded-2xl border overflow-hidden bg-white">
-                    <iframe
-                      title="HTML preview"
-                      sandbox="allow-scripts"
-                      src={previewBlobUrl ?? undefined}
-                      srcDoc={previewBlobUrl ? undefined : activePreviewSrcDoc}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-[520px]"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Select an HTML card on the canvas, or ask for a landing page / HTML to generate one.
-                </div>
-              )
-            ) : (
-              <div className="space-y-4">
-                {messages.length ? (
-                  <div className="space-y-3">
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
-                            msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-                          )}
-                        >
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            {msg.role === "assistant" ? "Pigcasso" : "You"}
-                          </div>
-                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-                        </div>
-                      </div>
-                    ))}
+	          <div className="flex-1 overflow-auto p-5 space-y-4">
+	            <div className="space-y-4">
+	              {messages.length ? (
+	                <div className="space-y-3">
+	                  {messages.map((msg) => (
+	                    <div
+	                      key={msg.id}
+	                      className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+	                    >
+	                      <div
+	                        className={cn(
+	                          "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+	                          msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+	                        )}
+	                      >
+	                        <div className="text-xs font-semibold text-muted-foreground">
+	                          {msg.role === "assistant" ? "Pigcasso" : "You"}
+	                        </div>
+	                        <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+	                      </div>
+	                    </div>
+	                  ))}
 
-                    {busy ? (
-                      <div className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
-                          <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
-                          <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="size-4 animate-spin" />
-                            Thinking…
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
+	                  {busy ? (
+	                    <div className="flex justify-start">
+	                      <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+	                        <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+	                        <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+	                          <Loader2 className="size-4 animate-spin" />
+	                          Thinking…
+	                        </div>
+	                      </div>
+	                    </div>
+	                  ) : null}
 
-                    <div ref={desktopChatEndRef} />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Describe what you want to create, then refine by selecting parts on the canvas.
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Try a quick prompt above, or type your own.
-                    </div>
-                    <div ref={desktopChatEndRef} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+	                  <div ref={desktopChatEndRef} />
+	                </div>
+	              ) : (
+	                <div className="space-y-3">
+	                  <div className="text-sm text-muted-foreground">
+	                    Describe what you want to create, then refine by selecting parts on the canvas.
+	                  </div>
+	                  <div className="text-xs text-muted-foreground">Try a quick prompt above, or type your own.</div>
+	                  <div ref={desktopChatEndRef} />
+	                </div>
+	              )}
+	            </div>
+	          </div>
 
           <div className="p-4 border-t border-border/60">
             <div className="flex items-center gap-2">
@@ -1013,129 +907,85 @@ export default function CanvasPage({ params }: PageProps) {
         </aside>
       </main>
 
-      <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
-        <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
-          <div className="flex h-full flex-col bg-background">
-            <div className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur flex items-center justify-between px-4">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Bot className="size-4 text-muted-foreground" />
-                Pigcasso Agent
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={panelTab === "chat" ? "default" : "secondary"}
-                  size="sm"
-                  className="rounded-full"
-                  onClick={() => setPanelTab("chat")}
-                >
-                  Chat
-                </Button>
-                <Button
-                  type="button"
-                  variant={panelTab === "preview" ? "default" : "secondary"}
-                  size="sm"
-                  className="rounded-full"
-                  onClick={() => setPanelTab("preview")}
-                  disabled={!activePreviewHtml}
-                >
-                  Preview
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
+	      <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
+	        <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
+	          <div className="flex h-full flex-col bg-background">
+	            <div className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur flex items-center justify-between px-4">
+	              <div className="flex items-center gap-2 text-sm font-semibold">
+	                <Bot className="size-4 text-muted-foreground" />
+	                Pigcasso Agent
+	              </div>
+	              <div className="flex items-center gap-2">
+	                <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
+	                  Close
+	                </Button>
+	              </div>
+	            </div>
 
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              {panelTab === "preview" ? (
-                activePreviewHtml ? (
-                  <div className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      Previewing {selectedHtmlCard ? "selected HTML card" : "last generated HTML"} • sandboxed for safety.
-                    </div>
-                    <div className="rounded-2xl border overflow-hidden bg-white">
-                      <iframe
-                        title="HTML preview"
-                        sandbox="allow-scripts"
-                        src={previewBlobUrl ?? undefined}
-                        srcDoc={previewBlobUrl ? undefined : activePreviewSrcDoc}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-[70vh]"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">
-                    Select an HTML card on the canvas, or ask for a landing page / HTML to generate one.
-                  </div>
-                )
-              ) : (
-                <div className="space-y-4">
-                  {messages.length ? (
-                    <div className="space-y-3">
-                      {messages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
-                        >
-                          <div
-                            className={cn(
-                              "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
-                              msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-                            )}
-                          >
-                            <div className="text-xs font-semibold text-muted-foreground">
-                              {msg.role === "assistant" ? "Pigcasso" : "You"}
-                            </div>
-                            <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-                          </div>
-                        </div>
-                      ))}
+	            <div className="flex-1 overflow-auto p-4 space-y-4">
+	              <div className="space-y-4">
+	                {messages.length ? (
+	                  <div className="space-y-3">
+	                    {messages.map((msg) => (
+	                      <div
+	                        key={msg.id}
+	                        className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+	                      >
+	                        <div
+	                          className={cn(
+	                            "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+	                            msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+	                          )}
+	                        >
+	                          <div className="text-xs font-semibold text-muted-foreground">
+	                            {msg.role === "assistant" ? "Pigcasso" : "You"}
+	                          </div>
+	                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+	                        </div>
+	                      </div>
+	                    ))}
 
-                      {busy ? (
-                        <div className="flex justify-start">
-                          <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
-                            <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
-                            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-                              <Loader2 className="size-4 animate-spin" />
-                              Thinking…
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
+	                    {busy ? (
+	                      <div className="flex justify-start">
+	                        <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+	                          <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+	                          <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+	                            <Loader2 className="size-4 animate-spin" />
+	                            Thinking…
+	                          </div>
+	                        </div>
+	                      </div>
+	                    ) : null}
 
-                      <div ref={mobileChatEndRef} />
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="text-sm text-muted-foreground">
-                        Describe what you want to create, then refine by selecting parts on the canvas.
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {QUICK_PROMPTS.map((item) => (
-                          <Button
-                            key={item.label}
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="rounded-full"
-                            onClick={() => {
-                              setPanelTab("chat");
-                              chatInputRef.current = item.prompt;
-                              setChatInput(item.prompt);
-                            }}
-                          >
-                            {item.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div ref={mobileChatEndRef} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+	                    <div ref={mobileChatEndRef} />
+	                  </div>
+	                ) : (
+	                  <div className="space-y-3">
+	                    <div className="text-sm text-muted-foreground">
+	                      Describe what you want to create, then refine by selecting parts on the canvas.
+	                    </div>
+	                    <div className="flex flex-wrap gap-2">
+	                      {QUICK_PROMPTS.map((item) => (
+	                        <Button
+	                          key={item.label}
+	                          type="button"
+	                          size="sm"
+	                          variant="secondary"
+	                          className="rounded-full"
+	                          onClick={() => {
+	                            chatInputRef.current = item.prompt;
+	                            setChatInput(item.prompt);
+	                          }}
+	                        >
+	                          {item.label}
+	                        </Button>
+	                      ))}
+	                    </div>
+	                    <div ref={mobileChatEndRef} />
+	                  </div>
+	                )}
+	              </div>
+	            </div>
 
             <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
               <div className="flex items-center gap-2">
