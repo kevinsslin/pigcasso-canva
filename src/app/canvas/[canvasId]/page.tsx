@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   Loader2,
   Plus,
+  X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/fe
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
+import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -64,6 +66,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   const [editor, setEditor] = useState<TldrawEditor | null>(null);
   const [activeTool, setActiveTool] = useState<CanvasTool>("select");
+  const [aiMode, setAiMode] = useState<"talk" | "tab" | "tune">("talk");
 
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([]);
@@ -96,6 +99,20 @@ export default function CanvasPage({ params }: PageProps) {
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const hasBootstrappedRef = useRef(false);
+  const tabPointerDownRef = useRef<{ x: number; y: number } | null>(null);
+  const [tabAnchor, setTabAnchor] = useState<{
+    screenX: number;
+    screenY: number;
+    pagePoint: { x: number; y: number };
+    shapeId: string | null;
+  } | null>(null);
+  const [tabInstruction, setTabInstruction] = useState("");
+
+  useEffect(() => {
+    if (aiMode !== "tab") {
+      setTabAnchor(null);
+    }
+  }, [aiMode]);
 
   useEffect(() => {
     chatInputRef.current = chatInput;
@@ -267,7 +284,12 @@ export default function CanvasPage({ params }: PageProps) {
     void insert();
   }, [editor, params.canvasId, router, searchParams, updateCanvas]);
 
-  const sendMessage = useCallback(async (value?: string) => {
+  type SendMessageOptions = {
+    point?: { x: number; y: number };
+    shapeId?: string | null;
+  };
+
+  const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
     const trimmed = (value ?? chatInputRef.current).trim();
     if (!trimmed) return;
     setPanelTab("chat");
@@ -287,15 +309,18 @@ export default function CanvasPage({ params }: PageProps) {
     setChatInput("");
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
 
-    const selectedShapeId = (() => {
-      try {
-        return editor.getSelectedShapeIds?.()?.[0] ?? null;
-      } catch {
-        return null;
-      }
-    })();
+    const selectedShapeId =
+      options?.shapeId !== undefined
+        ? options.shapeId
+        : (() => {
+            try {
+              return editor.getSelectedShapeIds?.()?.[0] ?? null;
+            } catch {
+              return null;
+            }
+          })();
 
-    const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId) as any) : null;
+    const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
 
     try {
       const looksLikeHtmlPrompt =
@@ -309,7 +334,7 @@ export default function CanvasPage({ params }: PageProps) {
         setPanelTab("preview");
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
         try {
-          const point = getAiInsertPoint(editor as any);
+          const point = options?.point ?? getAiInsertPoint(editor as any);
           const existingShapeId =
             selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
           const result = await withHistorySquash(editor as any, "ai:html", async () => {
@@ -359,7 +384,7 @@ export default function CanvasPage({ params }: PageProps) {
             editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: uploadedUrl } }]);
             if (selectedShapeId) {
               editor.updateShape?.({
-                id: selectedShapeId,
+                id: selectedShapeId as any,
                 type: "image",
                 props: { url: uploadedUrl },
               });
@@ -388,7 +413,7 @@ export default function CanvasPage({ params }: PageProps) {
 
       const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
 
-      const point = getAiInsertPoint(editor as any);
+      const point = options?.point ?? getAiInsertPoint(editor as any);
       await withHistorySquash(editor as any, "ai:insert-image", async () => {
         await editor.putExternalContent({
           type: "url",
@@ -440,7 +465,7 @@ export default function CanvasPage({ params }: PageProps) {
   return (
     <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
-        <div className="h-full flex items-center justify-between px-4">
+        <div className="h-full flex items-center justify-between px-4 relative">
           <div className="flex items-center gap-3">
             <Link
               href="/app"
@@ -458,6 +483,45 @@ export default function CanvasPage({ params }: PageProps) {
               Canvas <span className="text-foreground">•</span>{" "}
               <span className="text-foreground">{canvasName}</span>
             </div>
+          </div>
+
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
+            <Button
+              type="button"
+              size="sm"
+              variant={aiMode === "talk" ? "default" : "ghost"}
+              className="h-8 rounded-full px-3"
+              onClick={() => setAiMode("talk")}
+              aria-label="Talk mode"
+            >
+              Talk
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={aiMode === "tab" ? "default" : "ghost"}
+              className="h-8 rounded-full px-3"
+              onClick={() => {
+                setAiMode("tab");
+                toast.message("Tab mode: click the canvas to anchor an edit.", { duration: 2200 });
+              }}
+              aria-label="Tab mode"
+            >
+              Tab
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={aiMode === "tune" ? "default" : "ghost"}
+              className="h-8 rounded-full px-3"
+              onClick={() => {
+                setAiMode("tune");
+                toast.message("Tune mode (inspector) is coming next.", { duration: 2200 });
+              }}
+              aria-label="Tune mode"
+            >
+              Tune
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -518,7 +582,59 @@ export default function CanvasPage({ params }: PageProps) {
           }}
         />
         <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0">
+          <div
+            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+            onPointerDownCapture={(event) => {
+              if (aiMode !== "tab") return;
+              if (event.button !== 0) return;
+              tabPointerDownRef.current = { x: event.clientX, y: event.clientY };
+            }}
+            onPointerUpCapture={(event) => {
+              if (aiMode !== "tab") return;
+              if (!editor) return;
+              if (event.button !== 0) return;
+
+              const down = tabPointerDownRef.current;
+              tabPointerDownRef.current = null;
+              if (!down) return;
+
+              const dx = event.clientX - down.x;
+              const dy = event.clientY - down.y;
+              if (Math.hypot(dx, dy) > 6) return;
+
+              try {
+                const anchor = getTabAnchor(editor as any, { x: event.clientX, y: event.clientY });
+                if (anchor.shapeId) {
+                  try {
+                    editor.setSelectedShapes?.([anchor.shapeId] as any);
+                  } catch {
+                    // ignore
+                  }
+                }
+
+                const popoverWidth = 360;
+                const popoverHeight = 160;
+                const padding = 12;
+                const offset = 12;
+                const rawX = anchor.screenPoint.x + offset;
+                const rawY = anchor.screenPoint.y + offset;
+                const maxX = window.innerWidth - popoverWidth - padding;
+                const maxY = window.innerHeight - popoverHeight - padding;
+                const screenX = Math.max(padding, Math.min(rawX, maxX));
+                const screenY = Math.max(padding, Math.min(rawY, maxY));
+
+                setTabAnchor({
+                  screenX,
+                  screenY,
+                  pagePoint: anchor.pagePoint,
+                  shapeId: anchor.shapeId,
+                });
+                setTabInstruction("");
+              } catch {
+                // ignore
+              }
+            }}
+          >
             <Tldraw
               hideUi
               user={tldrawUser}
@@ -531,6 +647,73 @@ export default function CanvasPage({ params }: PageProps) {
               }}
             />
           </div>
+
+          {aiMode === "tab" && tabAnchor ? (
+            <div
+              className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
+              style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-muted-foreground">
+                  Tab edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setTabAnchor(null)}
+                  aria-label="Close Tab edit"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <Input
+                  value={tabInstruction}
+                  onChange={(e) => setTabInstruction(e.target.value)}
+                  placeholder="Describe the change…"
+                  className="h-10"
+                  autoFocus
+                  disabled={busy}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setTabAnchor(null);
+                      return;
+                    }
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      if (!tabInstruction.trim()) return;
+                      const anchor = tabAnchor;
+                      setTabAnchor(null);
+                      void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  className="rounded-full"
+                  disabled={!tabInstruction.trim() || busy}
+                  aria-label="Send Tab edit"
+                  onClick={() => {
+                    if (!tabInstruction.trim()) return;
+                    const anchor = tabAnchor;
+                    setTabAnchor(null);
+                    void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
+                  }}
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </Button>
+              </div>
+
+              <div className="mt-2 text-xs text-muted-foreground">
+                Tip: click to anchor. Dragging won’t trigger a Tab edit.
+              </div>
+            </div>
+          ) : null}
 
           <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
             <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
