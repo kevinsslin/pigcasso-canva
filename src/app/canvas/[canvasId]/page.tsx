@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
+import { FloatingSidebar } from "@/components/app-shell/floating-sidebar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -404,6 +405,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+      <FloatingSidebar />
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -487,17 +489,7 @@ export default function CanvasPage({ params }: PageProps) {
             />
           </div>
 
-          <aside className="absolute left-4 top-4 z-20 hidden md:flex flex-col gap-2">
-            <Button
-              type="button"
-              size="icon"
-              className="rounded-full shadow-lg"
-              onClick={() => router.push("/app?new=1")}
-              aria-label="New"
-            >
-              <Plus className="size-4" />
-            </Button>
-
+          <aside className="absolute left-24 top-4 z-20 hidden md:flex flex-col gap-2">
             <div className="rounded-2xl border bg-card/80 backdrop-blur shadow-soft p-2 flex flex-col gap-1">
               {TOOL_BUTTONS.map(({ tool, label, icon: Icon }) => (
                 <Button
