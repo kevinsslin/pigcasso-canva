@@ -31,6 +31,8 @@ import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
 import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
+import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -88,6 +90,7 @@ export default function CanvasPage({ params }: PageProps) {
   const tldrawUser = useTldrawUser({
     userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
   });
+  const shapeUtils = useMemo(() => [HtmlCardShapeUtil], []);
 
   const generateImage = useGenerateImage();
   const editImage = useEditImage();
@@ -271,23 +274,33 @@ export default function CanvasPage({ params }: PageProps) {
 
       if (looksLikeHtmlPrompt) {
         const res = await generateHtml.mutateAsync({ prompt: trimmed });
-        setHtmlPreview(res.data.html);
+        const html = res.data.html;
+        setHtmlPreview(html);
         setPanelTab("preview");
+        let htmlCardMode: "created" | "updated" | "failed" = "failed";
         try {
-          await editor.putExternalContent({
-            type: "text",
-            text: res.data.html,
-            point: editor.screenToPage({
-              x: window.innerWidth / 2,
-              y: window.innerHeight / 2,
-            }),
+          const point = editor.screenToPage({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
           });
+          const existingShapeId = selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
+          const result = upsertHtmlCard(editor as any, { html, point, existingShapeId: existingShapeId ?? undefined });
+          htmlCardMode = result.mode;
         } catch {
           // ignore (preview still available in the side panel)
         }
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Added the HTML to your canvas (Preview tab available)." },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              htmlCardMode === "updated"
+                ? "Updated your HTML card (Preview tab available)."
+                : htmlCardMode === "created"
+                  ? "Added an HTML card to your canvas (Preview tab available)."
+                  : "Generated HTML (Preview tab available).",
+          },
         ]);
         return;
       }
@@ -457,6 +470,7 @@ export default function CanvasPage({ params }: PageProps) {
               hideUi
               user={tldrawUser}
               inferDarkMode={false}
+              shapeUtils={shapeUtils}
               className="pigcasso-paper-tldraw"
               onMount={(next) => {
                 setEditor(next as unknown as TldrawEditor);

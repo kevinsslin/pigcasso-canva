@@ -21,11 +21,11 @@
   - 右側 Chat panel（已串接）：
     - Talk：prompt → generate image → 上傳 → 落到畫布
     - Tab（最小版）：選中 image → instruction → edit image → 回填到畫布
-    - Web：prompt → generate HTML → 右側 sandbox preview（no scripts）
+    - Web：prompt → generate HTML → 以 **HTML card（iframe）** 插入畫布 + 右側 preview
 - **AI（Gemini）**
   - `POST /api/ai/generate-image`：支援 `profile`（`nano-banana` / `nano-banana-pro`，非 Pro 會自動 downgrade）
   - `POST /api/ai/edit-image`：支援 instruction + base image + reference images
-  - `POST /api/ai/generate-html`：回傳 self-contained HTML（前端以 sandbox iframe preview）
+  - `POST /api/ai/generate-html`：回傳 self-contained HTML（前端以 sandbox iframe 插入/preview）
 - **Repository → Asset**
   - `/repositories` + Editor sidebar：Privy GitHub OAuth → 列 repo → 一鍵生成 meme asset → 可 publish 到 Printr
   - Token encryption：OAuth token 存 DB 前使用 `GITHUB_OAUTH_ENCRYPTION_KEY` 加密（缺少會回 `500` + `MISSING_GITHUB_OAUTH_ENCRYPTION_KEY`）
@@ -49,7 +49,7 @@
 - **Talk · Tab · Tune 真正的「指向式編輯」**
   - 目前 Tab 僅做到「選中 image → 整張 edit」；inpaint/outpaint/region edit、文字/排版 edit 尚未完整閉環
 - **HTML 生成與 preview**
-  - 已有 `POST /api/ai/generate-html`，但 preview 的 sandbox / CSP 策略需要定義
+  - 已有 `POST /api/ai/generate-html` + HTML card（iframe）；sandbox / CSP 是否要更嚴格仍需要你確認
 - **Short video（Kling/Veo 等）**
   - 接入 provider 與 job queue / storage / preview 尚未做
 
@@ -57,6 +57,7 @@
 
 1. **路由與遷移策略**：要把 `/editor/:projectId` 逐步替換成 `/canvas/:id` 嗎？還是先並行一段時間？
 2. **HTML preview 安全策略**：允許 `allow-scripts` 嗎？允許外部資源（CDN、images）嗎？還是完全 offline？
+   - 現況：HTML card 使用 `sandbox="allow-scripts"`（不含 `allow-same-origin`）
 3. **Video provider**：你想先接哪一個（Kling / Veo / 其他）？是否需要 Webhook 回調？
 4. **GitHub scopes**：只做 `repo`/`read:user` 足夠嗎？要不要支援 org repo（需要 `read:org`）？
 

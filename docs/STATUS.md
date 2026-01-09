@@ -15,6 +15,7 @@ Last updated: 2026-01-09
 - Dashboard navigation：桌面 floating sidebar + mobile 底部 tab bar（native-like）
 - `/canvases`：Canvas documents 列表（DB-backed）
 - `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（DB persistence + mobile full-screen chat dialog）
+- HTML：在 chat 生成後會以 **HTML card（iframe）** 直接插入畫布（可 move/resize，reload 仍保留）
 - Space builder：
   - Drag collision：由上往下拖曳碰撞會 **swap**（不再把其他項目往下擠）
   - Drag handle：可直接拖整個 block
@@ -124,7 +125,7 @@ bun run build
 1. ChatCanvas 與 Fabric editor 的關係：
    - `/canvas/:id` 是否要變成主工作區？還是跟 `/editor/:projectId` 並行一段時間？
 2. HTML preview 安全策略：
-   - `iframe sandbox` 允許哪些權限？要不要允許外部資源（CDN/images）？
+   - 目前 HTML card 使用 `sandbox="allow-scripts"`（不含 `allow-same-origin`）；如要更嚴格或更開放請確認
 3. Video provider：
    - 先接 Kling / Veo / 其他？要 webhook callback 還是 polling？
 4. AI run persistence（provenance）：
