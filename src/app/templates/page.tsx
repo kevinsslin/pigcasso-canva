@@ -29,7 +29,7 @@ export default function TemplatesIndexPage() {
   const canNext = (query.data?.length ?? 0) === limit;
 
   const title = useMemo(
-    () => (query.data?.length ? "Templates" : "No templates yet"),
+    () => (query.data?.length ? "Creator Hub" : "No templates yet"),
     [query.data?.length],
   );
 

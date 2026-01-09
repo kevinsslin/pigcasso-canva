@@ -19,7 +19,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { type Editor as TldrawEditor, useTldrawUser } from "tldraw";
+import type { Editor as TldrawEditor } from "tldraw";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { UserButton } from "@/features/auth/components/user-button";
@@ -68,9 +68,6 @@ export default function CanvasPage({ params }: PageProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const persistenceKey = useMemo(() => `pigcasso:chatcanvas:${params.canvasId}`, [params.canvasId]);
-  const tldrawUser = useTldrawUser({
-    userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
-  });
 
   useEffect(() => {
     if (!editor) return;
@@ -107,7 +104,7 @@ export default function CanvasPage({ params }: PageProps) {
   }
 
   return (
-    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
+    <div className="h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
       <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -124,7 +121,7 @@ export default function CanvasPage({ params }: PageProps) {
               </span>
             </Link>
             <div className="text-sm font-semibold text-muted-foreground">
-              Canvas <span className="text-foreground">•</span>{" "}
+              ChatCanvas <span className="text-foreground">•</span>{" "}
               <span className="text-foreground">Untitled</span>
             </div>
           </div>
@@ -181,9 +178,6 @@ export default function CanvasPage({ params }: PageProps) {
             <Tldraw
               persistenceKey={persistenceKey}
               hideUi
-              user={tldrawUser}
-              inferDarkMode={false}
-              className="pigcasso-paper-tldraw"
               onMount={(next) => {
                 setEditor(next as unknown as TldrawEditor);
                 return () => setEditor(null);
@@ -229,7 +223,7 @@ export default function CanvasPage({ params }: PageProps) {
             </div>
           </aside>
 
-          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-[#fffdf7] dark:bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
             <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
               {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
                 <Button
@@ -290,7 +284,7 @@ export default function CanvasPage({ params }: PageProps) {
               Pigcasso Agent
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Describe what you want, then click anything on the canvas to refine.
+              Talk · Tab · Tune (MVP): chat is wired next.
             </div>
           </div>
 

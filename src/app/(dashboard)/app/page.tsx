@@ -4,12 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUp,
-  BadgeCheck,
-  Brush,
-  Film,
+  Bolt,
+  Globe,
+  Image as ImageIcon,
+  Lightbulb,
   Loader2,
   Sparkles,
-  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,15 +18,14 @@ import { usePro } from "@/features/auth/hooks/use-pro";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
-import { PROMPT_PRESETS, type PromptPreset } from "@/features/prompts/prompt-presets";
+import { useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-import { TemplatesSection } from "../templates-section";
-import { MyTemplatesSection } from "../creator-hub/my-templates-section";
+import { TemplateCard } from "../template-card";
 
 export default function AppHomePage() {
   const router = useRouter();
@@ -34,13 +33,16 @@ export default function AppHomePage() {
 
   const { ready, authenticated } = useRequireAuth("/app");
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
-  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
   const { isLoading: isProLoading, isPro } = usePro({ enabled: ready && authenticated });
   const generateImage = useGenerateImage();
   const createProject = useCreateProject({ toast: false });
 
   const projects = useGetProjects({ enabled: ready && authenticated, limit: 8 });
+  const templates = useGetTemplates(
+    { page: "1", limit: "8" },
+    { enabled: ready && authenticated },
+  );
 
   const [prompt, setPrompt] = useState("");
   const [profile, setProfile] = useState<"nano-banana" | "nano-banana-pro">("nano-banana");
@@ -52,20 +54,6 @@ export default function AppHomePage() {
     promptRef.current?.focus();
   }, [searchParams]);
 
-  useEffect(() => {
-    const selection = pendingSelectionRef.current;
-    if (!selection) return;
-    const el = promptRef.current;
-    if (!el) return;
-    pendingSelectionRef.current = null;
-    el.focus();
-    try {
-      el.setSelectionRange(selection.start, selection.end);
-    } catch {
-      // ignore
-    }
-  }, [prompt]);
-
   if (!ready || !authenticated) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -75,22 +63,6 @@ export default function AppHomePage() {
   }
 
   const recentProjects = projects.data?.pages.flatMap((page) => page.data) ?? [];
-
-  const applyPreset = (preset: PromptPreset) => {
-    const match = preset.prompt.match(/\[[^\]]+\]/);
-    if (match?.index != null) {
-      const start = match.index + 1;
-      const end = match.index + match[0].length - 1;
-      pendingSelectionRef.current = { start, end };
-    } else {
-      pendingSelectionRef.current = null;
-    }
-
-    setPrompt(preset.prompt);
-    requestAnimationFrame(() => {
-      promptRef.current?.focus();
-    });
-  };
 
   const onSubmitPrompt = async () => {
     const trimmed = prompt.trim();
@@ -135,22 +107,7 @@ export default function AppHomePage() {
   const canUsePro = !isProLoading && isPro;
   const canSelectPro = canUsePro;
 
-  const presetIconForId = (id: string) => {
-    switch (id) {
-      case "design":
-        return Sparkles;
-      case "branding":
-        return BadgeCheck;
-      case "illustration":
-        return Brush;
-      case "video":
-        return Film;
-      case "pfp":
-        return UserRound;
-      default:
-        return null;
-    }
-  };
+  const templateTitle = "Creator Hub";
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-12 pt-8">
@@ -160,7 +117,7 @@ export default function AppHomePage() {
             New
           </span>
           <span className="text-muted-foreground">
-            Pick a starter prompt, tweak it, then generate.
+            ChatCanvas pivot: Nano Banana / Pro + HTML generation
           </span>
         </div>
 
@@ -192,22 +149,47 @@ export default function AppHomePage() {
             />
 
             <div className="flex items-center justify-between gap-3 px-4 pb-4">
-              <div className="hidden sm:flex items-center gap-2 text-muted-foreground text-xs">
-                <span>Tip:</span>
-                <span>
-                  Press{" "}
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground/80">
-                    Ctrl
-                  </kbd>
-                  /
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground/80">
-                    ⌘
-                  </kbd>{" "}
-                  +{" "}
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground/80">
-                    Enter
-                  </kbd>
-                </span>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Attach"
+                >
+                  <ImageIcon className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Idea"
+                >
+                  <Lightbulb className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Style"
+                >
+                  <Bolt className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Web"
+                >
+                  <Globe className="size-4" />
+                </Button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -252,27 +234,20 @@ export default function AppHomePage() {
             </div>
           ) : null}
 
-          <div className="mt-4">
-            <div className="text-xs font-semibold text-muted-foreground">Try:</div>
-          </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0">
-            {PROMPT_PRESETS.map((preset) => {
-              const Icon = presetIconForId(preset.id);
-              return (
-                <Button
-                  key={preset.id}
-                  type="button"
-                  variant="secondary"
-                  className="shrink-0 rounded-full"
-                  onClick={() => applyPreset(preset)}
-                  disabled={busy}
-                  title={preset.prompt}
-                >
-                  {Icon ? <Icon className="mr-2 size-4" /> : null}
-                  {preset.label}
-                </Button>
-              );
-            })}
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="secondary" className="rounded-full" disabled>
+              <Sparkles className="size-4 mr-2" />
+              Design
+            </Button>
+            <Button type="button" variant="secondary" className="rounded-full" disabled>
+              Branding
+            </Button>
+            <Button type="button" variant="secondary" className="rounded-full" disabled>
+              Illustration
+            </Button>
+            <Button type="button" variant="secondary" className="rounded-full" disabled>
+              Video
+            </Button>
           </div>
         </div>
       </section>
@@ -315,8 +290,8 @@ export default function AppHomePage() {
               <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
                 <Sparkles className="size-5" />
               </div>
-              <div className="mt-4 font-semibold">Open Canvas</div>
-              <div className="mt-1 text-xs text-muted-foreground">Infinite canvas (freeform).</div>
+              <div className="mt-4 font-semibold">Open ChatCanvas</div>
+              <div className="mt-1 text-xs text-muted-foreground">Infinite canvas (beta).</div>
             </button>
 
             {recentProjects.slice(0, 7).map((project) => (
@@ -339,9 +314,44 @@ export default function AppHomePage() {
         )}
       </section>
 
-      <section className="space-y-8">
-        <MyTemplatesSection />
-        <TemplatesSection />
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight">{templateTitle}</h2>
+          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/creator-hub")}>
+            Browse
+          </Button>
+        </div>
+
+        {templates.isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="size-6 text-muted-foreground animate-spin" />
+          </div>
+        ) : templates.isError ? (
+          <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+            {templates.error?.message || "Failed to load templates."}
+          </div>
+        ) : templates.data?.length ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {templates.data.map((template) => (
+              <TemplateCard
+                key={template.id}
+                title={template.name}
+                imageSrc={template.thumbnailUrl || ""}
+                onClick={() => router.push(`/templates/${template.id}`)}
+                disabled={false}
+                description={`${template.width} x ${template.height} px`}
+                width={template.width}
+                height={template.height}
+                isPro={template.isPro}
+                hasToken={Boolean(template.token?.printrTokenId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
+            No templates yet.
+          </div>
+        )}
       </section>
     </div>
   );
