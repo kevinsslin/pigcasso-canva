@@ -24,6 +24,24 @@ export const PROMPT_PRESETS: PromptPreset[] = [
       "Illustrate [subject] in a [style] style. High detail, clean composition, vibrant but tasteful colors, and a clear focal point.",
   },
   {
+    id: "video",
+    label: "Video",
+    prompt:
+      "Create a 4-shot storyboard for a 10-second short video about [topic]. For each shot: describe the scene, camera framing, on-screen text, and the key action.",
+  },
+  {
+    id: "meme",
+    label: "Meme",
+    prompt:
+      "Create a meme image about [topic] in the style of [meme format]. Keep it simple, high-contrast, and leave clear space for caption text.",
+  },
+  {
+    id: "pfp",
+    label: "PFP",
+    prompt:
+      "Design a profile picture (PFP) of [character] in [style]. Centered portrait, clean background, strong silhouette, crisp details, and vibrant but cohesive colors.",
+  },
+  {
     id: "logo",
     label: "Logo",
     prompt:
@@ -31,7 +49,7 @@ export const PROMPT_PRESETS: PromptPreset[] = [
   },
   {
     id: "social-post",
-    label: "Social Post",
+    label: "Social",
     prompt:
       "Create a square social post announcing [announcement]. Modern layout, bold headline, clear hierarchy, and a small CTA. Leave safe margins for text.",
   },
@@ -40,6 +58,12 @@ export const PROMPT_PRESETS: PromptPreset[] = [
     label: "Poster",
     prompt:
       "Design a poster for [event]. Include title, date/time, location, and a QR placeholder. Use a striking visual motif and readable typography.",
+  },
+  {
+    id: "banner",
+    label: "Banner",
+    prompt:
+      "Design a banner for [project]. Bold headline, simple visual motif, and clean composition with clear space for a logo and CTA.",
   },
   {
     id: "product-shot",
@@ -55,15 +79,8 @@ export const PROMPT_PRESETS: PromptPreset[] = [
   },
   {
     id: "web-hero",
-    label: "Web Hero",
+    label: "Web",
     prompt:
       "Design a landing page hero section for [product]. Include headline, subheadline, CTA button, and a clean UI layout with modern gradients.",
   },
-  {
-    id: "storyboard",
-    label: "Storyboard",
-    prompt:
-      "Create a 4-panel storyboard for a 10-second short video about [topic]. Each panel should show a clear shot and include a short caption.",
-  },
 ];
-

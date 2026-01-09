@@ -284,7 +284,7 @@ export default function CanvasPage({ params }: PageProps) {
               Pigcasso Agent
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Talk · Tab · Tune (MVP): chat is wired next.
+              Describe what you want, then click anything on the canvas to refine.
             </div>
           </div>
 
