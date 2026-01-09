@@ -26,8 +26,16 @@ export default function SpaceHomePage() {
   }
 
   const user = me.data?.data.user ?? null;
-  const handle = user ? getCanonicalSpaceHandle({ id: user.id, socials: user.socials }) : null;
-  const spacePath = handle ? `/space/${encodeURIComponent(handle)}` : null;
+  if (!user) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Failed to load your profile.
+      </div>
+    );
+  }
+
+  const handle = getCanonicalSpaceHandle({ id: user.id, socials: user.socials });
+  const spacePath = `/space/${encodeURIComponent(handle)}`;
   const isPublished = space.data?.isPublished ?? false;
   const draftJson = JSON.stringify(space.data?.document ?? null);
   const publishedJson = space.data?.publishedDocument ? JSON.stringify(space.data.publishedDocument) : null;
@@ -121,26 +129,20 @@ export default function SpaceHomePage() {
               </div>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              {spacePath ? (
-                isPublished ? (
-                  <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                    <Link href={spacePath} target="_blank" rel="noreferrer">
-                      View live <ArrowRight className="ml-2 size-4" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                    <Link href="/space/builder?mode=preview">
-                      Preview draft <ArrowRight className="ml-2 size-4" />
-                    </Link>
-                  </Button>
-                )
+              {isPublished ? (
+                <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                  <Link href={spacePath} target="_blank" rel="noreferrer">
+                    View live <ArrowRight className="ml-2 size-4" />
+                  </Link>
+                </Button>
               ) : (
-                <Button variant="secondary" className="rounded-2xl border border-white/70 bg-white/70" disabled>
-                  Preview draft <ArrowRight className="ml-2 size-4" />
+                <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                  <Link href="/space/builder?mode=preview">
+                    Preview draft <ArrowRight className="ml-2 size-4" />
+                  </Link>
                 </Button>
               )}
-              {spacePath ? <CopySpaceLink path={spacePath} /> : null}
+              <CopySpaceLink path={spacePath} />
             </div>
             <div className="mt-4 text-xs text-muted-foreground">
               {!isPublished

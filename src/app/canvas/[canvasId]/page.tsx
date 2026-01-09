@@ -14,7 +14,6 @@ import {
   MousePointer2,
   Pencil,
   Plus,
-  Share2,
   TextCursor,
   ZoomIn,
   ZoomOut,
@@ -38,6 +37,7 @@ import { getApiErrorStatus } from "@/lib/api-error";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { FloatingSidebar } from "@/components/app-shell/floating-sidebar";
+import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -464,10 +464,7 @@ export default function CanvasPage({ params }: PageProps) {
               <Bot className="size-4" />
             </Button>
 
-            <Button type="button" variant="secondary" className="rounded-full hidden md:inline-flex" disabled>
-              <Share2 className="size-4 mr-2" />
-              Share
-            </Button>
+            <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" />
             <UserButton />
           </div>
         </div>
