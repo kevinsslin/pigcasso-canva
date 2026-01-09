@@ -30,6 +30,7 @@ import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/fe
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
+import { getSelectedHtmlCard } from "@/features/canvases/tldraw/selected-html-card";
 import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
@@ -37,6 +38,7 @@ import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
 import { CANVAS_TOOL_BUTTONS, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -58,6 +60,14 @@ type PageProps = {
 const DOCK_BUTTONS: Array<{ tool: CanvasTool; label: string; icon: ComponentType<{ className?: string }> }> =
   CANVAS_TOOL_BUTTONS;
 
+const QUICK_PROMPTS: Array<{ label: string; prompt: string }> = [
+  { label: "Design", prompt: "Design a bold social post for a Web3 hackathon. Include a short headline and CTA." },
+  { label: "Branding", prompt: "Create a minimal brand kit for Pigcasso (colors, typography, and tone)." },
+  { label: "Illustration", prompt: "Generate a cute pig mascot illustration in a modern flat style, transparent background." },
+  { label: "Video", prompt: "Storyboard a 10s promo video concept with 4 frames and short captions." },
+  { label: "Website", prompt: "Landing page for Pigcasso: hero, features, social proof, CTA. Return HTML." },
+];
+
 export default function CanvasPage({ params }: PageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,9 +85,13 @@ export default function CanvasPage({ params }: PageProps) {
   const [busy, setBusy] = useState(false);
   const [panelTab, setPanelTab] = useState<"chat" | "preview">("chat");
   const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
+  const [selectedHtmlCard, setSelectedHtmlCard] = useState<{ shapeId: string; html: string } | null>(null);
 
   const chatInputRef = useRef(chatInput);
   const busyRef = useRef(busy);
+  const selectedHtmlCardRef = useRef<{ shapeId: string; html: string } | null>(null);
+  const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
+  const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
 
   const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
   const tldrawUser = useTldrawUser({
@@ -121,6 +135,70 @@ export default function CanvasPage({ params }: PageProps) {
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
+
+  useEffect(() => {
+    if (panelTab !== "chat") return;
+    if (typeof window === "undefined") return;
+
+    const raf = window.requestAnimationFrame(() => {
+      desktopChatEndRef.current?.scrollIntoView({ block: "end" });
+      mobileChatEndRef.current?.scrollIntoView({ block: "end" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [busy, mobileChatOpen, panelTab, messages.length]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const update = () => {
+      const next = getSelectedHtmlCard(editor as any);
+      if (next?.shapeId === selectedHtmlCardRef.current?.shapeId && next?.html === selectedHtmlCardRef.current?.html) {
+        return;
+      }
+      selectedHtmlCardRef.current = next;
+      setSelectedHtmlCard(next);
+    };
+
+    update();
+
+    const unsubscribe = editor.store.listen(
+      () => {
+        update();
+      },
+      { scope: "session" } as any,
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [editor]);
+
+  const activePreviewHtml = selectedHtmlCard?.html ?? htmlPreview;
+  const activePreviewSrcDoc = useMemo(() => {
+    if (!activePreviewHtml) return "";
+    return createHtmlCardSrcDoc(activePreviewHtml);
+  }, [activePreviewHtml]);
+
+  const previewBlobUrl = useMemo(() => {
+    if (!activePreviewSrcDoc) return null;
+    if (typeof window === "undefined") return null;
+    if (!("URL" in window) || typeof window.URL?.createObjectURL !== "function") return null;
+    return window.URL.createObjectURL(new Blob([activePreviewSrcDoc], { type: "text/html" }));
+  }, [activePreviewSrcDoc]);
+
+  useEffect(() => {
+    return () => {
+      if (!previewBlobUrl) return;
+      try {
+        window.URL.revokeObjectURL(previewBlobUrl);
+      } catch {
+        // ignore
+      }
+    };
+  }, [previewBlobUrl]);
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -258,20 +336,25 @@ export default function CanvasPage({ params }: PageProps) {
     const imageUrl = searchParams?.get("image");
     if (!imageUrl) return;
 
-    const insert = async () => {
-      try {
-        const point = getAiInsertPoint(editor as any);
-        await withHistorySquash(editor as any, "insert:image", async () => {
-          await editor.putExternalContent({
-            type: "url",
-            url: imageUrl,
-            point,
+      const insert = async () => {
+        try {
+          const point = getAiInsertPoint(editor as any);
+          await withHistorySquash(editor as any, "insert:image", async () => {
+            await editor.putExternalContent({
+              type: "url",
+              url: imageUrl,
+              point,
+            });
           });
-        });
-      } catch {
-        // ignore
-      } finally {
-        if (imageUrl) {
+          try {
+            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+          } catch {
+            // ignore
+          }
+        } catch {
+          // ignore
+        } finally {
+          if (imageUrl) {
           updateCanvas.mutate({
             param: { id: params.canvasId },
             json: { coverImageUrl: imageUrl },
@@ -323,9 +406,7 @@ export default function CanvasPage({ params }: PageProps) {
     const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
 
     try {
-      const looksLikeHtmlPrompt =
-        /^\/?html\b/i.test(trimmed) ||
-        /landing page|website|web page|html/i.test(trimmed);
+      const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
 
       if (looksLikeHtmlPrompt) {
         const res = await generateHtml.mutateAsync({ prompt: trimmed });
@@ -333,6 +414,7 @@ export default function CanvasPage({ params }: PageProps) {
         setHtmlPreview(html);
         setPanelTab("preview");
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
+        let htmlCardId: string | null = null;
         try {
           const point = options?.point ?? getAiInsertPoint(editor as any);
           const existingShapeId =
@@ -345,8 +427,15 @@ export default function CanvasPage({ params }: PageProps) {
             });
           });
           htmlCardMode = result.mode;
-        } catch {
-          // ignore (preview still available in the side panel)
+          htmlCardId = result.id;
+          try {
+            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+          } catch {
+            // ignore
+          }
+        } catch (error) {
+          htmlCardMode = "failed";
+          toast.error(error instanceof Error ? error.message : "Failed to add HTML card to canvas.", { duration: 3500 });
         }
         setMessages((prev) => [
           ...prev,
@@ -358,7 +447,9 @@ export default function CanvasPage({ params }: PageProps) {
                 ? "Updated your HTML card (Preview tab available)."
                 : htmlCardMode === "created"
                   ? "Added an HTML card to your canvas (Preview tab available)."
-                  : "Generated HTML (Preview tab available).",
+                  : htmlCardId
+                    ? "Generated HTML (Preview tab available)."
+                    : "Generated HTML, but couldn’t add it to the canvas (Preview tab available).",
           },
         ]);
         return;
@@ -421,6 +512,11 @@ export default function CanvasPage({ params }: PageProps) {
           point,
         });
       });
+      try {
+        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+      } catch {
+        // ignore
+      }
 
       updateCanvas.mutate({
         param: { id: params.canvasId },
@@ -792,53 +888,104 @@ export default function CanvasPage({ params }: PageProps) {
                 variant={panelTab === "preview" ? "default" : "secondary"}
                 className="rounded-full"
                 onClick={() => setPanelTab("preview")}
-                disabled={!htmlPreview}
-                title={!htmlPreview ? "Generate HTML in chat to enable preview" : undefined}
+                disabled={!activePreviewHtml}
+                title={!activePreviewHtml ? "Select or generate an HTML card to enable preview" : undefined}
               >
                 Preview
               </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {QUICK_PROMPTS.map((item) => (
+                <Button
+                  key={item.label}
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={() => {
+                    setPanelTab("chat");
+                    chatInputRef.current = item.prompt;
+                    setChatInput(item.prompt);
+                  }}
+                >
+                  {item.label}
+                </Button>
+              ))}
             </div>
           </div>
 
           <div className="flex-1 overflow-auto p-5 space-y-4">
             {panelTab === "preview" ? (
-              htmlPreview ? (
+              activePreviewHtml ? (
                 <div className="space-y-3">
                   <div className="text-xs text-muted-foreground">
-                    Preview is sandboxed for safety.
+                    Previewing {selectedHtmlCard ? "selected HTML card" : "last generated HTML"} • sandboxed for safety.
                   </div>
                   <div className="rounded-2xl border overflow-hidden bg-white">
                     <iframe
                       title="HTML preview"
                       sandbox="allow-scripts"
-                      srcDoc={createHtmlCardSrcDoc(htmlPreview)}
+                      src={previewBlobUrl ?? undefined}
+                      srcDoc={previewBlobUrl ? undefined : activePreviewSrcDoc}
+                      referrerPolicy="no-referrer"
                       className="w-full h-[520px]"
                     />
                   </div>
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
-                  Ask for a landing page / HTML in chat to see a preview here.
+                  Select an HTML card on the canvas, or ask for a landing page / HTML to generate one.
                 </div>
               )
-            ) : messages.length ? (
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "rounded-2xl border p-3 text-sm",
-                    msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-                  )}
-                >
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    {msg.role === "assistant" ? "Pigcasso" : "You"}
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-                </div>
-              ))
             ) : (
-              <div className="text-sm text-muted-foreground">
-                Describe what you want to create, then refine by selecting parts on the canvas.
+              <div className="space-y-4">
+                {messages.length ? (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+                            msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+                          )}
+                        >
+                          <div className="text-xs font-semibold text-muted-foreground">
+                            {msg.role === "assistant" ? "Pigcasso" : "You"}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {busy ? (
+                      <div className="flex justify-start">
+                        <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+                          <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+                          <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="size-4 animate-spin" />
+                            Thinking…
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div ref={desktopChatEndRef} />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-sm text-muted-foreground">
+                      Describe what you want to create, then refine by selecting parts on the canvas.
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Try a quick prompt above, or type your own.
+                    </div>
+                    <div ref={desktopChatEndRef} />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -903,7 +1050,7 @@ export default function CanvasPage({ params }: PageProps) {
                   size="sm"
                   className="rounded-full"
                   onClick={() => setPanelTab("preview")}
-                  disabled={!htmlPreview}
+                  disabled={!activePreviewHtml}
                 >
                   Preview
                 </Button>
@@ -915,43 +1062,90 @@ export default function CanvasPage({ params }: PageProps) {
 
             <div className="flex-1 overflow-auto p-4 space-y-4">
               {panelTab === "preview" ? (
-                htmlPreview ? (
+                activePreviewHtml ? (
                   <div className="space-y-3">
                     <div className="text-xs text-muted-foreground">
-                      Preview is sandboxed for safety.
+                      Previewing {selectedHtmlCard ? "selected HTML card" : "last generated HTML"} • sandboxed for safety.
                     </div>
                     <div className="rounded-2xl border overflow-hidden bg-white">
                       <iframe
                         title="HTML preview"
                         sandbox="allow-scripts"
-                        srcDoc={createHtmlCardSrcDoc(htmlPreview)}
+                        src={previewBlobUrl ?? undefined}
+                        srcDoc={previewBlobUrl ? undefined : activePreviewSrcDoc}
+                        referrerPolicy="no-referrer"
                         className="w-full h-[70vh]"
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">
-                    Ask for a landing page / HTML in chat to see a preview here.
+                    Select an HTML card on the canvas, or ask for a landing page / HTML to generate one.
                   </div>
                 )
-              ) : messages.length ? (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "rounded-2xl border p-3 text-sm",
-                      msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-                    )}
-                  >
-                    <div className="text-xs font-semibold text-muted-foreground">
-                      {msg.role === "assistant" ? "Pigcasso" : "You"}
-                    </div>
-                    <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-                  </div>
-                ))
               ) : (
-                <div className="text-sm text-muted-foreground">
-                  Describe what you want to create, then refine by selecting parts on the canvas.
+                <div className="space-y-4">
+                  {messages.length ? (
+                    <div className="space-y-3">
+                      {messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+                        >
+                          <div
+                            className={cn(
+                              "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+                              msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+                            )}
+                          >
+                            <div className="text-xs font-semibold text-muted-foreground">
+                              {msg.role === "assistant" ? "Pigcasso" : "You"}
+                            </div>
+                            <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {busy ? (
+                        <div className="flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+                            <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+                            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="size-4 animate-spin" />
+                              Thinking…
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div ref={mobileChatEndRef} />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        Describe what you want to create, then refine by selecting parts on the canvas.
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {QUICK_PROMPTS.map((item) => (
+                          <Button
+                            key={item.label}
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="rounded-full"
+                            onClick={() => {
+                              setPanelTab("chat");
+                              chatInputRef.current = item.prompt;
+                              setChatInput(item.prompt);
+                            }}
+                          >
+                            {item.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div ref={mobileChatEndRef} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
