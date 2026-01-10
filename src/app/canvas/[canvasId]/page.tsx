@@ -128,6 +128,9 @@ export default function CanvasPage({ params }: PageProps) {
 
   const { ready, authenticated } = useRequireAuth(`/canvas/${params.canvasId}`);
   const debug = searchParams?.get("debug") === "1";
+  const tldrawLicenseKey = (process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ?? "").trim();
+  const isProdBuild = process.env.NODE_ENV === "production";
+  const tldrawLicenseMissing = isProdBuild && !tldrawLicenseKey;
 
   const [editor, setEditor] = useState<TldrawEditor | null>(null);
   const [activeTool, setActiveTool] = useState<CanvasTool>("select");
@@ -451,7 +454,7 @@ export default function CanvasPage({ params }: PageProps) {
   }, [reloadBoard]);
 
   useBoardDisconnectGuard({
-    enabled: ready && authenticated,
+    enabled: ready && authenticated && !tldrawLicenseMissing,
     editor,
     boardHydrated: hasEverHydratedRef.current,
     boardCrashMessage,
@@ -1314,17 +1317,50 @@ export default function CanvasPage({ params }: PageProps) {
               }
             }}
           >
-		            <Tldraw
-		              key={tldrawMountKey}
-		              hideUi
-		              user={tldrawUser}
-		              inferDarkMode={false}
-		              shapeUtils={shapeUtils}
-		              components={tldrawComponents}
-		              className="pigcasso-paper-tldraw"
-		              onMount={handleTldrawMount}
-		            />
-	            {!boardHydrated ? (
+                {!tldrawLicenseMissing ? (
+                  <Tldraw
+                    key={tldrawMountKey}
+                    hideUi
+                    user={tldrawUser}
+                    inferDarkMode={false}
+                    licenseKey={tldrawLicenseKey || undefined}
+                    shapeUtils={shapeUtils}
+                    components={tldrawComponents}
+                    className="pigcasso-paper-tldraw"
+                    onMount={handleTldrawMount}
+                  />
+                ) : null}
+                {tldrawLicenseMissing ? (
+                  <div className="absolute inset-0 z-[60] grid place-items-center bg-background/80 backdrop-blur-sm p-6">
+                    <div className="w-full max-w-md rounded-2xl border bg-card shadow-soft p-5 space-y-3">
+                      <div className="text-sm font-semibold">Missing tldraw license key</div>
+                      <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                        Production deployments of tldraw require a license key. Set{" "}
+                        <span className="font-mono">NEXT_PUBLIC_TLDRAW_LICENSE_KEY</span> in Vercel (or{" "}
+                        <span className="font-mono">.env.local</span>) and redeploy.
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button type="button" className="rounded-full" asChild>
+                          <a href="https://www.tldraw.dev/pricing" target="_blank" rel="noreferrer">
+                            Get a trial license
+                          </a>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-full"
+                          onClick={async () => {
+                            const copied = await copyTextToClipboard("NEXT_PUBLIC_TLDRAW_LICENSE_KEY=");
+                            toast.message(copied ? "Copied env var name." : "Couldn’t copy.", { duration: 2000 });
+                          }}
+                        >
+                          Copy env var
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+	            {!boardHydrated && !tldrawLicenseMissing ? (
 	              <div className="absolute inset-0 z-50 grid place-items-center bg-background/60 backdrop-blur-sm">
 	                <div className="rounded-2xl border bg-card/90 px-4 py-3 shadow-soft flex items-center gap-2 text-sm text-muted-foreground">
 	                  <Loader2 className="size-4 animate-spin" />

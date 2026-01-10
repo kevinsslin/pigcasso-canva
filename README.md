@@ -59,6 +59,7 @@ To get the basic flow working (Privy login → dashboard), start with:
 
 Optional features require additional keys (see `.env.example`):
 
+- ChatCanvas (tldraw license for deployments): `NEXT_PUBLIC_TLDRAW_LICENSE_KEY=...`
 - Pro gating (Mantle): `MANTLE_RPC_URL=...`
 - Uploads: `UPLOADTHING_TOKEN=...`
 - AI (Gemini): `GEMINI_API_KEY=...`

@@ -42,6 +42,17 @@ Privy Dashboard 設定建議：
 
 ## 2) 可選功能（依需求逐個開）
 
+### 0) ChatCanvas（tldraw license）
+如果你有部署到 Vercel / production（包含 preview deployments），`/canvas/*` 使用的 tldraw 需要 license key。
+
+需要：
+- `NEXT_PUBLIC_TLDRAW_LICENSE_KEY`
+
+拿 trial license（100 天）：
+- https://www.tldraw.dev/pricing
+
+> 沒設的話會出現「No tldraw license key provided」並在約 5 秒後把 editor 隱藏（看起來像 board 一直斷線/重連）。
+
 ### A) Pro token gating（Mantle）
 需要：
 - `MANTLE_RPC_URL`（Alchemy / QuickNode / 官方 RPC 皆可）
