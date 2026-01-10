@@ -30,6 +30,7 @@ import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
 export default function LandingPage() {
   const { openApp, opening } = useOpenApp();
+  const openChatCanvas = () => void openApp("/app?new=1");
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,7 +82,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={() => void openApp("/canvas/new")}
+              onClick={openChatCanvas}
               disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
@@ -131,7 +132,7 @@ export default function LandingPage() {
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
                   <Button
                     type="button"
-                    onClick={() => void openApp("/canvas/new")}
+                    onClick={openChatCanvas}
                     disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
@@ -485,7 +486,7 @@ export default function LandingPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     type="button"
-                    onClick={() => void openApp("/canvas/new")}
+                    onClick={openChatCanvas}
                     disabled={opening}
                     className="rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/25 hover:opacity-95"
                   >
@@ -623,7 +624,7 @@ export default function LandingPage() {
                     </div>
                     <Button
                       type="button"
-                      onClick={() => void openApp("/canvas/new")}
+                      onClick={openChatCanvas}
                       disabled={opening}
                       className="w-full rounded-2xl mt-3"
                     >
@@ -666,7 +667,7 @@ export default function LandingPage() {
                     </div>
                     <Button
                       type="button"
-                      onClick={() => void openApp("/canvas/new")}
+                      onClick={openChatCanvas}
                       disabled={opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
@@ -739,7 +740,7 @@ export default function LandingPage() {
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
                       type="button"
-                      onClick={() => void openApp("/canvas/new")}
+                      onClick={openChatCanvas}
                       disabled={opening}
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
@@ -825,7 +826,7 @@ export default function LandingPage() {
                 <Link href="/app" className="hover:underline">
                   Open app
                 </Link>
-                <Link href="/canvas/new" className="hover:underline">
+                <Link href="/app?new=1" className="hover:underline">
                   Open ChatCanvas
                 </Link>
                 <a href="#faq" className="hover:underline">
