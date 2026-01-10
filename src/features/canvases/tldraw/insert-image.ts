@@ -56,6 +56,7 @@ export async function insertImageToCanvas(
     point: InsertImagePagePoint;
     name?: string;
     mimeType?: string;
+    fileSize?: number;
     size?: InsertImageSize;
     maxShapeDimension?: number;
   },
@@ -81,7 +82,7 @@ export async function insertImageToCanvas(
       src: options.src,
       w: resolvedSize.w,
       h: resolvedSize.h,
-      fileSize: 0,
+      fileSize: Math.max(1, Math.floor(options.fileSize ?? 1)),
       mimeType: options.mimeType ?? "image/png",
       isAnimated: false,
     },
@@ -119,4 +120,3 @@ export async function insertImageToCanvas(
 
   return { assetId, shapeId };
 }
-

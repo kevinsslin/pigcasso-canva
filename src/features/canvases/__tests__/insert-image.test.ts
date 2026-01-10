@@ -50,6 +50,7 @@ describe("tldraw insertImageToCanvas", () => {
     expect(asset.props.src).toBe(src);
     expect(asset.props.w).toBe(2000);
     expect(asset.props.h).toBe(1000);
+    expect(asset.props.fileSize).toBe(1);
 
     const shape = calls.shapes[0];
     expect(shape.type).toBe("image");
@@ -60,4 +61,3 @@ describe("tldraw insertImageToCanvas", () => {
     expect(shape.y).toBe(point.y - 250 / 2);
   });
 });
-
