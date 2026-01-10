@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Loader2, Sparkles } from "lucide-react";
@@ -198,7 +199,19 @@ export default function AppHomePage() {
                 onClick={() => router.push(`/canvas/${canvas.id}`)}
                 className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
               >
-                <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10 border border-border/60" />
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted border border-border/60">
+                  {canvas.coverImageUrl ? (
+                    <Image
+                      src={canvas.coverImageUrl}
+                      alt={canvas.name}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 25vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10" />
+                  )}
+                </div>
                 <div className="mt-4">
                   <div className="text-sm font-semibold truncate">{canvas.name}</div>
                   <div className="mt-1 text-xs text-muted-foreground">Open canvas</div>
