@@ -65,8 +65,6 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
           style={{
             border: 0,
             pointerEvents: isEditing ? "auto" : "none",
-            // Fix for safari <https://stackoverflow.com/a/49150908>
-            zIndex: isEditing ? "" : "-1",
           }}
         />
       </HTMLContainer>

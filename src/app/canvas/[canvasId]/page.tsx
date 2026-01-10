@@ -48,6 +48,7 @@ import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail"
 import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
 import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
 import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
@@ -677,26 +678,27 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
 
-  useEffect(() => {
-    if (!editor) return;
-    if (!boardHydrated) return;
-    if (boardCrashMessage) return;
+	  useEffect(() => {
+	    if (!editor) return;
+	    if (!boardHydrated) return;
+	    if (boardCrashMessage) return;
 
-    const imageUrl = searchParams?.get("image");
-    if (!imageUrl) return;
+	    const imageUrl = searchParams?.get("image");
+	    if (!imageUrl) return;
 
-    const insert = async () => {
-      try {
-        const point = getAiInsertPoint(editor as any);
-        await withHistorySquash(editor as any, "insert:image", async () => {
-          await editor.putExternalContent({
-            type: "url",
-            url: imageUrl,
-            point,
-          });
-        });
-        try {
-          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+	    const insert = async () => {
+	      try {
+	        const boardImageUrl = toCanvasImageUrl(imageUrl);
+	        const point = getAiInsertPoint(editor as any);
+	        await withHistorySquash(editor as any, "insert:image", async () => {
+	          await editor.putExternalContent({
+	            type: "url",
+	            url: boardImageUrl,
+	            point,
+	          });
+	        });
+	        try {
+	          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
         } catch {
           // ignore
         }
@@ -829,25 +831,26 @@ export default function CanvasPage({ params }: PageProps) {
           throw new Error("Selected image is missing a source URL.");
         }
 
-        const res = await editImage.mutateAsync({
-          image: src,
-          instruction: trimmed,
-        });
+	      const res = await editImage.mutateAsync({
+	        image: src,
+	        instruction: trimmed,
+	      });
 
-        const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+	      const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+	      const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-        try {
-          await withHistorySquash(editor as any, "ai:edit-image", async () => {
-            editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: uploadedUrl } }]);
-            if (selectedShapeId) {
-              editor.updateShape?.({
-                id: selectedShapeId as any,
-                type: "image",
-                props: { url: uploadedUrl },
-              });
-            }
-          });
-        } catch {
+	      try {
+	        await withHistorySquash(editor as any, "ai:edit-image", async () => {
+	          editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: canvasUrl } }]);
+	          if (selectedShapeId) {
+	            editor.updateShape?.({
+	              id: selectedShapeId as any,
+	              type: "image",
+	              props: { url: canvasUrl },
+	            });
+	          }
+	        });
+	      } catch {
           // ignore
         }
 
@@ -856,18 +859,18 @@ export default function CanvasPage({ params }: PageProps) {
           json: { coverImageUrl: uploadedUrl },
         });
 
-        const editAttachment: CanvasChatAttachment | null = selectedShapeId
-          ? {
-              id: crypto.randomUUID(),
-              type: "image",
-              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-              shapeId: selectedShapeId,
-              url: uploadedUrl,
-            }
-          : null;
-        if (editAttachment) {
-          outputCounterRef.current += 1;
-        }
+	      const editAttachment: CanvasChatAttachment | null = selectedShapeId
+	        ? {
+	            id: crypto.randomUUID(),
+	            type: "image",
+	            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+	            shapeId: selectedShapeId,
+	            url: canvasUrl,
+	          }
+	        : null;
+	      if (editAttachment) {
+	        outputCounterRef.current += 1;
+	      }
 
         setMessages((prev) => [
           ...prev,
@@ -881,21 +884,22 @@ export default function CanvasPage({ params }: PageProps) {
         return;
       }
 
-      const generated = await generateImage.mutateAsync({
-        prompt: trimmed,
-        canvas: { width: 1024, height: 1024 },
-      });
+	      const generated = await generateImage.mutateAsync({
+	        prompt: trimmed,
+	        canvas: { width: 1024, height: 1024 },
+	      });
 
-      const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
+	      const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
+	      const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-      const point = options?.point ?? getAiInsertPoint(editor as any);
-      await withHistorySquash(editor as any, "ai:insert-image", async () => {
-        await editor.putExternalContent({
-          type: "url",
-          url: uploadedUrl,
-          point,
-        });
-      });
+	      const point = options?.point ?? getAiInsertPoint(editor as any);
+	      await withHistorySquash(editor as any, "ai:insert-image", async () => {
+	        await editor.putExternalContent({
+	          type: "url",
+	          url: canvasUrl,
+	          point,
+	        });
+	      });
       try {
         editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
       } catch {
@@ -915,15 +919,15 @@ export default function CanvasPage({ params }: PageProps) {
         }
       })();
 
-      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
-        ? {
-            id: crypto.randomUUID(),
-            type: "image",
-            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-            shapeId: insertedShapeId,
-            url: uploadedUrl,
-          }
-        : null;
+	      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
+	        ? {
+	            id: crypto.randomUUID(),
+	            type: "image",
+	            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+	            shapeId: insertedShapeId,
+	            url: canvasUrl,
+	          }
+	        : null;
       if (insertAttachment) {
         outputCounterRef.current += 1;
       }
