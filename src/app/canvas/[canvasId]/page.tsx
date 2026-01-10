@@ -238,6 +238,7 @@ export default function CanvasPage({ params }: PageProps) {
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
+  const hasProxiedImageAssetsRef = useRef(false);
   const tabPointerDownRef = useRef<{ x: number; y: number; trigger: PinEditTrigger } | null>(null);
   const lastKnownToolIdRef = useRef<CanvasTool | null>(null);
   const lastZoomPercentRef = useRef<number | null>(null);
@@ -405,6 +406,7 @@ export default function CanvasPage({ params }: PageProps) {
     bootstrappedEditorRef.current = null;
     hydratingRef.current = false;
     lastKnownToolIdRef.current = null;
+    hasProxiedImageAssetsRef.current = false;
     tabPointerDownRef.current = null;
     setTabAnchor(null);
     setActiveTool("select");
@@ -476,6 +478,32 @@ export default function CanvasPage({ params }: PageProps) {
         const local = localStorage.getItem(localSnapshotKey);
         if (local) {
           tryLoad(local);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!hasProxiedImageAssetsRef.current) {
+      hasProxiedImageAssetsRef.current = true;
+      try {
+        const snapshot = editor.store.getStoreSnapshot() as any;
+        const records = snapshot?.store;
+        if (records && typeof records === "object") {
+          const updates: any[] = [];
+          Object.values(records).forEach((record) => {
+            if (!record || typeof record !== "object") return;
+            if ((record as any).typeName !== "asset") return;
+            if ((record as any).type !== "image") return;
+            const src = (record as any).props?.src;
+            if (typeof src !== "string" || !src.trim()) return;
+            const proxied = toCanvasImageUrl(src);
+            if (proxied === src) return;
+            updates.push({ ...(record as any), props: { ...(record as any).props, src: proxied } });
+          });
+          if (updates.length) {
+            editor.updateAssets?.(updates);
+          }
         }
       } catch {
         // ignore

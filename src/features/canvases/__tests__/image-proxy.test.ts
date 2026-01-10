@@ -29,5 +29,8 @@ describe("canvas image proxy helpers", () => {
   test("toCanvasImageUrl keeps same-origin urls when hostname matches", () => {
     expect(toCanvasImageUrl("https://app.example/assets/a.png", "app.example")).toBe("https://app.example/assets/a.png");
   });
-});
 
+  test("toCanvasImageUrl keeps unsupported hosts unproxied", () => {
+    expect(toCanvasImageUrl("https://example.com/a.png", "app.example")).toBe("https://example.com/a.png");
+  });
+});
