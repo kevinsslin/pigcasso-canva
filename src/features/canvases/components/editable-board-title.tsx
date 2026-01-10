@@ -59,11 +59,11 @@ export const EditableBoardTitle = ({
   };
 
   return (
-    <div className={cn("flex items-center gap-1 text-sm font-semibold text-muted-foreground", className)}>
-      <span>{label}</span>
-      <span className="text-foreground">•</span>
+    <div className={cn("flex items-center", className)}>
       {editing ? (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 text-sm font-semibold text-muted-foreground">
+          <span className="hidden sm:inline">{label}</span>
+          <span className="hidden sm:inline text-foreground">•</span>
           <Input
             ref={inputRef}
             defaultValue={name}
@@ -71,7 +71,7 @@ export const EditableBoardTitle = ({
             maxLength={80}
             disabled={disabled || saving}
             placeholder="Board name"
-            className="h-8 w-[220px] px-2"
+            className="h-8 w-[200px] border-0 bg-transparent px-2 text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
@@ -88,7 +88,7 @@ export const EditableBoardTitle = ({
             type="button"
             size="icon"
             variant="ghost"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() => void submitRename()}
             disabled={disabled || saving}
             aria-label="Save board name"
@@ -99,7 +99,7 @@ export const EditableBoardTitle = ({
             type="button"
             size="icon"
             variant="ghost"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={cancelEdit}
             disabled={disabled || saving}
             aria-label="Cancel rename"
@@ -110,16 +110,17 @@ export const EditableBoardTitle = ({
       ) : (
         <Button
           type="button"
-          size="sm"
           variant="ghost"
-          className="h-8 max-w-[220px] justify-start gap-2 px-2 text-foreground"
+          className="h-9 rounded-full border bg-card/80 backdrop-blur px-3 text-sm font-semibold text-foreground hover:bg-card"
           onClick={() => setEditing(true)}
           disabled={disabled}
           aria-label="Rename board"
           data-testid="editable-board-title-trigger"
         >
-          <span className="truncate">{name}</span>
-          <Pencil className="size-3 text-muted-foreground shrink-0" />
+          <span className="text-muted-foreground">{label}</span>
+          <span className="text-foreground/70">•</span>
+          <span className="max-w-[220px] truncate">{name}</span>
+          <Pencil className="ml-1 size-3 text-muted-foreground shrink-0" />
         </Button>
       )}
     </div>

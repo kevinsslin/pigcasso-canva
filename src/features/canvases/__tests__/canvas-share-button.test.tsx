@@ -69,4 +69,32 @@ describe("CanvasShareButton", () => {
 
     root.unmount();
   });
+
+  test("copies a share URL on click (compact)", async () => {
+    const { CanvasShareButton } = await import("../components/canvas-share-button");
+    const { createRoot } = await import("react-dom/client");
+
+    const container = document.getElementById("root");
+    expect(container).not.toBeNull();
+
+    const root = createRoot(container as HTMLElement);
+    await act(async () => {
+      root.render(<CanvasShareButton canvasId="xyz" compact />);
+    });
+
+    const button = container?.querySelector("button[aria-label=\"Share\"]") as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+
+    await act(async () => {
+      button?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(copiedText).toBe("https://app.example/canvas/xyz");
+
+    root.unmount();
+  });
 });

@@ -1,6 +1,6 @@
 # 問題清單 / 需要決策（Pigcasso Canvas）
 
-Last updated: 2026-01-09
+Last updated: 2026-01-10
 
 這份文件集中記錄：
 - 仍未定案、會影響架構/產品方向的決策
@@ -20,9 +20,9 @@ Last updated: 2026-01-09
 - **ChatCanvas persistence（資料模型）**
   - ✅ 已落 DB：`canvas_document` + `/api/canvases`（snapshot string + cover + name）
   - 下一步：要不要加 versioning（history tree）或 op log（provenance/協作/回溯）？
-- **Talk · Tab · Tune 的「指向式編輯」閉環**
+- **「指向式編輯」閉環（Lovart Tab 的完整版）**
   - MVP 先做哪一種 point-edit：inpaint / outpaint / remove-bg / text edit？
-  - 選取單位：object bbox vs marquee region vs comment anchor？
+  - 選取單位：object bbox vs marquee region vs comment anchor（目前 UI 已有 Pin edit anchor，但還沒做 inpaint）
 - **HTML 生成後的 preview 安全策略**
   - `iframe sandbox` 是否允許 `allow-scripts`？是否允許外部資源（CDN/images/fonts）？
   - 需不需要做 HTML sanitizer / CSP header？

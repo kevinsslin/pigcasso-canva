@@ -1,6 +1,6 @@
 # Pigcasso Canvas — Status / Progress
 
-Last updated: 2026-01-09
+Last updated: 2026-01-10
 
 這份文件是「目前做到哪 + 你還需要設定什麼 + 有哪些決策需要你 unblock」的單一來源。
 
@@ -16,6 +16,10 @@ Last updated: 2026-01-09
 - `/canvases`：Canvas documents 列表（DB-backed）
 - `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（DB persistence + mobile full-screen chat dialog）
 - HTML：在 chat 生成後會以 **HTML card（iframe）** 直接插入畫布（可 move/resize，reload 仍保留）
+- ChatCanvas（Lovart-style 右側 panel）：
+  - Context + output chips：`IMG_0001` / `HTML_0002` 可點擊回到 canvas 物件
+  - Pin edit：Alt+click / Pin → 在畫布位置開浮動輸入框 → 指令 → 產出落在該位置
+  - Header：board title pill（可 rename）、zoom % 指示、undo/redo、fullscreen、toggle chat panel
 - Space builder：
   - Drag collision：由上往下拖曳碰撞會 **swap**（不再把其他項目往下擠）
   - Drag handle：可直接拖整個 block

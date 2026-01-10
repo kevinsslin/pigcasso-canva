@@ -8,9 +8,18 @@ import {
   ArrowUp,
   Bot,
   ChevronLeft,
+  Code2,
+  Image as ImageIcon,
   Loader2,
+  LocateFixed,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
+  Redo2,
   RotateCcw,
+  Undo2,
   X,
 } from "lucide-react";
 import debounce from "lodash.debounce";
@@ -39,7 +48,9 @@ import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail"
 import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
 import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
 import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
+import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -69,6 +80,47 @@ const QUICK_PROMPTS: Array<{ label: string; prompt: string }> = [
   { label: "Website", prompt: "Landing page for Pigcasso: hero, features, social proof, CTA. Return HTML." },
 ];
 
+type CanvasChatAttachment = {
+  id: string;
+  type: "image" | "html";
+  label: string;
+  shapeId: string;
+  url?: string;
+};
+
+type CanvasChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  attachments?: CanvasChatAttachment[];
+};
+
+const CanvasChatAttachmentChip = ({
+  attachment,
+  onClick,
+}: {
+  attachment: CanvasChatAttachment;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+    onClick={onClick}
+  >
+    {attachment.type === "image" ? (
+      attachment.url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={attachment.url} alt="" className="h-4 w-4 rounded-sm object-cover" />
+      ) : (
+        <ImageIcon className="size-3 text-muted-foreground" />
+      )
+    ) : (
+      <Code2 className="size-3 text-muted-foreground" />
+    )}
+    <span className="max-w-[140px] truncate">{attachment.label}</span>
+  </button>
+);
+
 export default function CanvasPage({ params }: PageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,10 +130,14 @@ export default function CanvasPage({ params }: PageProps) {
 
   const [editor, setEditor] = useState<TldrawEditor | null>(null);
   const [activeTool, setActiveTool] = useState<CanvasTool>("select");
-  const [aiMode, setAiMode] = useState<"chat" | "point">("chat");
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [desktopChatOpen, setDesktopChatOpen] = useState(true);
+  const [clickEditArmed, setClickEditArmed] = useState(false);
+  const [selectionContext, setSelectionContext] = useState<SelectionContext | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([]);
+  const [messages, setMessages] = useState<CanvasChatMessage[]>([]);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [canvasName, setCanvasName] = useState("Untitled");
   const [busy, setBusy] = useState(false);
@@ -91,6 +147,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   const chatInputRef = useRef(chatInput);
   const busyRef = useRef(busy);
+  const outputCounterRef = useRef(1);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -180,8 +237,10 @@ export default function CanvasPage({ params }: PageProps) {
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
-  const tabPointerDownRef = useRef<{ x: number; y: number } | null>(null);
+  const tabPointerDownRef = useRef<{ x: number; y: number; trigger: PinEditTrigger } | null>(null);
   const lastKnownToolIdRef = useRef<CanvasTool | null>(null);
+  const lastZoomPercentRef = useRef<number | null>(null);
+  const lastSelectionShapeIdRef = useRef<string | null>(null);
   const [tabAnchor, setTabAnchor] = useState<{
     screenX: number;
     screenY: number;
@@ -191,18 +250,11 @@ export default function CanvasPage({ params }: PageProps) {
   const [tabInstruction, setTabInstruction] = useState("");
 
   useEffect(() => {
-    if (aiMode !== "point") {
-      setTabAnchor(null);
-      tabPointerDownRef.current = null;
-    }
-  }, [aiMode]);
-
-  useEffect(() => {
-    if (aiMode !== "point") return;
     if (activeTool === "select") return;
     tabPointerDownRef.current = null;
     setTabAnchor(null);
-  }, [activeTool, aiMode]);
+    setClickEditArmed(false);
+  }, [activeTool]);
 
   useEffect(() => {
     chatInputRef.current = chatInput;
@@ -211,6 +263,41 @@ export default function CanvasPage({ params }: PageProps) {
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const sync = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === "undefined") return;
+
+    try {
+      if (document.fullscreenElement) {
+        if (typeof document.exitFullscreen === "function") {
+          await document.exitFullscreen();
+        }
+        return;
+      }
+
+      const target = document.documentElement;
+      if (typeof target.requestFullscreen === "function") {
+        await target.requestFullscreen();
+        return;
+      }
+
+      toast.message("Fullscreen is not supported in this browser.", { duration: 2500 });
+    } catch {
+      toast.error("Failed to toggle fullscreen.", { duration: 2500 });
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -406,13 +493,33 @@ export default function CanvasPage({ params }: PageProps) {
     const sync = () => {
       try {
         const currentToolId = editor.getCurrentToolId();
-        if (!currentToolId) return;
+        if (currentToolId) {
+          const mapped = fromTldrawToolId(currentToolId);
+          if (mapped && lastKnownToolIdRef.current !== mapped) {
+            lastKnownToolIdRef.current = mapped;
+            setActiveTool(mapped);
+          }
+        }
+      } catch {
+        // ignore
+      }
 
-        const mapped = fromTldrawToolId(currentToolId);
-        if (!mapped) return;
-        if (lastKnownToolIdRef.current === mapped) return;
-        lastKnownToolIdRef.current = mapped;
-        setActiveTool(mapped);
+      try {
+        const next = Math.round(editor.getZoomLevel() * 100);
+        if (Number.isFinite(next) && lastZoomPercentRef.current !== next) {
+          lastZoomPercentRef.current = next;
+          setZoomPercent(next);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const selected = (editor.getSelectedShapeIds?.() ?? [])[0] ?? null;
+        if (selected !== lastSelectionShapeIdRef.current) {
+          lastSelectionShapeIdRef.current = selected;
+          setSelectionContext(getSelectionContext(editor, selected));
+        }
       } catch {
         // ignore
       }
@@ -655,6 +762,7 @@ export default function CanvasPage({ params }: PageProps) {
         const res = await generateHtml.mutateAsync({ prompt: trimmed });
         const html = res.data.html;
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
+        let htmlCardShapeId: string | null = null;
         try {
           const point = options?.point ?? getAiInsertPoint(editor as any);
           const existingShapeId =
@@ -667,6 +775,7 @@ export default function CanvasPage({ params }: PageProps) {
             });
           });
           htmlCardMode = result.mode;
+          htmlCardShapeId = result.id;
           try {
             editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
           } catch {
@@ -682,6 +791,19 @@ export default function CanvasPage({ params }: PageProps) {
             { duration: 3500 },
           );
         }
+
+        const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
+          ? {
+              id: crypto.randomUUID(),
+              type: "html",
+              label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
+              shapeId: htmlCardShapeId,
+            }
+          : null;
+        if (htmlAttachment) {
+          outputCounterRef.current += 1;
+        }
+
         setMessages((prev) => [
           ...prev,
           {
@@ -693,6 +815,7 @@ export default function CanvasPage({ params }: PageProps) {
                 : htmlCardMode === "created"
                   ? "Added an HTML card to your canvas."
                   : "Generated HTML, but couldn’t add it to the canvas.",
+            attachments: htmlAttachment ? [htmlAttachment] : undefined,
           },
         ]);
         return;
@@ -733,9 +856,27 @@ export default function CanvasPage({ params }: PageProps) {
           json: { coverImageUrl: uploadedUrl },
         });
 
+        const editAttachment: CanvasChatAttachment | null = selectedShapeId
+          ? {
+              id: crypto.randomUUID(),
+              type: "image",
+              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+              shapeId: selectedShapeId,
+              url: uploadedUrl,
+            }
+          : null;
+        if (editAttachment) {
+          outputCounterRef.current += 1;
+        }
+
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Updated the selected image." },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "Updated the selected image.",
+            attachments: editAttachment ? [editAttachment] : undefined,
+          },
         ]);
         return;
       }
@@ -766,9 +907,35 @@ export default function CanvasPage({ params }: PageProps) {
         json: { coverImageUrl: uploadedUrl },
       });
 
+      const insertedShapeId = (() => {
+        try {
+          return editor.getSelectedShapeIds?.()?.[0] ?? null;
+        } catch {
+          return null;
+        }
+      })();
+
+      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
+        ? {
+            id: crypto.randomUUID(),
+            type: "image",
+            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+            shapeId: insertedShapeId,
+            url: uploadedUrl,
+          }
+        : null;
+      if (insertAttachment) {
+        outputCounterRef.current += 1;
+      }
+
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: "assistant", content: "Added a new image to your canvas." },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Added a new image to your canvas.",
+          attachments: insertAttachment ? [insertAttachment] : undefined,
+        },
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong.";
@@ -779,6 +946,31 @@ export default function CanvasPage({ params }: PageProps) {
       setBusy(false);
     }
 		  }, [boardCrashMessage, boardHydrated, editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+
+  const focusShapeId = useCallback(
+    (shapeId: string) => {
+      if (!editor || !shapeId) return;
+      try {
+        editor.select(shapeId as any);
+      } catch {
+        // ignore
+      }
+      try {
+        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+      } catch {
+        // ignore
+      }
+    },
+    [editor],
+  );
+
+  const recentAttachments = useMemo(() => {
+    const list: CanvasChatAttachment[] = [];
+    messages.forEach((msg) => {
+      (msg.attachments ?? []).forEach((att) => list.push(att));
+    });
+    return list.slice(-8);
+  }, [messages]);
 
   useEffect(() => {
     if (!editor) return;
@@ -805,74 +997,90 @@ export default function CanvasPage({ params }: PageProps) {
 
   return (
     <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
-      <header className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur">
-        <div className="h-full flex items-center justify-between px-4 relative">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
-              aria-label="Back to app"
-            >
-              <span className="md:hidden inline-flex items-center justify-center rounded-full border bg-card/80 backdrop-blur h-9 w-9">
-                <ChevronLeft className="size-4" />
-              </span>
-              <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black">
-                P
-              </span>
-            </Link>
-            <EditableBoardTitle
-              name={canvasName}
-              onRename={handleRenameBoard}
-            />
-          </div>
+      <header className="h-14 px-4 flex items-center justify-between bg-transparent relative z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/app"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
+            aria-label="Back to app"
+          >
+            <span className="md:hidden inline-flex items-center justify-center rounded-full border bg-card/80 backdrop-blur h-9 w-9">
+              <ChevronLeft className="size-4" />
+            </span>
+            <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black shadow-lg shadow-pink-500/20">
+              P
+            </span>
+          </Link>
+          <EditableBoardTitle name={canvasName} onRename={handleRenameBoard} />
+        </div>
 
-          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
-            <Button
-              type="button"
-              size="sm"
-              variant={aiMode === "chat" ? "default" : "ghost"}
-              className="h-8 rounded-full px-3"
-              onClick={() => setAiMode("chat")}
-              aria-label="Chat mode"
-            >
-              Chat
-            </Button>
-	            <Button
-	              type="button"
-	              size="sm"
-	              variant={aiMode === "point" ? "default" : "ghost"}
-	              className="h-8 rounded-full px-3"
-	              onClick={() => {
-	                setAiMode("point");
-	                setActiveTool("select");
-	                try {
-	                  editor?.setCurrentTool("select");
-	                } catch {
-	                  // ignore
-	                }
-	                toast.message("Click edit: click the canvas to anchor an edit.", { duration: 2200 });
-	              }}
-	              aria-label="Click edit mode"
-	            >
-	              Click edit
-            </Button>
-          </div>
+        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
+          <span className="px-3 py-1.5 text-xs font-semibold text-muted-foreground tabular-nums">
+            {editor ? `${zoomPercent}%` : "—"}
+          </span>
+        </div>
 
-	          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              className="rounded-full md:hidden"
-              onClick={() => setMobileChatOpen(true)}
-              aria-label="Open chat"
-            >
-              <Bot className="size-4" />
-            </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="rounded-full hidden md:inline-flex"
+            onClick={() => setDesktopChatOpen((current) => !current)}
+            aria-label="Toggle chat panel"
+          >
+            {desktopChatOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+          </Button>
 
-            <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" />
-            <UserButton />
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="rounded-full hidden md:inline-flex"
+            onClick={() => editor?.undo()}
+            disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+            aria-label="Undo"
+          >
+            <Undo2 className="size-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="rounded-full hidden md:inline-flex"
+            onClick={() => editor?.redo()}
+            disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+            aria-label="Redo"
+          >
+            <Redo2 className="size-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="rounded-full md:hidden"
+            onClick={() => setMobileChatOpen(true)}
+            aria-label="Open chat"
+          >
+            <Bot className="size-4" />
+          </Button>
+
+          <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" compact />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="rounded-full hidden md:inline-flex"
+            onClick={() => void toggleFullscreen()}
+            aria-label="Toggle fullscreen"
+          >
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </Button>
+
+          <UserButton />
         </div>
       </header>
 
@@ -891,33 +1099,37 @@ export default function CanvasPage({ params }: PageProps) {
           }}
         />
 	        <div className="flex-1 relative overflow-hidden">
-	          <div
-	            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
-	            onPointerDownCapture={(event) => {
-	              if (aiMode !== "point") return;
-	              if (activeTool !== "select") return;
-	              if (event.button !== 0) return;
-	              tabPointerDownRef.current = { x: event.clientX, y: event.clientY };
-	            }}
-	            onPointerUpCapture={(event) => {
-	              if (aiMode !== "point") return;
-	              if (activeTool !== "select") return;
-	              if (!editor) return;
-	              if (event.button !== 0) return;
+		          <div
+		            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+		            onPointerDownCapture={(event) => {
+		              if (activeTool !== "select") return;
+		              if (event.button !== 0) return;
+		              const trigger = getPinEditTrigger({ altKey: event.altKey, armed: clickEditArmed });
+		              if (!trigger) return;
+		              tabPointerDownRef.current = { x: event.clientX, y: event.clientY, trigger };
+		            }}
+		            onPointerUpCapture={(event) => {
+		              if (activeTool !== "select") return;
+		              if (!editor) return;
+		              if (event.button !== 0) return;
 
-              const down = tabPointerDownRef.current;
-              tabPointerDownRef.current = null;
-              if (!down) return;
+		              const down = tabPointerDownRef.current;
+		              tabPointerDownRef.current = null;
+		              if (!down) return;
 
-              const dx = event.clientX - down.x;
-              const dy = event.clientY - down.y;
-              if (Math.hypot(dx, dy) > 6) return;
+		              const dx = event.clientX - down.x;
+		              const dy = event.clientY - down.y;
+		              if (!isClickWithinThreshold({ dx, dy })) return;
 
-              try {
-                const anchor = getTabAnchor(editor as any, { x: event.clientX, y: event.clientY });
-                if (anchor.shapeId) {
-                  try {
-                    editor.setSelectedShapes?.([anchor.shapeId] as any);
+		              try {
+		                if (down.trigger === "pin") {
+		                  setClickEditArmed(false);
+		                }
+
+		                const anchor = getTabAnchor(editor as any, { x: event.clientX, y: event.clientY });
+		                if (anchor.shapeId) {
+		                  try {
+		                    editor.setSelectedShapes?.([anchor.shapeId] as any);
                   } catch {
                     // ignore
                   }
@@ -1013,26 +1225,26 @@ export default function CanvasPage({ params }: PageProps) {
 	            ) : null}
 	          </div>
 
-          {aiMode === "point" && tabAnchor ? (
-            <div
-              className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
-              style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-semibold text-muted-foreground">
-                  Click edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setTabAnchor(null)}
-                  aria-label="Close click edit"
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
+	          {tabAnchor ? (
+	            <div
+	              className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
+	              style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
+	            >
+	              <div className="flex items-center justify-between gap-2">
+	                <div className="text-xs font-semibold text-muted-foreground">
+	                  Pin edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
+	                </div>
+	                <Button
+	                  type="button"
+	                  variant="ghost"
+	                  size="icon"
+	                  className="h-7 w-7"
+	                  onClick={() => setTabAnchor(null)}
+	                  aria-label="Close pin edit"
+	                >
+	                  <X className="size-4" />
+	                </Button>
+	              </div>
 
 	              <div className="mt-2 flex items-center gap-2">
 	                <Input
@@ -1057,10 +1269,10 @@ export default function CanvasPage({ params }: PageProps) {
                     }
                   }}
                 />
-	                <Button
-	                  type="button"
-	                  size="icon"
-	                  className="rounded-full"
+		                <Button
+		                  type="button"
+		                  size="icon"
+		                  className="rounded-full"
 	                  disabled={
 	                    !tabInstruction.trim() ||
 	                    busy ||
@@ -1068,23 +1280,23 @@ export default function CanvasPage({ params }: PageProps) {
 	                    !boardHydrated ||
 	                    Boolean(boardCrashMessage)
 	                  }
-	                  aria-label="Send click edit"
-	                  onClick={() => {
-	                    if (!tabInstruction.trim()) return;
-	                    const anchor = tabAnchor;
-                    setTabAnchor(null);
-                    void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
-                  }}
+		                  aria-label="Send pin edit"
+		                  onClick={() => {
+		                    if (!tabInstruction.trim()) return;
+		                    const anchor = tabAnchor;
+	                    setTabAnchor(null);
+	                    void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
+	                  }}
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                 </Button>
-              </div>
-
-	              <div className="mt-2 text-xs text-muted-foreground">
-	                Tip: click to anchor. Dragging won’t trigger Click edit.
-	              </div>
-	            </div>
-	          ) : null}
+		              </div>
+	
+		              <div className="mt-2 text-xs text-muted-foreground">
+		                Tip: Alt+click (or tap the pin button) to anchor an edit. Dragging won’t open it.
+		              </div>
+		            </div>
+		          ) : null}
 
 	          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
 	            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
@@ -1139,39 +1351,86 @@ export default function CanvasPage({ params }: PageProps) {
           </nav>
         </div>
 
-	        <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
-	          <div className="p-5 border-b border-border/60 space-y-3">
-	            <div className="flex items-center gap-2 text-sm font-semibold">
-	              <Bot className="size-4 text-muted-foreground" />
-	              Pigcasso Agent
-	            </div>
-	            <div className="text-xs text-muted-foreground">
-	              Create with prompts, then select something on the canvas to refine it.
-	            </div>
+		        {desktopChatOpen ? (
+		        <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
+		          <div className="p-5 border-b border-border/60 space-y-3">
+		            <div className="flex items-center gap-2 text-sm font-semibold">
+		              <Bot className="size-4 text-muted-foreground" />
+		              Pigcasso Agent
+		            </div>
+		            <div className="text-xs text-muted-foreground">
+		              Create with prompts, then select something on the canvas to refine it.
+		            </div>
 
-		            <div className="flex flex-wrap gap-2">
-		              {QUICK_PROMPTS.map((item) => (
-		                <Button
-		                  key={item.label}
-	                  type="button"
-	                  size="sm"
-		                  variant="secondary"
-		                  className="rounded-full"
-		                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-		                  onClick={() => {
-		                    chatInputRef.current = item.prompt;
-		                    setChatInput(item.prompt);
-		                  }}
-	                >
-	                  {item.label}
-                </Button>
-              ))}
-	            </div>
-	          </div>
+			            <div className="flex flex-wrap gap-2">
+			              {QUICK_PROMPTS.map((item) => (
+			                <Button
+			                  key={item.label}
+		                  type="button"
+		                  size="sm"
+			                  variant="secondary"
+			                  className="rounded-full"
+			                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+			                  onClick={() => {
+			                    chatInputRef.current = item.prompt;
+			                    setChatInput(item.prompt);
+			                  }}
+		                >
+		                  {item.label}
+	                </Button>
+	              ))}
+		            </div>
 
-	          <div className="flex-1 overflow-auto p-5 space-y-4">
-	            <div className="space-y-4">
-	              {messages.length ? (
+		            <div className="pt-1 space-y-2">
+		              <div className="text-xs font-semibold text-muted-foreground">Context</div>
+		              <div className="flex flex-wrap gap-2">
+		                {clickEditArmed ? (
+		                  <button
+		                    type="button"
+		                    className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+		                    onClick={() => setClickEditArmed(false)}
+		                  >
+		                    <LocateFixed className="size-3 text-muted-foreground" />
+		                    <span>Pin armed</span>
+		                  </button>
+		                ) : null}
+
+		                {selectionContext ? (
+		                  <button
+		                    type="button"
+		                    className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+		                    onClick={() => focusShapeId(selectionContext.shapeId)}
+		                  >
+		                    {selectionContext.previewUrl ? (
+		                      // eslint-disable-next-line @next/next/no-img-element
+		                      <img
+		                        src={selectionContext.previewUrl}
+		                        alt=""
+		                        className="h-4 w-4 rounded-sm object-cover"
+		                      />
+		                    ) : null}
+		                    <span className="max-w-[160px] truncate">{selectionContext.label}</span>
+		                  </button>
+		                ) : null}
+
+		                {recentAttachments.map((att) => (
+		                  <CanvasChatAttachmentChip
+		                    key={att.id}
+		                    attachment={att}
+		                    onClick={() => focusShapeId(att.shapeId)}
+		                  />
+		                ))}
+
+		                {!selectionContext && !recentAttachments.length && !clickEditArmed ? (
+		                  <div className="text-xs text-muted-foreground">Select something to add context.</div>
+		                ) : null}
+		              </div>
+		            </div>
+		          </div>
+
+		          <div className="flex-1 overflow-auto p-5 space-y-4">
+		            <div className="space-y-4">
+		              {messages.length ? (
 	                <div className="space-y-3">
 	                  {messages.map((msg) => (
 	                    <div
@@ -1183,14 +1442,25 @@ export default function CanvasPage({ params }: PageProps) {
 	                          "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
 	                          msg.role === "assistant" ? "bg-muted/40" : "bg-background",
 	                        )}
-	                      >
-	                        <div className="text-xs font-semibold text-muted-foreground">
-	                          {msg.role === "assistant" ? "Pigcasso" : "You"}
-	                        </div>
-	                        <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-	                      </div>
-	                    </div>
-	                  ))}
+		                      >
+		                        <div className="text-xs font-semibold text-muted-foreground">
+		                          {msg.role === "assistant" ? "Pigcasso" : "You"}
+		                        </div>
+		                        <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+		                        {msg.attachments?.length ? (
+		                          <div className="mt-2 flex flex-wrap gap-2">
+		                            {msg.attachments.map((att) => (
+		                              <CanvasChatAttachmentChip
+		                                key={att.id}
+		                                attachment={att}
+		                                onClick={() => focusShapeId(att.shapeId)}
+		                              />
+		                            ))}
+		                          </div>
+		                        ) : null}
+		                      </div>
+		                    </div>
+		                  ))}
 
 	                  {busy ? (
 	                    <div className="flex justify-start">
@@ -1216,14 +1486,37 @@ export default function CanvasPage({ params }: PageProps) {
 	                </div>
 	              )}
 	            </div>
-	          </div>
+		          </div>
+	
+	          <div className="p-4 border-t border-border/60">
+	            <div className="flex items-center gap-2">
+	              <Button
+	                type="button"
+	                variant={clickEditArmed ? "secondary" : "ghost"}
+	                size="icon"
+	                className="rounded-full"
+	                disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+	                aria-pressed={clickEditArmed}
+	                onClick={() => {
+	                  if (activeTool !== "select") {
+	                    setActiveTool("select");
+	                    try {
+	                      editor?.setCurrentTool(toTldrawToolId("select") as any);
+	                    } catch {
+	                      // ignore
+	                    }
+	                  }
+	                  setClickEditArmed((current) => !current);
+	                }}
+	              >
+	                <LocateFixed className="size-4" />
+	              </Button>
 
-          <div className="p-4 border-t border-border/60">
-            <div className="flex items-center gap-2">
-	              <div className="flex-1 rounded-full border bg-background px-4 py-2">
-	                <Input
-	                  value={chatInput}
-	                  onChange={(e) => {
+		              <div className="flex-1 rounded-full border bg-background px-4 py-2">
+		                <Input
+		                  value={chatInput}
+		                  onChange={(e) => {
 	                    chatInputRef.current = e.target.value;
 	                    setChatInput(e.target.value);
 	                  }}
@@ -1253,11 +1546,12 @@ export default function CanvasPage({ params }: PageProps) {
 	                disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
 	                aria-label="Send"
 	              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-              </Button>
-            </div>
-          </div>
-        </aside>
+	                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+	                </Button>
+	              </div>
+	            </div>
+	        </aside>
+	        ) : null}
       </main>
 
 	      <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
@@ -1273,13 +1567,63 @@ export default function CanvasPage({ params }: PageProps) {
 	                  Close
 	                </Button>
 	              </div>
-	            </div>
+		            </div>
+	
+		            <div className="flex-1 overflow-auto p-4 space-y-4">
+		              {selectionContext || recentAttachments.length || clickEditArmed ? (
+		                <div className="space-y-2">
+		                  <div className="text-xs font-semibold text-muted-foreground">Context</div>
+		                  <div className="flex flex-wrap gap-2">
+		                    {clickEditArmed ? (
+		                      <button
+		                        type="button"
+		                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+		                        onClick={() => setClickEditArmed(false)}
+		                      >
+		                        <LocateFixed className="size-3 text-muted-foreground" />
+		                        <span>Pin armed</span>
+		                      </button>
+		                    ) : null}
 
-	            <div className="flex-1 overflow-auto p-4 space-y-4">
-	              <div className="space-y-4">
-	                {messages.length ? (
-	                  <div className="space-y-3">
-	                    {messages.map((msg) => (
+		                    {selectionContext ? (
+		                      <button
+		                        type="button"
+		                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+		                        onClick={() => {
+		                          focusShapeId(selectionContext.shapeId);
+		                          setMobileChatOpen(false);
+		                        }}
+		                      >
+		                        {selectionContext.previewUrl ? (
+		                          // eslint-disable-next-line @next/next/no-img-element
+		                          <img
+		                            src={selectionContext.previewUrl}
+		                            alt=""
+		                            className="h-4 w-4 rounded-sm object-cover"
+		                          />
+		                        ) : null}
+		                        <span className="max-w-[160px] truncate">{selectionContext.label}</span>
+		                      </button>
+		                    ) : null}
+
+		                    {recentAttachments.map((att) => (
+		                      <CanvasChatAttachmentChip
+		                        key={att.id}
+		                        attachment={att}
+		                        onClick={() => {
+		                          focusShapeId(att.shapeId);
+		                          setMobileChatOpen(false);
+		                        }}
+		                      />
+		                    ))}
+		                  </div>
+		                </div>
+		              ) : null}
+
+		              <div className="space-y-4">
+		                {messages.length ? (
+		                  <div className="space-y-3">
+		                    {messages.map((msg) => (
 	                      <div
 	                        key={msg.id}
 	                        className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
@@ -1290,13 +1634,27 @@ export default function CanvasPage({ params }: PageProps) {
 	                            msg.role === "assistant" ? "bg-muted/40" : "bg-background",
 	                          )}
 	                        >
-	                          <div className="text-xs font-semibold text-muted-foreground">
-	                            {msg.role === "assistant" ? "Pigcasso" : "You"}
-	                          </div>
-	                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-	                        </div>
-	                      </div>
-	                    ))}
+		                          <div className="text-xs font-semibold text-muted-foreground">
+		                            {msg.role === "assistant" ? "Pigcasso" : "You"}
+		                          </div>
+		                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+		                          {msg.attachments?.length ? (
+		                            <div className="mt-2 flex flex-wrap gap-2">
+		                              {msg.attachments.map((att) => (
+		                                <CanvasChatAttachmentChip
+		                                  key={att.id}
+		                                  attachment={att}
+		                                  onClick={() => {
+		                                    focusShapeId(att.shapeId);
+		                                    setMobileChatOpen(false);
+		                                  }}
+		                                />
+		                              ))}
+		                            </div>
+		                          ) : null}
+		                        </div>
+		                      </div>
+		                    ))}
 
 	                    {busy ? (
 	                      <div className="flex justify-start">
@@ -1340,12 +1698,40 @@ export default function CanvasPage({ params }: PageProps) {
 	                )}
 	              </div>
 	            </div>
-
-            <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
-              <div className="flex items-center gap-2">
-	                <div className="flex-1 rounded-full border bg-background px-4 py-2">
-	                  <Input
-	                    value={chatInput}
+	
+	            <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
+	              <div className="flex items-center gap-2">
+	                <Button
+	                  type="button"
+	                  variant={clickEditArmed ? "secondary" : "ghost"}
+	                  size="icon"
+	                  className="rounded-full"
+	                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                  aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+	                  aria-pressed={clickEditArmed}
+	                  onClick={() => {
+	                    if (activeTool !== "select") {
+	                      setActiveTool("select");
+	                      try {
+	                        editor?.setCurrentTool(toTldrawToolId("select") as any);
+	                      } catch {
+	                        // ignore
+	                      }
+	                    }
+	
+	                    if (!clickEditArmed) {
+	                      toast.message("Tap on the canvas to pin an edit.", { duration: 2200 });
+	                      setMobileChatOpen(false);
+	                    }
+	                    setClickEditArmed((current) => !current);
+	                  }}
+	                >
+	                  <LocateFixed className="size-4" />
+	                </Button>
+	
+		                <div className="flex-1 rounded-full border bg-background px-4 py-2">
+		                  <Input
+		                    value={chatInput}
 	                    onChange={(e) => {
 	                      chatInputRef.current = e.target.value;
 	                      setChatInput(e.target.value);

@@ -8,7 +8,7 @@
 
 ## 0.1) 2026-01 Pivot：Pigcasso Infinite ChatCanvas（Lovart 風格 + Web3）
 
-我們正在把「Canva clone」路線升級成 **AI-native 無限畫布工作台（ChatCanvas）**：一個大輸入框啟動、右側聊天、中央無限畫布（Talk · Tab · Tune），並保留 Web3 原生能力（token gating、mint、provenance、Printr）。
+我們正在把「Canva clone」路線升級成 **AI-native 無限畫布工作台（ChatCanvas）**：一個大輸入框啟動、右側聊天、中央無限畫布（核心：Prompt → 產出落畫布 → 選取/指向式迭代），並保留 Web3 原生能力（token gating、mint、provenance、Printr）。
 
 ### 已實作（repo 現況）
 
@@ -19,9 +19,11 @@
   - `/canvases`：Canvas documents 列表（DB-backed）
   - `/canvas/new` → `/canvas/:id`：採用 `tldraw`（infinite canvas + DB persistence；localStorage snapshot 作為 fallback）
   - 右側 Chat panel（已串接）：
-    - Talk：prompt → generate image → 上傳 → 落到畫布
-    - Tab（最小版）：選中 image → instruction → edit image → 回填到畫布
-    - Web：prompt → generate HTML → 以 **HTML card（iframe）** 插入畫布 + 右側 preview
+    - Prompt：text → generate image → 上傳 → 落到畫布（插入點：cursor / viewport center）
+    - Select-to-edit（最小版）：選中 image → instruction → edit image → 回填到畫布
+    - Pin edit：Alt+click / Pin → 在畫布上開浮動輸入框 → 指令 → 產出落在該位置
+    - Web：prompt → generate HTML → 以 **HTML card（iframe）** 插入畫布
+    - Chat 內輸出 chips：`IMG_0001` / `HTML_0002` 可點擊回到對應 canvas object
 - **AI（Gemini）**
   - `POST /api/ai/generate-image`：支援 `profile`（`nano-banana` / `nano-banana-pro`，非 Pro 會自動 downgrade）
   - `POST /api/ai/edit-image`：支援 instruction + base image + reference images
@@ -46,8 +48,8 @@
 - **ChatCanvas ↔ Projects 的資料模型**
   - 現在 `/canvas/:id` 已落 DB（`canvas_document` + `/api/canvases`），但尚未與 project model 整合
   - 需決定：ChatCanvas 要取代 `/editor/:projectId` 成為預設工作區嗎？
-- **Talk · Tab · Tune 真正的「指向式編輯」**
-  - 目前 Tab 僅做到「選中 image → 整張 edit」；inpaint/outpaint/region edit、文字/排版 edit 尚未完整閉環
+- **真正的「指向式編輯」（Lovart Tab 的完整版）**
+  - 目前僅做到「選中 image → 整張 edit」與「Pin edit（定點插入/選中物件）」；inpaint/outpaint/region edit、文字/排版 edit 尚未完整閉環
 - **HTML 生成與 preview**
   - 已有 `POST /api/ai/generate-html` + HTML card（iframe）；sandbox / CSP 是否要更嚴格仍需要你確認
 - **Short video（Kling/Veo 等）**

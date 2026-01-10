@@ -11,7 +11,15 @@ import { Button } from "@/components/ui/button";
 
 import { getCanvasShareUrl } from "@/features/canvases/utils/canvas-share";
 
-export const CanvasShareButton = ({ canvasId, className }: { canvasId: string; className?: string }) => {
+export const CanvasShareButton = ({
+  canvasId,
+  className,
+  compact = false,
+}: {
+  canvasId: string;
+  className?: string;
+  compact?: boolean;
+}) => {
   const [copying, setCopying] = useState(false);
 
   const onShare = async () => {
@@ -34,14 +42,19 @@ export const CanvasShareButton = ({ canvasId, className }: { canvasId: string; c
   return (
     <Button
       type="button"
-      variant="secondary"
+      variant={compact ? "ghost" : "secondary"}
+      size={compact ? "icon" : "default"}
       className={cn("rounded-full", className)}
       onClick={() => void onShare()}
       disabled={copying}
       aria-label="Share"
     >
-      {copying ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Share2 className="size-4 mr-2" />}
-      Share
+      {copying ? (
+        <Loader2 className={cn("size-4 animate-spin", compact ? undefined : "mr-2")} />
+      ) : (
+        <Share2 className={cn("size-4", compact ? undefined : "mr-2")} />
+      )}
+      {compact ? null : "Share"}
     </Button>
   );
 };
