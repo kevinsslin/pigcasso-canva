@@ -37,6 +37,8 @@ import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
 import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
+import { handleCanvasDeleteShortcut } from "@/features/canvases/tldraw/delete-shortcut";
+import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
 import { cn } from "@/lib/utils";
@@ -331,10 +333,24 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [busy, mobileChatOpen, messages.length]);
 
-  useEffect(() => {
-    if (!boardHydrated) return;
-    hasEverHydratedRef.current = true;
-  }, [boardHydrated]);
+	  useEffect(() => {
+	    if (!boardHydrated) return;
+	    hasEverHydratedRef.current = true;
+	  }, [boardHydrated]);
+
+    useEffect(() => {
+      if (typeof window === "undefined") return;
+      if (!editor) return;
+      if (!boardHydrated) return;
+      if (boardCrashMessage) return;
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        handleCanvasDeleteShortcut(editor as any, event);
+      };
+
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [boardCrashMessage, boardHydrated, editor]);
 
   const handleTldrawMount = useCallback((next: unknown) => {
     const nextEditor = next as TldrawEditor;
@@ -841,21 +857,21 @@ export default function CanvasPage({ params }: PageProps) {
 	    const imageUrl = searchParams?.get("image");
 	    if (!imageUrl) return;
 
-	    const insert = async () => {
-	      try {
-	        const boardImageUrl = toCanvasImageUrl(imageUrl);
-	        const point = getAiInsertPoint(editor as any);
-	        await withHistorySquash(editor as any, "insert:image", async () => {
-	          await editor.putExternalContent({
-	            type: "url",
-	            url: boardImageUrl,
-	            point,
-	          });
-	        });
-	        try {
-	          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-        } catch {
-          // ignore
+		    const insert = async () => {
+		      try {
+		        const boardImageUrl = toCanvasImageUrl(imageUrl);
+		        const point = getAiInsertPoint(editor as any);
+		        await withHistorySquash(editor as any, "insert:image", async () => {
+              await insertImageToCanvas(editor as any, {
+                src: boardImageUrl,
+                point,
+                name: `IMG_${Date.now()}.png`,
+              });
+		        });
+		        try {
+		          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+	        } catch {
+	          // ignore
         }
       } catch {
         // ignore
@@ -1045,39 +1061,34 @@ export default function CanvasPage({ params }: PageProps) {
 	      });
 
 	      const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
-	      const canvasUrl = toCanvasImageUrl(uploadedUrl);
+		      const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-	      const point = options?.point ?? getAiInsertPoint(editor as any);
-	      await withHistorySquash(editor as any, "ai:insert-image", async () => {
-	        await editor.putExternalContent({
-	          type: "url",
-	          url: canvasUrl,
-	          point,
-	        });
-	      });
-      try {
-        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-      } catch {
-        // ignore
-      }
+		      const point = options?.point ?? getAiInsertPoint(editor as any);
+        const inserted = await withHistorySquash(editor as any, "ai:insert-image", async () => {
+          return await insertImageToCanvas(editor as any, {
+            src: canvasUrl,
+            point,
+            name: `pigcasso_${Date.now()}.png`,
+            size: { w: 1024, h: 1024 },
+          });
+        });
+	      try {
+	        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+	      } catch {
+	        // ignore
+	      }
 
       updateCanvas.mutate({
         param: { id: params.canvasId },
         json: { coverImageUrl: uploadedUrl },
       });
 
-      const insertedShapeId = (() => {
-        try {
-          return editor.getSelectedShapeIds?.()?.[0] ?? null;
-        } catch {
-          return null;
-        }
-      })();
+        const insertedShapeId = inserted.shapeId;
 
-	      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
-	        ? {
-	            id: crypto.randomUUID(),
-	            type: "image",
+		      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
+		        ? {
+		            id: crypto.randomUUID(),
+		            type: "image",
 	            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
 	            shapeId: insertedShapeId,
 	            url: canvasUrl,
@@ -1258,14 +1269,22 @@ export default function CanvasPage({ params }: PageProps) {
           }}
         />
 	        <div className="flex-1 relative overflow-hidden">
-		          <div
-		            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
-		            onPointerDownCapture={(event) => {
-		              if (activeTool !== "select") return;
-		              if (event.button !== 0) return;
-		              const trigger = getPinEditTrigger({ altKey: event.altKey, armed: clickEditArmed });
-		              if (!trigger) return;
-		              tabPointerDownRef.current = { x: event.clientX, y: event.clientY, trigger };
+			          <div
+			            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+			            onPointerDownCapture={(event) => {
+                    try {
+                      const active = document.activeElement as HTMLElement | null;
+                      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+                        active.blur();
+                      }
+                    } catch {
+                      // ignore
+                    }
+			              if (activeTool !== "select") return;
+			              if (event.button !== 0) return;
+			              const trigger = getPinEditTrigger({ altKey: event.altKey, armed: clickEditArmed });
+			              if (!trigger) return;
+			              tabPointerDownRef.current = { x: event.clientX, y: event.clientY, trigger };
 		            }}
 		            onPointerUpCapture={(event) => {
 		              if (activeTool !== "select") return;
