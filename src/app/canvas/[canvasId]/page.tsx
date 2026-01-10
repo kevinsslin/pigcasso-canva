@@ -49,10 +49,14 @@ import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw
 import { createHtmlCardSrcDoc } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
-import { handleCanvasDeleteShortcut } from "@/features/canvases/tldraw/delete-shortcut";
+import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
+import {
+  handleCanvasKeyboardShortcuts,
+  type CanvasClipboardRef,
+} from "@/features/canvases/tldraw/keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -115,6 +119,31 @@ type CanvasChatMessage = {
   attachments?: CanvasChatAttachment[];
 };
 
+const TEXT_FONT_OPTIONS = [
+  { id: "draw", label: "Draw" },
+  { id: "sans", label: "Sans" },
+  { id: "serif", label: "Serif" },
+  { id: "mono", label: "Mono" },
+] as const;
+
+const TEXT_SIZE_OPTIONS = [
+  { id: "s", label: "S" },
+  { id: "m", label: "M" },
+  { id: "l", label: "L" },
+  { id: "xl", label: "XL" },
+] as const;
+
+const TEXT_COLOR_OPTIONS = [
+  { id: "black", label: "Black", className: "bg-black" },
+  { id: "grey", label: "Gray", className: "bg-zinc-500" },
+  { id: "red", label: "Red", className: "bg-red-500" },
+  { id: "orange", label: "Orange", className: "bg-orange-500" },
+  { id: "yellow", label: "Yellow", className: "bg-yellow-400" },
+  { id: "green", label: "Green", className: "bg-green-500" },
+  { id: "blue", label: "Blue", className: "bg-blue-500" },
+  { id: "violet", label: "Violet", className: "bg-violet-500" },
+] as const;
+
 const CanvasChatAttachmentChip = ({
   attachment,
   onClick,
@@ -157,6 +186,7 @@ export default function CanvasPage({ params }: PageProps) {
   const [desktopChatOpen, setDesktopChatOpen] = useState(true);
   const [clickEditArmed, setClickEditArmed] = useState(false);
   const [selectionContext, setSelectionContext] = useState<SelectionContext | null>(null);
+  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [chatInput, setChatInput] = useState("");
@@ -180,6 +210,8 @@ export default function CanvasPage({ params }: PageProps) {
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
   const mentionFocusElRef = useRef<HTMLInputElement | null>(null);
+  const canvasClipboardRef = useRef<unknown | null>(null) as CanvasClipboardRef;
+  const heldPanToolRef = useRef<CanvasTool | null>(null);
 
   const remountingRef = useRef(false);
   const reloadTimeoutRef = useRef<number | null>(null);
@@ -275,6 +307,7 @@ export default function CanvasPage({ params }: PageProps) {
   const lastKnownToolIdRef = useRef<CanvasTool | null>(null);
   const lastZoomPercentRef = useRef<number | null>(null);
   const lastSelectionShapeIdRef = useRef<string | null>(null);
+  const lastSelectedShapeIdsKeyRef = useRef<string>("");
   const [tabAnchor, setTabAnchor] = useState<{
     screenX: number;
     screenY: number;
@@ -338,6 +371,19 @@ export default function CanvasPage({ params }: PageProps) {
     }
   }, []);
 
+  const applyTool = useCallback(
+    (tool: CanvasTool) => {
+      setActiveTool(tool);
+      if (!editor) return;
+      try {
+        editor.setCurrentTool(toTldrawToolId(tool) as any);
+      } catch {
+        // ignore
+      }
+    },
+    [editor],
+  );
+
   const removeSearchParamsFromUrl = useCallback((keys: string[]) => {
     if (typeof window === "undefined") return;
     try {
@@ -390,19 +436,64 @@ export default function CanvasPage({ params }: PageProps) {
       hasEverHydratedRef.current = true;
     }, [boardHydrated]);
 
-    useEffect(() => {
-      if (typeof window === "undefined") return;
-      if (!editor) return;
-      if (!boardHydrated) return;
-      if (boardCrashMessage) return;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
 
-      const onKeyDown = (event: KeyboardEvent) => {
-        handleCanvasDeleteShortcut(editor as any, event);
-      };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const handledDelete = handleCanvasDeleteShortcut(editor as any, event);
+      const handledShortcut = handleCanvasKeyboardShortcuts(editor as any, event, {
+        clipboardRef: canvasClipboardRef,
+        onToolChange: applyTool,
+      });
 
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
-    }, [boardCrashMessage, boardHydrated, editor]);
+      if (handledDelete || handledShortcut) return;
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [applyTool, boardCrashMessage, boardHydrated, canvasClipboardRef, editor]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.repeat) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== " " && event.code !== "Space") return;
+      if (isEditableKeyboardTarget(event.target)) return;
+      if (activeTool === "hand") return;
+      if (heldPanToolRef.current) return;
+
+      event.preventDefault();
+      heldPanToolRef.current = activeTool;
+      applyTool("hand");
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== " " && event.code !== "Space") return;
+      if (!heldPanToolRef.current) return;
+
+      event.preventDefault();
+      const previous = heldPanToolRef.current;
+      heldPanToolRef.current = null;
+      applyTool(previous);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      heldPanToolRef.current = null;
+    };
+  }, [activeTool, applyTool, boardCrashMessage, boardHydrated, editor]);
 
   const handleTldrawMount = useCallback((next: unknown) => {
     const nextEditor = next as TldrawEditor;
@@ -738,7 +829,15 @@ export default function CanvasPage({ params }: PageProps) {
       }
 
       try {
-        const selected = (editor.getSelectedShapeIds?.() ?? [])[0] ?? null;
+        const selectedIds = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
+        const selectedKey = selectedIds.join(",");
+
+        if (selectedKey !== lastSelectedShapeIdsKeyRef.current) {
+          lastSelectedShapeIdsKeyRef.current = selectedKey;
+          setSelectedShapeIds(selectedIds);
+        }
+
+        const selected = selectedIds[0] ?? null;
         if (selected !== lastSelectionShapeIdRef.current) {
           lastSelectionShapeIdRef.current = selected;
           setSelectionContext(getSelectionContext(editor, selected));
@@ -1198,6 +1297,43 @@ export default function CanvasPage({ params }: PageProps) {
     return list;
   }, [editor, pinnedShapeIds]);
 
+  const selectedTextShape = useMemo(() => {
+    if (!editor) return null;
+    if (selectedShapeIds.length !== 1) return null;
+    try {
+      const shape = editor.getShape(selectedShapeIds[0] as any) as any;
+      if (!shape || typeof shape !== "object" || shape.type !== "text") return null;
+      return shape as any;
+    } catch {
+      return null;
+    }
+  }, [editor, selectedShapeIds]);
+
+  const selectedTextStyle = useMemo(() => {
+    const props = (selectedTextShape as any)?.props ?? {};
+    const font = typeof props.font === "string" ? props.font : "draw";
+    const size = typeof props.size === "string" ? props.size : "m";
+    const color = typeof props.color === "string" ? props.color : "black";
+    return { font, size, color };
+  }, [selectedTextShape]);
+
+  const updateSelectedTextStyle = useCallback(
+    (partial: Partial<{ font: string; size: string; color: string }>) => {
+      if (!editor) return;
+      if (!selectedTextShape) return;
+      try {
+        editor.updateShape?.({
+          id: selectedTextShape.id as any,
+          type: "text",
+          props: partial,
+        } as any);
+      } catch {
+        // ignore
+      }
+    },
+    [editor, selectedTextShape],
+  );
+
   const activeAtMention = useMemo(() => getActiveAtMention(chatInput), [chatInput]);
 
   const openMentionPicker = useCallback((el?: HTMLInputElement | null) => {
@@ -1448,16 +1584,8 @@ export default function CanvasPage({ params }: PageProps) {
             <CanvasToolRail
               activeTool={activeTool}
               disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-              onToolChange={(tool) => {
-              setActiveTool(tool);
-              if (!editor) return;
-            try {
-              editor.setCurrentTool(toTldrawToolId(tool) as any);
-            } catch {
-              // ignore
-            }
-            }}
-          />
+              onToolChange={applyTool}
+            />
             <div className="flex-1 relative overflow-hidden">
               <div className="absolute left-4 top-4 z-40 flex items-center gap-3">
                 <Link
@@ -1480,7 +1608,153 @@ export default function CanvasPage({ params }: PageProps) {
                 <span className="px-3 py-1.5 text-xs font-semibold text-muted-foreground tabular-nums">
                   {editor ? `${zoomPercent}%` : "—"}
                 </span>
+
+                {selectedTextShape ? (
+                  <>
+                    <div className="h-6 w-px bg-border/60" />
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3">
+                          <span className="text-xs font-semibold">
+                            {TEXT_FONT_OPTIONS.find((opt) => opt.id === selectedTextStyle.font)?.label ?? "Font"}
+                          </span>
+                          <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" className="w-44">
+                        <DropdownMenuLabel>Font</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={selectedTextStyle.font}
+                          onValueChange={(value) => updateSelectedTextStyle({ font: value })}
+                        >
+                          {TEXT_FONT_OPTIONS.map((opt) => (
+                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3">
+                          <span className="text-xs font-semibold">
+                            {TEXT_SIZE_OPTIONS.find((opt) => opt.id === selectedTextStyle.size)?.label ?? "Size"}
+                          </span>
+                          <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" className="w-36">
+                        <DropdownMenuLabel>Size</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={selectedTextStyle.size}
+                          onValueChange={(value) => updateSelectedTextStyle({ size: value })}
+                        >
+                          {TEXT_SIZE_OPTIONS.map((opt) => (
+                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <div className="h-6 w-px bg-border/60" />
+
+                    <div className="flex items-center gap-1 pr-1">
+                      {TEXT_COLOR_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateSelectedTextStyle({ color: opt.id })}
+                          className={cn(
+                            "h-5 w-5 rounded-full border border-border/60 transition hover:scale-[1.05]",
+                            opt.className,
+                            selectedTextStyle.color === opt.id ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : undefined,
+                          )}
+                          aria-label={`Set text color to ${opt.label}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
               </div>
+
+              {selectedTextShape ? (
+                <div className="absolute left-1/2 top-16 z-40 md:hidden -translate-x-1/2 max-w-[calc(100vw-32px)] rounded-full border bg-card/90 backdrop-blur px-2 py-1 shadow-soft">
+                  <div className="flex items-center gap-1 overflow-x-auto">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3 shrink-0">
+                          <span className="text-xs font-semibold">
+                            {TEXT_FONT_OPTIONS.find((opt) => opt.id === selectedTextStyle.font)?.label ?? "Font"}
+                          </span>
+                          <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" className="w-44">
+                        <DropdownMenuLabel>Font</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={selectedTextStyle.font}
+                          onValueChange={(value) => updateSelectedTextStyle({ font: value })}
+                        >
+                          {TEXT_FONT_OPTIONS.map((opt) => (
+                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3 shrink-0">
+                          <span className="text-xs font-semibold">
+                            {TEXT_SIZE_OPTIONS.find((opt) => opt.id === selectedTextStyle.size)?.label ?? "Size"}
+                          </span>
+                          <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" className="w-36">
+                        <DropdownMenuLabel>Size</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={selectedTextStyle.size}
+                          onValueChange={(value) => updateSelectedTextStyle({ size: value })}
+                        >
+                          {TEXT_SIZE_OPTIONS.map((opt) => (
+                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <div className="flex items-center gap-1 pr-1">
+                      {TEXT_COLOR_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateSelectedTextStyle({ color: opt.id })}
+                          className={cn(
+                            "h-5 w-5 rounded-full border border-border/60 transition hover:scale-[1.05] shrink-0",
+                            opt.className,
+                            selectedTextStyle.color === opt.id ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : undefined,
+                          )}
+                          aria-label={`Set text color to ${opt.label}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="absolute right-4 top-4 z-40 flex items-center gap-1">
                 <Button
@@ -1550,9 +1824,11 @@ export default function CanvasPage({ params }: PageProps) {
                     onPointerDownCapture={(event) => {
                       try {
                         const active = document.activeElement as HTMLElement | null;
-                      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
-                        active.blur();
-                      }
+                        const chatDesktop = desktopChatInputElRef.current;
+                        const chatMobile = mobileChatInputElRef.current;
+                        if (active && (active === chatDesktop || active === chatMobile)) {
+                          active.blur();
+                        }
                     } catch {
                       // ignore
                     }
@@ -1851,15 +2127,7 @@ export default function CanvasPage({ params }: PageProps) {
                     key={tool}
                     type="button"
                     variant="ghost"
-                  onClick={() => {
-                    setActiveTool(tool);
-                    if (!editor) return;
-                    try {
-                      editor.setCurrentTool(toTldrawToolId(tool) as any);
-                    } catch {
-                      // ignore
-                    }
-                    }}
+                    onClick={() => applyTool(tool)}
                     disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
                     className={cn(
                       "min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl",
