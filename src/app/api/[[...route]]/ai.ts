@@ -5,6 +5,7 @@ import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/server/hono-auth";
 import {
   editImage,
+  extractTextBlocks,
   generateHtml,
   generateImage,
   getAiAccessDecision,
@@ -114,6 +115,34 @@ const app = new Hono()
       await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
 
       return c.json({ data: { html: result.html }, meta: { provider: result.provider } });
+    },
+  )
+  .post(
+    "/extract-text",
+    requireAuth,
+    zValidator(
+      "json",
+      z.object({
+        image: z.string().min(1),
+      }),
+    ),
+    async (c) => {
+      const authUser = c.get("authUser");
+      const { image } = c.req.valid("json");
+
+      const { decision } = await getAiAccessDecision({
+        authUser,
+        action: "generate",
+      });
+
+      if (!decision.allowed || !decision.usageRow) {
+        return c.json(getAiLimitErrorBody(decision), 429);
+      }
+
+      const result = await extractTextBlocks({ image });
+      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+
+      return c.json({ data: { blocks: result.blocks }, meta: { provider: result.provider } });
     },
   )
   .post(

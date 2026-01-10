@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildCanvasImageProxyUrl, isCanvasImageProxyUrl, toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
+import {
+  buildCanvasImageProxyUrl,
+  isCanvasImageProxyUrl,
+  toCanvasImageUrl,
+  unwrapCanvasImageProxyUrl,
+} from "@/features/canvases/lib/image-proxy";
 
 describe("canvas image proxy helpers", () => {
   test("buildCanvasImageProxyUrl encodes URL", () => {
@@ -32,5 +37,21 @@ describe("canvas image proxy helpers", () => {
 
   test("toCanvasImageUrl keeps unsupported hosts unproxied", () => {
     expect(toCanvasImageUrl("https://example.com/a.png", "app.example")).toBe("https://example.com/a.png");
+  });
+
+  test("unwrapCanvasImageProxyUrl returns the target for relative proxy urls", () => {
+    expect(
+      unwrapCanvasImageProxyUrl(
+        "/api/images/proxy?url=https%3A%2F%2Futfs.io%2Ff%2Fabc.png%3Fx%3D1%26y%3D2",
+      ),
+    ).toBe("https://utfs.io/f/abc.png?x=1&y=2");
+  });
+
+  test("unwrapCanvasImageProxyUrl returns the target for absolute proxy urls", () => {
+    expect(
+      unwrapCanvasImageProxyUrl(
+        "https://app.example/api/images/proxy?url=https%3A%2F%2Futfs.io%2Ff%2Fabc.png",
+      ),
+    ).toBe("https://utfs.io/f/abc.png");
   });
 });

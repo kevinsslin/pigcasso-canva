@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 
 import { HttpError } from "@/server/http-error";
 import { normalizeGeminiError } from "@/server/ai-errors";
@@ -416,3 +417,122 @@ Constraints:
 };
 
 export const getAssistantModel = () => GEMINI_ASSISTANT_MODEL;
+
+const extractTextBlocksSchema = z.object({
+  blocks: z
+    .array(
+      z.object({
+        text: z.string().trim().min(1),
+        box: z.object({
+          x: z.number().min(0).max(1),
+          y: z.number().min(0).max(1),
+          w: z.number().min(0).max(1),
+          h: z.number().min(0).max(1),
+        }),
+        font: z.enum(["draw", "sans", "serif", "mono"]).optional(),
+        size: z.enum(["s", "m", "l", "xl"]).optional(),
+        color: z
+          .enum(["black", "white", "grey", "red", "orange", "yellow", "green", "blue", "violet"])
+          .optional(),
+        align: z.enum(["start", "middle", "end"]).optional(),
+      }),
+    )
+    .max(40),
+});
+
+const stripJsonFences = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);
+  return match ? match[1].trim() : trimmed;
+};
+
+export const parseExtractTextBlocksResponse = (text: string) => {
+  const trimmed = stripJsonFences(text);
+  if (!trimmed) {
+    throw new HttpError(502, "No text extracted", { expose: true });
+  }
+
+  const candidate = (() => {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return trimmed.slice(start, end + 1);
+    }
+    return trimmed;
+  })();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    throw new HttpError(502, "AI returned invalid JSON", { expose: true });
+  }
+
+  const result = extractTextBlocksSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new HttpError(502, "AI returned an unexpected text extraction format", { expose: true });
+  }
+
+  return result.data;
+};
+
+export const extractTextBlocks = async (params: { image: string }) => {
+  const ai = getGeminiClient();
+  const model = GEMINI_ASSISTANT_MODEL;
+
+  const system = `
+You are a vision OCR + layout analyzer.
+Return ONLY valid JSON. No markdown. No code fences.
+Schema:
+{
+  "blocks": [
+    {
+      "text": "string",
+      "box": { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },
+      "font": "draw|sans|serif|mono",
+      "size": "s|m|l|xl",
+      "color": "black|white|grey|red|orange|yellow|green|blue|violet",
+      "align": "start|middle|end"
+    }
+  ]
+}
+Rules:
+- Only include text that is visibly present in the image.
+- Keep the exact wording and line breaks.
+- Coordinates are normalized to the full image (top-left origin).
+- Keep blocks in reading order top-to-bottom.
+- Max 40 blocks.
+`.trim();
+
+  const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
+
+  let response: unknown;
+  try {
+    response = await ai.models.generateContent({
+      model,
+      contents: [
+        { text: "Extract all text blocks from this image." },
+        { inlineData: { mimeType: inline.mimeType, data: inline.base64 } },
+      ],
+      config: {
+        systemInstruction: system,
+        maxOutputTokens: 1800,
+        temperature: 0.2,
+      },
+    });
+  } catch (error) {
+    throw normalizeGeminiError(error, {
+      model,
+      operation: "extractTextBlocks",
+    });
+  }
+
+  const text =
+    typeof (response as { text?: unknown })?.text === "string"
+      ? ((response as { text?: string }).text ?? "").trim()
+      : "";
+
+  const parsed = parseExtractTextBlocksResponse(text);
+  return { ...parsed, provider: "gemini" as const };
+};

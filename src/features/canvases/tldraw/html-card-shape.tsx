@@ -66,7 +66,6 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
           style={{
             border: 0,
             pointerEvents: isInteractive ? "auto" : "none",
-            zIndex: isInteractive ? "" : "-1",
           }}
         />
       </HTMLContainer>

@@ -39,6 +39,32 @@ const isAllowedProxyHost = (hostname: string) => {
 
 export const buildCanvasImageProxyUrl = (rawUrl: string) => `${PROXY_PATH}?url=${encodeURIComponent(rawUrl.trim())}`;
 
+export const unwrapCanvasImageProxyUrl = (rawUrl: string) => {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return trimmed;
+
+  const readFromUrl = (url: URL) => {
+    if (url.pathname !== PROXY_PATH) return null;
+    const target = url.searchParams.get("url");
+    return target ? target.trim() : null;
+  };
+
+  if (trimmed.startsWith(PROXY_PATH)) {
+    try {
+      return readFromUrl(new URL(trimmed, "https://proxy.local")) ?? trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  try {
+    const url = new URL(trimmed);
+    return readFromUrl(url) ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+};
+
 export const isCanvasImageProxyUrl = (rawUrl: string) => {
   if (!rawUrl) return false;
   if (rawUrl.startsWith(PROXY_PATH)) return true;
