@@ -48,6 +48,7 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
     const { w, h, html } = shape.props;
     const isEditing = useIsEditing(shape.id);
     const srcDoc = createHtmlCardSrcDoc(html);
+    const isInteractive = isEditing;
 
     return (
       <HTMLContainer id={shape.id} className="rounded-2xl overflow-hidden">
@@ -59,12 +60,13 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
           height={toDomPrecision(h)}
           draggable={false}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading="eager"
           tabIndex={isEditing ? 0 : -1}
           className="w-full h-full bg-white"
           style={{
             border: 0,
-            pointerEvents: isEditing ? "auto" : "none",
+            pointerEvents: isInteractive ? "auto" : "none",
+            zIndex: isInteractive ? "" : "-1",
           }}
         />
       </HTMLContainer>
