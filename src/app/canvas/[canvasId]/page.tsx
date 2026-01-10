@@ -11,10 +11,7 @@ import {
   Loader2,
   Plus,
   RotateCcw,
-  Scan,
   X,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import debounce from "lodash.debounce";
 import { loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
@@ -862,49 +859,6 @@ export default function CanvasPage({ params }: PageProps) {
           </div>
 
 	          <div className="flex items-center gap-2">
-	            <div className="hidden sm:flex items-center gap-1 rounded-lg border bg-card px-2 py-1 shadow-soft">
-	              <Button
-	                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => editor?.zoomOut()}
-                disabled={!editor}
-                aria-label="Zoom out"
-              >
-                <ZoomOut className="size-4" />
-              </Button>
-	              <Button
-	                type="button"
-	                size="icon"
-	                variant="ghost"
-	                className="h-8 w-8"
-	                onClick={() => editor?.zoomIn()}
-	                disabled={!editor}
-	                aria-label="Zoom in"
-	              >
-	                <ZoomIn className="size-4" />
-	              </Button>
-	              <Button
-	                type="button"
-	                size="icon"
-	                variant="ghost"
-	                className="h-8 w-8"
-	                onClick={() => {
-	                  if (!editor) return;
-	                  try {
-	                    editor.zoomToFit({ animation: { duration: 220 } } as any);
-	                  } catch {
-	                    // ignore
-	                  }
-	                }}
-	                disabled={!editor}
-	                aria-label="Zoom to content"
-	              >
-	                <Scan className="size-4" />
-	              </Button>
-	            </div>
-
             <Button
               type="button"
               variant="secondary"
