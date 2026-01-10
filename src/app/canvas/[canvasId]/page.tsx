@@ -157,6 +157,7 @@ export default function CanvasPage({ params }: PageProps) {
   const hasMountedEditorRef = useRef(false);
   const hasEverHydratedRef = useRef(false);
   const autoRecoverAttemptsRef = useRef(0);
+  const disconnectStreakRef = useRef<{ startedAt: number; count: number }>({ startedAt: 0, count: 0 });
   const mountCountRef = useRef(0);
   const unmountCountRef = useRef(0);
   const lastMountAtRef = useRef<number | null>(null);
@@ -303,6 +304,17 @@ export default function CanvasPage({ params }: PageProps) {
     }
   }, []);
 
+  const removeSearchParamsFromUrl = useCallback((keys: string[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      const url = new URL(window.location.href);
+      keys.forEach((key) => url.searchParams.delete(key));
+      window.history.replaceState({}, "", url.toString());
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -327,7 +339,6 @@ export default function CanvasPage({ params }: PageProps) {
     lastMountAtRef.current = Date.now();
     remountingRef.current = false;
     hasMountedEditorRef.current = true;
-    autoRecoverAttemptsRef.current = 0;
 
     if (typeof window !== "undefined" && reloadTimeoutRef.current) {
       window.clearTimeout(reloadTimeoutRef.current);
@@ -418,16 +429,29 @@ export default function CanvasPage({ params }: PageProps) {
   }, []);
 
   const handleBoardDisconnect = useCallback(() => {
-    if (autoRecoverAttemptsRef.current < 1) {
-      autoRecoverAttemptsRef.current += 1;
+    const now = Date.now();
+    const windowMs = 20_000;
+
+    if (!disconnectStreakRef.current.startedAt || now - disconnectStreakRef.current.startedAt > windowMs) {
+      disconnectStreakRef.current = { startedAt: now, count: 0 };
+    }
+
+    disconnectStreakRef.current.count += 1;
+    autoRecoverAttemptsRef.current = disconnectStreakRef.current.count;
+
+    if (disconnectStreakRef.current.count <= 2) {
       toast.message("Reconnecting board…", { duration: 1800 });
       reloadBoard();
       return;
     }
-    setBoardCrashMessage("Board disconnected. Reload to continue.");
+
+    setBoardCrashMessage(
+      "Board disconnected repeatedly. Reload to continue.\n\nTip: open this board with ?debug=1 and share the debug panel + browser console logs.",
+    );
   }, [reloadBoard]);
 
   useBoardDisconnectGuard({
+    enabled: ready && authenticated,
     editor,
     boardHydrated: hasEverHydratedRef.current,
     boardCrashMessage,
@@ -436,6 +460,22 @@ export default function CanvasPage({ params }: PageProps) {
     delayMs: 1200,
     onDisconnect: handleBoardDisconnect,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+
+    const handle = window.setTimeout(() => {
+      disconnectStreakRef.current = { startedAt: 0, count: 0 };
+      autoRecoverAttemptsRef.current = 0;
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [boardCrashMessage, boardHydrated, editor]);
 
   useEffect(() => {
     const serverName = canvasQuery.data?.name;
@@ -821,12 +861,12 @@ export default function CanvasPage({ params }: PageProps) {
           param: { id: params.canvasId },
           json: { coverImageUrl: imageUrl },
         });
-        router.replace(`/canvas/${params.canvasId}`);
+        removeSearchParamsFromUrl(["image"]);
       }
     };
 
     void insert();
-  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, router, searchParams, updateCanvas]);
+  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, removeSearchParamsFromUrl, searchParams, updateCanvas]);
 
   type SendMessageOptions = {
     point?: { x: number; y: number };
@@ -1100,8 +1140,8 @@ export default function CanvasPage({ params }: PageProps) {
     hasAutoPromptRef.current = true;
     setChatInput(prompt);
     void sendMessage(prompt);
-    router.replace(`/canvas/${params.canvasId}`);
-  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, router, searchParams, sendMessage]);
+    removeSearchParamsFromUrl(["prompt"]);
+  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, removeSearchParamsFromUrl, searchParams, sendMessage]);
 
 	  if (!ready || !authenticated) {
 	    return (

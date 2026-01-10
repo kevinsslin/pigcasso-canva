@@ -152,4 +152,43 @@ describe("useBoardDisconnectGuard", () => {
       root.unmount();
     });
   });
+
+  test("does not fire when disabled", async () => {
+    const { useBoardDisconnectGuard } = await import("../hooks/use-board-disconnect-guard");
+    const { createRoot } = await import("react-dom/client");
+
+    const container = document.getElementById("root");
+    expect(container).not.toBeNull();
+
+    const root = createRoot(container as HTMLElement);
+
+    let disconnected = 0;
+
+    const Harness = () => {
+      useBoardDisconnectGuard({
+        enabled: false,
+        editor: null,
+        boardHydrated: true,
+        boardCrashMessage: null,
+        hasMountedEditor: true,
+        remounting: false,
+        delayMs: 0,
+        onDisconnect: () => {
+          disconnected += 1;
+        },
+      });
+      return null;
+    };
+
+    await act(async () => {
+      root.render(<Harness />);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(disconnected).toBe(0);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
