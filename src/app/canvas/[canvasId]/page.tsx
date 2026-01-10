@@ -6,9 +6,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUp,
+  AtSign,
   Bot,
+  ChevronDown,
   ChevronLeft,
   Code2,
+  Download,
   Image as ImageIcon,
   Loader2,
   LocateFixed,
@@ -23,11 +26,19 @@ import {
   X,
 } from "lucide-react";
 import debounce from "lodash.debounce";
+import JSZip from "jszip";
 import { loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
 import { toast } from "sonner";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { UserButton } from "@/features/auth/components/user-button";
+import {
+  NANO_BANANA_PROFILE_OPTIONS,
+  NANO_BANANA_PROFILE_STORAGE_KEY,
+  parseNanoBananaProfileOption,
+  toNanoBananaApiProfile,
+  type NanoBananaProfileOption,
+} from "@/features/ai/lib/nano-banana-profile";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useEditImage } from "@/features/ai/api/use-edit-image";
 import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
@@ -35,6 +46,7 @@ import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
 import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { createHtmlCardSrcDoc } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut } from "@/features/canvases/tldraw/delete-shortcut";
@@ -50,13 +62,25 @@ import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail"
 import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
 import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
 import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { getCanvasChatSuggestions } from "@/features/canvases/lib/chat-suggestions";
 import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
+import { applyAtMentionReplacement, getActiveAtMention } from "@/features/canvases/lib/at-mentions";
 import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 
 const Tldraw = dynamic(() => import("@tldraw/tldraw").then((mod) => mod.Tldraw), {
@@ -75,20 +99,13 @@ type PageProps = {
 const DOCK_BUTTONS: Array<{ tool: CanvasTool; label: string; icon: ComponentType<{ className?: string }> }> =
   CANVAS_TOOL_BUTTONS;
 
-const QUICK_PROMPTS: Array<{ label: string; prompt: string }> = [
-  { label: "Design", prompt: "Design a bold social post for a Web3 hackathon. Include a short headline and CTA." },
-  { label: "Branding", prompt: "Create a minimal brand kit for Pigcasso (colors, typography, and tone)." },
-  { label: "Illustration", prompt: "Generate a cute pig mascot illustration in a modern flat style, transparent background." },
-  { label: "Video", prompt: "Storyboard a 10s promo video concept with 4 frames and short captions." },
-  { label: "Website", prompt: "Landing page for Pigcasso: hero, features, social proof, CTA. Return HTML." },
-];
-
 type CanvasChatAttachment = {
   id: string;
   type: "image" | "html";
   label: string;
   shapeId: string;
   url?: string;
+  html?: string;
 };
 
 type CanvasChatMessage = {
@@ -147,15 +164,22 @@ export default function CanvasPage({ params }: PageProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [canvasName, setCanvasName] = useState("Untitled");
   const [busy, setBusy] = useState(false);
+  const [aiProfile, setAiProfile] = useState<NanoBananaProfileOption>(() => {
+    const fromQuery = parseNanoBananaProfileOption(searchParams?.get("profile"));
+    return fromQuery ?? "auto";
+  });
   const [boardHydrated, setBoardHydrated] = useState(false);
   const [boardCrashMessage, setBoardCrashMessage] = useState<string | null>(null);
   const [tldrawMountKey, setTldrawMountKey] = useState(0);
 
   const chatInputRef = useRef(chatInput);
+  const desktopChatInputElRef = useRef<HTMLInputElement | null>(null);
+  const mobileChatInputElRef = useRef<HTMLInputElement | null>(null);
   const busyRef = useRef(busy);
   const outputCounterRef = useRef(1);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
+  const mentionFocusElRef = useRef<HTMLInputElement | null>(null);
 
   const remountingRef = useRef(false);
   const reloadTimeoutRef = useRef<number | null>(null);
@@ -258,6 +282,11 @@ export default function CanvasPage({ params }: PageProps) {
     shapeId: string | null;
   } | null>(null);
   const [tabInstruction, setTabInstruction] = useState("");
+  const [pinnedShapeIds, setPinnedShapeIds] = useState<string[]>([]);
+  const [mentionPicker, setMentionPicker] = useState<{ screenX: number; screenY: number } | null>(null);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [selectedDownloadIds, setSelectedDownloadIds] = useState<string[]>([]);
+  const [downloadBusy, setDownloadBusy] = useState(false);
 
   useEffect(() => {
     if (activeTool === "select") return;
@@ -323,6 +352,29 @@ export default function CanvasPage({ params }: PageProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const fromQuery = parseNanoBananaProfileOption(searchParams?.get("profile"));
+    const stored = parseNanoBananaProfileOption(window.localStorage.getItem(NANO_BANANA_PROFILE_STORAGE_KEY));
+
+    const next = fromQuery ?? stored ?? null;
+    if (!next) return;
+
+    if (next !== aiProfile) {
+      setAiProfile(next);
+    }
+    try {
+      window.localStorage.setItem(NANO_BANANA_PROFILE_STORAGE_KEY, next);
+    } catch {
+      // ignore
+    }
+
+    if (fromQuery) {
+      removeSearchParamsFromUrl(["profile"]);
+    }
+  }, [aiProfile, removeSearchParamsFromUrl, searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const raf = window.requestAnimationFrame(() => {
       desktopChatEndRef.current?.scrollIntoView({ block: "end" });
       mobileChatEndRef.current?.scrollIntoView({ block: "end" });
@@ -333,10 +385,10 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [busy, mobileChatOpen, messages.length]);
 
-	  useEffect(() => {
-	    if (!boardHydrated) return;
-	    hasEverHydratedRef.current = true;
-	  }, [boardHydrated]);
+    useEffect(() => {
+      if (!boardHydrated) return;
+      hasEverHydratedRef.current = true;
+    }, [boardHydrated]);
 
     useEffect(() => {
       if (typeof window === "undefined") return;
@@ -849,29 +901,29 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
 
-	  useEffect(() => {
-	    if (!editor) return;
-	    if (!boardHydrated) return;
-	    if (boardCrashMessage) return;
+    useEffect(() => {
+      if (!editor) return;
+      if (!boardHydrated) return;
+      if (boardCrashMessage) return;
 
-	    const imageUrl = searchParams?.get("image");
-	    if (!imageUrl) return;
+      const imageUrl = searchParams?.get("image");
+      if (!imageUrl) return;
 
-		    const insert = async () => {
-		      try {
-		        const boardImageUrl = toCanvasImageUrl(imageUrl);
-		        const point = getAiInsertPoint(editor as any);
-		        await withHistorySquash(editor as any, "insert:image", async () => {
+        const insert = async () => {
+          try {
+            const boardImageUrl = toCanvasImageUrl(imageUrl);
+            const point = getAiInsertPoint(editor as any);
+            await withHistorySquash(editor as any, "insert:image", async () => {
               await insertImageToCanvas(editor as any, {
                 src: boardImageUrl,
                 point,
                 name: `IMG_${Date.now()}.png`,
               });
-		        });
-		        try {
-		          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-	        } catch {
-	          // ignore
+            });
+            try {
+              editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+          } catch {
+            // ignore
         }
       } catch {
         // ignore
@@ -887,16 +939,17 @@ export default function CanvasPage({ params }: PageProps) {
     void insert();
   }, [boardCrashMessage, boardHydrated, editor, params.canvasId, removeSearchParamsFromUrl, searchParams, updateCanvas]);
 
-  type SendMessageOptions = {
-    point?: { x: number; y: number };
-    shapeId?: string | null;
-  };
+    type SendMessageOptions = {
+      point?: { x: number; y: number };
+      shapeId?: string | null;
+      shapeIds?: string[];
+    };
 
-	  const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
-	    const trimmed = (value ?? chatInputRef.current).trim();
-	    if (!trimmed) return;
+      const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
+        const trimmed = (value ?? chatInputRef.current).trim();
+        if (!trimmed) return;
 
-    if (!editor || !boardHydrated || boardCrashMessage) {
+      if (!editor || !boardHydrated || boardCrashMessage) {
       if (boardCrashMessage) {
         toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
         return;
@@ -904,10 +957,10 @@ export default function CanvasPage({ params }: PageProps) {
       toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
       return;
     }
-	    if (busyRef.current) {
-	      toast.message("Pigcasso is still working…", { duration: 2000 });
-	      return;
-	    }
+      if (busyRef.current) {
+        toast.message("Pigcasso is still working…", { duration: 2000 });
+        return;
+      }
 
     busyRef.current = true;
     chatInputRef.current = "";
@@ -915,25 +968,42 @@ export default function CanvasPage({ params }: PageProps) {
     setChatInput("");
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
 
-    const selectedShapeId =
-      options?.shapeId !== undefined
-        ? options.shapeId
-        : (() => {
-            try {
-              return editor.getSelectedShapeIds?.()?.[0] ?? null;
-            } catch {
-              return null;
-            }
-          })();
+      const contextShapeIds = options?.shapeIds ?? [];
 
-    const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
+      const selectedShapeId =
+        options?.shapeId !== undefined
+          ? options.shapeId
+          : (() => {
+              try {
+                return editor.getSelectedShapeIds?.()?.[0] ?? null;
+              } catch {
+                return null;
+              }
+            })();
 
-    try {
-      const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
+      const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
 
-      if (looksLikeHtmlPrompt) {
-        const res = await generateHtml.mutateAsync({ prompt: trimmed });
-        const html = res.data.html;
+      try {
+        const apiProfile = toNanoBananaApiProfile(aiProfile);
+        const promptContext = (() => {
+          if (!contextShapeIds.length) return null;
+          const lines = contextShapeIds
+            .map((shapeId) => {
+              const ctx = getSelectionContext(editor as any, shapeId);
+              if (!ctx) return null;
+              return `- ${ctx.label} (${ctx.type})`;
+            })
+            .filter(Boolean);
+          if (!lines.length) return null;
+          return `Canvas context:\n${lines.join("\n")}`;
+        })();
+
+        const promptWithContext = promptContext ? `${trimmed}\n\n${promptContext}` : trimmed;
+        const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
+
+        if (looksLikeHtmlPrompt) {
+          const res = await generateHtml.mutateAsync({ prompt: promptWithContext });
+          const html = res.data.html;
         let htmlCardMode: "created" | "updated" | "failed" = "failed";
         let htmlCardShapeId: string | null = null;
         try {
@@ -971,6 +1041,7 @@ export default function CanvasPage({ params }: PageProps) {
               type: "html",
               label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
               shapeId: htmlCardShapeId,
+              html,
             }
           : null;
         if (htmlAttachment) {
@@ -994,34 +1065,35 @@ export default function CanvasPage({ params }: PageProps) {
         return;
       }
 
-      if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
-        const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
-        const src = asset?.props?.src as string | undefined;
+        if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
+          const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
+          const src = asset?.props?.src as string | undefined;
 
-        if (!src) {
-          throw new Error("Selected image is missing a source URL.");
-        }
+          if (!src) {
+            throw new Error("Selected image is missing a source URL.");
+          }
 
-	      const res = await editImage.mutateAsync({
-	        image: src,
-	        instruction: trimmed,
-	      });
+          const res = await editImage.mutateAsync({
+            image: src,
+            instruction: trimmed,
+            profile: apiProfile,
+          });
 
-	      const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
-	      const canvasUrl = toCanvasImageUrl(uploadedUrl);
+        const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+        const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-	      try {
-	        await withHistorySquash(editor as any, "ai:edit-image", async () => {
-	          editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: canvasUrl } }]);
-	          if (selectedShapeId) {
-	            editor.updateShape?.({
-	              id: selectedShapeId as any,
-	              type: "image",
-	              props: { url: canvasUrl },
-	            });
-	          }
-	        });
-	      } catch {
+        try {
+          await withHistorySquash(editor as any, "ai:edit-image", async () => {
+            editor.updateAssets?.([{ ...asset, props: { ...asset.props, src: canvasUrl } }]);
+            if (selectedShapeId) {
+              editor.updateShape?.({
+                id: selectedShapeId as any,
+                type: "image",
+                props: { url: canvasUrl },
+              });
+            }
+          });
+        } catch {
           // ignore
         }
 
@@ -1030,18 +1102,18 @@ export default function CanvasPage({ params }: PageProps) {
           json: { coverImageUrl: uploadedUrl },
         });
 
-	      const editAttachment: CanvasChatAttachment | null = selectedShapeId
-	        ? {
-	            id: crypto.randomUUID(),
-	            type: "image",
-	            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-	            shapeId: selectedShapeId,
-	            url: canvasUrl,
-	          }
-	        : null;
-	      if (editAttachment) {
-	        outputCounterRef.current += 1;
-	      }
+        const editAttachment: CanvasChatAttachment | null = selectedShapeId
+          ? {
+              id: crypto.randomUUID(),
+              type: "image",
+              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+              shapeId: selectedShapeId,
+              url: canvasUrl,
+            }
+          : null;
+        if (editAttachment) {
+          outputCounterRef.current += 1;
+        }
 
         setMessages((prev) => [
           ...prev,
@@ -1055,15 +1127,16 @@ export default function CanvasPage({ params }: PageProps) {
         return;
       }
 
-	      const generated = await generateImage.mutateAsync({
-	        prompt: trimmed,
-	        canvas: { width: 1024, height: 1024 },
-	      });
+          const generated = await generateImage.mutateAsync({
+            prompt: promptWithContext,
+            profile: apiProfile,
+            canvas: { width: 1024, height: 1024 },
+          });
 
-	      const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
-		      const canvasUrl = toCanvasImageUrl(uploadedUrl);
+        const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
+          const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-		      const point = options?.point ?? getAiInsertPoint(editor as any);
+          const point = options?.point ?? getAiInsertPoint(editor as any);
         const inserted = await withHistorySquash(editor as any, "ai:insert-image", async () => {
           return await insertImageToCanvas(editor as any, {
             src: canvasUrl,
@@ -1072,11 +1145,11 @@ export default function CanvasPage({ params }: PageProps) {
             size: { w: 1024, h: 1024 },
           });
         });
-	      try {
-	        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-	      } catch {
-	        // ignore
-	      }
+        try {
+          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+        } catch {
+          // ignore
+        }
 
       updateCanvas.mutate({
         param: { id: params.canvasId },
@@ -1085,15 +1158,15 @@ export default function CanvasPage({ params }: PageProps) {
 
         const insertedShapeId = inserted.shapeId;
 
-		      const insertAttachment: CanvasChatAttachment | null = insertedShapeId
-		        ? {
-		            id: crypto.randomUUID(),
-		            type: "image",
-	            label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-	            shapeId: insertedShapeId,
-	            url: canvasUrl,
-	          }
-	        : null;
+          const insertAttachment: CanvasChatAttachment | null = insertedShapeId
+            ? {
+                id: crypto.randomUUID(),
+                type: "image",
+              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+              shapeId: insertedShapeId,
+              url: canvasUrl,
+            }
+          : null;
       if (insertAttachment) {
         outputCounterRef.current += 1;
       }
@@ -1115,7 +1188,83 @@ export default function CanvasPage({ params }: PageProps) {
       busyRef.current = false;
       setBusy(false);
     }
-		  }, [boardCrashMessage, boardHydrated, editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+        }, [aiProfile, boardCrashMessage, boardHydrated, editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+
+  const pinnedContexts = useMemo(() => {
+    if (!editor) return [];
+    const list = pinnedShapeIds
+      .map((shapeId) => getSelectionContext(editor as any, shapeId))
+      .filter(Boolean) as SelectionContext[];
+    return list;
+  }, [editor, pinnedShapeIds]);
+
+  const activeAtMention = useMemo(() => getActiveAtMention(chatInput), [chatInput]);
+
+  const openMentionPicker = useCallback((el?: HTMLInputElement | null) => {
+    if (typeof window === "undefined") return;
+    const anchor = el ?? mentionFocusElRef.current ?? null;
+    if (!anchor) return;
+
+    mentionFocusElRef.current = anchor;
+    const rect = anchor.getBoundingClientRect();
+
+    const popoverWidth = 320;
+    const popoverHeight = 260;
+    const padding = 12;
+    const offset = 8;
+
+    const rawX = rect.left;
+    const rawY = rect.top - popoverHeight - offset;
+
+    const maxX = window.innerWidth - popoverWidth - padding;
+    const maxY = window.innerHeight - popoverHeight - padding;
+
+    const screenX = Math.max(padding, Math.min(rawX, maxX));
+    const screenY = Math.max(padding, Math.min(rawY, maxY));
+
+    setMentionPicker({ screenX, screenY });
+  }, []);
+
+  const closeMentionPicker = useCallback(() => {
+    setMentionPicker(null);
+    try {
+      mentionFocusElRef.current?.focus();
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const mentionableShapes = useMemo(() => {
+    if (!editor) return [];
+    if (!mentionPicker) return [];
+    const shapes = editor.getCurrentPageShapes?.() ?? [];
+    return shapes
+      .map((shape: any) => {
+        const shapeId = String(shape?.id ?? "");
+        if (!shapeId) return null;
+        const ctx = getSelectionContext(editor as any, shapeId);
+        const label = ctx?.label ?? String(shape?.type ?? "shape");
+        return { shapeId, label, type: ctx?.type ?? String(shape?.type ?? "shape") };
+      })
+      .filter(Boolean) as Array<{ shapeId: string; label: string; type: string }>;
+  }, [editor, mentionPicker]);
+
+  const filteredMentionShapes = useMemo(() => {
+    if (!mentionPicker) return [];
+    const query = activeAtMention?.query?.trim().toLowerCase() ?? "";
+    if (!query) return mentionableShapes.slice(0, 12);
+    return mentionableShapes
+      .filter((item) => item.label.toLowerCase().includes(query) || item.type.toLowerCase().includes(query))
+      .slice(0, 12);
+  }, [activeAtMention?.query, mentionPicker, mentionableShapes]);
+
+  useEffect(() => {
+    if (!mentionPicker) return;
+    if (!activeAtMention) {
+      closeMentionPicker();
+      return;
+    }
+  }, [activeAtMention, closeMentionPicker, mentionPicker]);
 
   const focusShapeId = useCallback(
     (shapeId: string) => {
@@ -1142,6 +1291,134 @@ export default function CanvasPage({ params }: PageProps) {
     return list.slice(-8);
   }, [messages]);
 
+  const allAttachments = useMemo(() => {
+    const list: CanvasChatAttachment[] = [];
+    messages.forEach((msg) => {
+      (msg.attachments ?? []).forEach((att) => list.push(att));
+    });
+    return list;
+  }, [messages]);
+
+  const chatSuggestions = useMemo(
+    () => getCanvasChatSuggestions({ messages: messages as any, selectionContext }),
+    [messages, selectionContext],
+  );
+
+  useEffect(() => {
+    if (!downloadsOpen) return;
+    setSelectedDownloadIds(allAttachments.map((att) => att.id));
+  }, [allAttachments, downloadsOpen]);
+
+  const toggleDownloadSelection = useCallback((id: string) => {
+    setSelectedDownloadIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }, []);
+
+  const selectAllDownloads = useCallback(() => {
+    setSelectedDownloadIds(allAttachments.map((att) => att.id));
+  }, [allAttachments]);
+
+  const clearDownloadSelection = useCallback(() => {
+    setSelectedDownloadIds([]);
+  }, []);
+
+  const downloadBlob = useCallback((blob: Blob, filename: string) => {
+    if (typeof window === "undefined") return;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 1000);
+  }, []);
+
+  const getExtensionForMime = (mime: string | null) => {
+    const type = (mime ?? "").toLowerCase();
+    if (type.includes("png")) return "png";
+    if (type.includes("jpeg") || type.includes("jpg")) return "jpg";
+    if (type.includes("webp")) return "webp";
+    if (type.includes("gif")) return "gif";
+    if (type.includes("svg")) return "svg";
+    if (type.includes("html")) return "html";
+    return null;
+  };
+
+  const exportAttachment = useCallback(
+    async (attachment: CanvasChatAttachment) => {
+      if (attachment.type === "html") {
+        const html =
+          attachment.html ??
+          (() => {
+            if (!editor) return "";
+            const shape = editor.getShape?.(attachment.shapeId as any) as any;
+            return typeof shape?.props?.html === "string" ? shape.props.html : "";
+          })();
+
+        if (!html) throw new Error("Missing HTML content.");
+
+        const srcDoc = createHtmlCardSrcDoc(html);
+        const blob = new Blob([srcDoc], { type: "text/html;charset=utf-8" });
+        return { blob, filename: `${attachment.label}.html` };
+      }
+
+      const url = attachment.url;
+      if (!url) throw new Error("Missing image URL.");
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to download image.");
+      const blob = await response.blob();
+      const ext = getExtensionForMime(blob.type) ?? "png";
+      return { blob, filename: `${attachment.label}.${ext}` };
+    },
+    [editor],
+  );
+
+  const downloadSelectedOutputs = useCallback(async () => {
+    if (!selectedDownloadIds.length) return;
+    const selected = allAttachments.filter((att) => selectedDownloadIds.includes(att.id));
+    if (!selected.length) return;
+
+    if (downloadBusy) return;
+    setDownloadBusy(true);
+
+    try {
+      if (selected.length === 1) {
+        const { blob, filename } = await exportAttachment(selected[0]);
+        downloadBlob(blob, filename);
+        setDownloadsOpen(false);
+        return;
+      }
+
+      const zip = new JSZip();
+      const seenNames = new Map<string, number>();
+      const uniqueName = (filename: string) => {
+        const count = seenNames.get(filename) ?? 0;
+        seenNames.set(filename, count + 1);
+        if (count === 0) return filename;
+        const dot = filename.lastIndexOf(".");
+        if (dot > 0) return `${filename.slice(0, dot)}_${count + 1}${filename.slice(dot)}`;
+        return `${filename}_${count + 1}`;
+      };
+
+      for (const att of selected) {
+        const { blob, filename } = await exportAttachment(att);
+        zip.file(uniqueName(filename), blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(zipBlob, `pigcasso_outputs_${Date.now()}.zip`);
+      setDownloadsOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to download outputs.";
+      toast.error(message, { duration: 3500 });
+    } finally {
+      setDownloadBusy(false);
+    }
+  }, [allAttachments, downloadBlob, downloadBusy, exportAttachment, selectedDownloadIds]);
+
   useEffect(() => {
     if (!editor) return;
     if (!boardHydrated) return;
@@ -1157,31 +1434,31 @@ export default function CanvasPage({ params }: PageProps) {
     removeSearchParamsFromUrl(["prompt"]);
   }, [boardCrashMessage, boardHydrated, editor, params.canvasId, removeSearchParamsFromUrl, searchParams, sendMessage]);
 
-	  if (!ready || !authenticated) {
-	    return (
-	      <div className="h-[100dvh] w-[100dvw] grid place-items-center bg-background">
-	        <Loader2 className="size-6 text-muted-foreground animate-spin" />
-	      </div>
-	    );
-	  }
+    if (!ready || !authenticated) {
+      return (
+        <div className="h-[100dvh] w-[100dvw] grid place-items-center bg-background">
+          <Loader2 className="size-6 text-muted-foreground animate-spin" />
+        </div>
+      );
+    }
 
   return (
     <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background">
-		      <main className="h-full w-full overflow-hidden flex">
-		        <CanvasToolRail
-		          activeTool={activeTool}
-		          disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-		          onToolChange={(tool) => {
-	            setActiveTool(tool);
-	            if (!editor) return;
+          <main className="h-full w-full overflow-hidden flex">
+            <CanvasToolRail
+              activeTool={activeTool}
+              disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+              onToolChange={(tool) => {
+              setActiveTool(tool);
+              if (!editor) return;
             try {
               editor.setCurrentTool(toTldrawToolId(tool) as any);
             } catch {
               // ignore
             }
-	          }}
-	        />
-		        <div className="flex-1 relative overflow-hidden">
+            }}
+          />
+            <div className="flex-1 relative overflow-hidden">
               <div className="absolute left-4 top-4 z-40 flex items-center gap-3">
                 <Link
                   href="/app"
@@ -1268,45 +1545,45 @@ export default function CanvasPage({ params }: PageProps) {
                 <UserButton />
               </div>
 
-				          <div
-				            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
-				            onPointerDownCapture={(event) => {
-	                    try {
-	                      const active = document.activeElement as HTMLElement | null;
+                  <div
+                    className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+                    onPointerDownCapture={(event) => {
+                      try {
+                        const active = document.activeElement as HTMLElement | null;
                       if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
                         active.blur();
                       }
                     } catch {
                       // ignore
                     }
-			              if (activeTool !== "select") return;
-			              if (event.button !== 0) return;
-			              const trigger = getPinEditTrigger({ altKey: event.altKey, armed: clickEditArmed });
-			              if (!trigger) return;
-			              tabPointerDownRef.current = { x: event.clientX, y: event.clientY, trigger };
-		            }}
-		            onPointerUpCapture={(event) => {
-		              if (activeTool !== "select") return;
-		              if (!editor) return;
-		              if (event.button !== 0) return;
+                    if (activeTool !== "select") return;
+                    if (event.button !== 0) return;
+                    const trigger = getPinEditTrigger({ altKey: event.altKey, armed: clickEditArmed });
+                    if (!trigger) return;
+                    tabPointerDownRef.current = { x: event.clientX, y: event.clientY, trigger };
+                }}
+                onPointerUpCapture={(event) => {
+                  if (activeTool !== "select") return;
+                  if (!editor) return;
+                  if (event.button !== 0) return;
 
-		              const down = tabPointerDownRef.current;
-		              tabPointerDownRef.current = null;
-		              if (!down) return;
+                  const down = tabPointerDownRef.current;
+                  tabPointerDownRef.current = null;
+                  if (!down) return;
 
-		              const dx = event.clientX - down.x;
-		              const dy = event.clientY - down.y;
-		              if (!isClickWithinThreshold({ dx, dy })) return;
+                  const dx = event.clientX - down.x;
+                  const dy = event.clientY - down.y;
+                  if (!isClickWithinThreshold({ dx, dy })) return;
 
-		              try {
-		                if (down.trigger === "pin") {
-		                  setClickEditArmed(false);
-		                }
+                  try {
+                    if (down.trigger === "pin") {
+                      setClickEditArmed(false);
+                    }
 
-		                const anchor = getTabAnchor(editor as any, { x: event.clientX, y: event.clientY });
-		                if (anchor.shapeId) {
-		                  try {
-		                    editor.setSelectedShapes?.([anchor.shapeId] as any);
+                    const anchor = getTabAnchor(editor as any, { x: event.clientX, y: event.clientY });
+                    if (anchor.shapeId) {
+                      try {
+                        editor.setSelectedShapes?.([anchor.shapeId] as any);
                   } catch {
                     // ignore
                   }
@@ -1378,96 +1655,96 @@ export default function CanvasPage({ params }: PageProps) {
                     </div>
                   </div>
                 ) : null}
-	            {!boardHydrated && !tldrawLicenseMissing ? (
-	              <div className="absolute inset-0 z-50 grid place-items-center bg-background/60 backdrop-blur-sm">
-	                <div className="rounded-2xl border bg-card/90 px-4 py-3 shadow-soft flex items-center gap-2 text-sm text-muted-foreground">
-	                  <Loader2 className="size-4 animate-spin" />
-	                  Loading board…
-	                </div>
-	              </div>
-	            ) : null}
-	            {boardCrashMessage ? (
-	              <div className="absolute inset-0 z-[60] grid place-items-center bg-background/80 backdrop-blur-sm p-6">
-	                <div className="w-full max-w-md rounded-2xl border bg-card shadow-soft p-5 space-y-3">
-	                  <div className="text-sm font-semibold">
-	                    {boardCrashMessage.startsWith("Board disconnected")
-	                      ? "Board disconnected"
-	                      : "Board crashed"}
-	                  </div>
-	                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">
-	                    {boardCrashMessage}
-	                  </div>
-	                  <div className="flex items-center gap-2 pt-1">
-		                    <Button
-		                      type="button"
-		                      className="rounded-full"
-		                      onClick={reloadBoard}
-	                    >
-	                      <RotateCcw className="mr-2 size-4" />
-	                      Reload board
-	                    </Button>
-	                    <Button
-	                      type="button"
-	                      variant="secondary"
-	                      className="rounded-full"
-	                      onClick={async () => {
-	                        const copied = await copyTextToClipboard(boardCrashMessage);
-	                        toast.message(copied ? "Copied error details." : "Couldn’t copy error details.", {
-	                          duration: 2000,
-	                        });
-	                      }}
-	                    >
-	                      Copy error
-	                    </Button>
-	                    <Button
-	                      type="button"
-	                      variant="secondary"
-	                      className="rounded-full"
-	                      onClick={() => {
-	                        setBoardCrashMessage(null);
-	                      }}
-	                    >
-	                      Close
-	                    </Button>
-	                  </div>
-	                </div>
-	              </div>
-	            ) : null}
-	          </div>
+              {!boardHydrated && !tldrawLicenseMissing ? (
+                <div className="absolute inset-0 z-50 grid place-items-center bg-background/60 backdrop-blur-sm">
+                  <div className="rounded-2xl border bg-card/90 px-4 py-3 shadow-soft flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading board…
+                  </div>
+                </div>
+              ) : null}
+              {boardCrashMessage ? (
+                <div className="absolute inset-0 z-[60] grid place-items-center bg-background/80 backdrop-blur-sm p-6">
+                  <div className="w-full max-w-md rounded-2xl border bg-card shadow-soft p-5 space-y-3">
+                    <div className="text-sm font-semibold">
+                      {boardCrashMessage.startsWith("Board disconnected")
+                        ? "Board disconnected"
+                        : "Board crashed"}
+                    </div>
+                    <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                      {boardCrashMessage}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          type="button"
+                          className="rounded-full"
+                          onClick={reloadBoard}
+                      >
+                        <RotateCcw className="mr-2 size-4" />
+                        Reload board
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full"
+                        onClick={async () => {
+                          const copied = await copyTextToClipboard(boardCrashMessage);
+                          toast.message(copied ? "Copied error details." : "Couldn’t copy error details.", {
+                            duration: 2000,
+                          });
+                        }}
+                      >
+                        Copy error
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full"
+                        onClick={() => {
+                          setBoardCrashMessage(null);
+                        }}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
-	          {tabAnchor ? (
-	            <div
-	              className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
-	              style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
-	            >
-	              <div className="flex items-center justify-between gap-2">
-	                <div className="text-xs font-semibold text-muted-foreground">
-	                  Pin edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
-	                </div>
-	                <Button
-	                  type="button"
-	                  variant="ghost"
-	                  size="icon"
-	                  className="h-7 w-7"
-	                  onClick={() => setTabAnchor(null)}
-	                  aria-label="Close pin edit"
-	                >
-	                  <X className="size-4" />
-	                </Button>
-	              </div>
+            {tabAnchor ? (
+              <div
+                className="fixed z-[60] w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft p-3"
+                style={{ left: tabAnchor.screenX, top: tabAnchor.screenY }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Pin edit {tabAnchor.shapeId ? "• selected object" : "• canvas region"}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setTabAnchor(null)}
+                    aria-label="Close pin edit"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
 
-	              <div className="mt-2 flex items-center gap-2">
-	                <Input
-	                  value={tabInstruction}
-	                  onChange={(e) => setTabInstruction(e.target.value)}
-	                  placeholder="Describe the change…"
-	                  className="h-10"
-	                  autoFocus
-	                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                  onKeyDown={(event) => {
-	                    if (event.key === "Escape") {
-	                      event.preventDefault();
-	                      setTabAnchor(null);
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={tabInstruction}
+                    onChange={(e) => setTabInstruction(e.target.value)}
+                    placeholder="Describe the change…"
+                    className="h-10"
+                    autoFocus
+                    disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        setTabAnchor(null);
                       return;
                     }
                     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -1475,46 +1752,105 @@ export default function CanvasPage({ params }: PageProps) {
                       if (!tabInstruction.trim()) return;
                       const anchor = tabAnchor;
                       setTabAnchor(null);
-                      void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
+                      void sendMessage(tabInstruction, {
+                        point: anchor.pagePoint,
+                        shapeId: anchor.shapeId,
+                        shapeIds: pinnedShapeIds,
+                      });
                     }
                   }}
                 />
-		                <Button
-		                  type="button"
-		                  size="icon"
-		                  className="rounded-full"
-	                  disabled={
-	                    !tabInstruction.trim() ||
-	                    busy ||
-	                    !editor ||
-	                    !boardHydrated ||
-	                    Boolean(boardCrashMessage)
-	                  }
-		                  aria-label="Send pin edit"
-		                  onClick={() => {
-		                    if (!tabInstruction.trim()) return;
-		                    const anchor = tabAnchor;
-	                    setTabAnchor(null);
-	                    void sendMessage(tabInstruction, { point: anchor.pagePoint, shapeId: anchor.shapeId });
-	                  }}
+                    <Button
+                      type="button"
+                      size="icon"
+                      className="rounded-full"
+                    disabled={
+                      !tabInstruction.trim() ||
+                      busy ||
+                      !editor ||
+                      !boardHydrated ||
+                      Boolean(boardCrashMessage)
+                    }
+                      aria-label="Send pin edit"
+                      onClick={() => {
+                        if (!tabInstruction.trim()) return;
+                        const anchor = tabAnchor;
+                      setTabAnchor(null);
+                    void sendMessage(tabInstruction, {
+                      point: anchor.pagePoint,
+                      shapeId: anchor.shapeId,
+                      shapeIds: pinnedShapeIds,
+                    });
+                    }}
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                 </Button>
-		              </div>
-	
-		              <div className="mt-2 text-xs text-muted-foreground">
-		                Tip: Alt+click (or tap the pin button) to anchor an edit. Dragging won’t open it.
-		              </div>
-		            </div>
-		          ) : null}
+                  </div>
+  
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Tip: Alt+click (or tap the pin button) to anchor an edit. Dragging won’t open it.
+                  </div>
+                </div>
+              ) : null}
 
-          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
-              {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
+              {mentionPicker ? (
+                <div
+                  className="fixed z-[70] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/95 backdrop-blur shadow-soft p-2"
+                  style={{ left: mentionPicker.screenX, top: mentionPicker.screenY }}
+                >
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <div className="text-xs font-semibold text-muted-foreground">
+                      Insert canvas reference{activeAtMention?.query ? ` • “${activeAtMention.query}”` : ""}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={closeMentionPicker}
+                      aria-label="Close mention picker"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 max-h-[210px] overflow-auto space-y-1 px-1">
+                    {filteredMentionShapes.length ? (
+                      filteredMentionShapes.map((item) => (
+                        <button
+                          key={item.shapeId}
+                          type="button"
+                          className="w-full rounded-xl border bg-background/60 px-3 py-2 text-left hover:bg-background transition"
+                          onClick={() => {
+                            setPinnedShapeIds((current) =>
+                              current.includes(item.shapeId) ? current : [...current, item.shapeId],
+                            );
+                            const next = applyAtMentionReplacement(chatInputRef.current, item.label);
+                            chatInputRef.current = next;
+                            setChatInput(next);
+                            closeMentionPicker();
+                          }}
+                        >
+                          <div className="text-sm font-medium truncate">@{item.label}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.type}</div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border bg-background/60 p-3 text-sm text-muted-foreground">
+                        No matching items on this board.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+            <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+              <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
+                {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
                 <Button
-	                  key={tool}
-	                  type="button"
-	                  variant="ghost"
+                    key={tool}
+                    type="button"
+                    variant="ghost"
                   onClick={() => {
                     setActiveTool(tool);
                     if (!editor) return;
@@ -1523,26 +1859,26 @@ export default function CanvasPage({ params }: PageProps) {
                     } catch {
                       // ignore
                     }
-	                  }}
-	                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                  className={cn(
-	                    "min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl",
-	                    activeTool === tool ? "bg-muted text-primary" : undefined,
-	                  )}
-	                  aria-label={label}
-	                >
+                    }}
+                    disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    className={cn(
+                      "min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl",
+                      activeTool === tool ? "bg-muted text-primary" : undefined,
+                    )}
+                    aria-label={label}
+                  >
                   <Icon className="size-5" />
                   <span className="text-[10px] leading-none">{label}</span>
                 </Button>
               ))}
 
-	              <Button
-	                type="button"
-	                variant="ghost"
-	                onClick={() => setMobileChatOpen(true)}
-	                className="min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl"
-	                aria-label="Chat"
-	              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setMobileChatOpen(true)}
+                  className="min-w-[72px] h-[60px] px-3 flex flex-col items-center justify-center gap-1 rounded-xl"
+                  aria-label="Chat"
+                >
                 <Bot className="size-5" />
                 <span className="text-[10px] leading-none">Chat</span>
               </Button>
@@ -1562,29 +1898,42 @@ export default function CanvasPage({ params }: PageProps) {
           {desktopChatOpen ? (
             <aside className="hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[400px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
               <div className="p-5 border-b border-border/60 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Bot className="size-4 text-muted-foreground" />
-                    Pigcasso Agent
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Bot className="size-4 text-muted-foreground" />
+                      Pigcasso Agent
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => setDownloadsOpen(true)}
+                        disabled={!allAttachments.length}
+                        aria-label="Download outputs"
+                      >
+                        <Download className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => setDesktopChatOpen(false)}
+                        aria-label="Close chat"
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-full"
-                    onClick={() => setDesktopChatOpen(false)}
-                    aria-label="Close chat"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
 
                 <div className="text-xs text-muted-foreground">
                   Create with prompts, then select something on the canvas to refine it.
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {QUICK_PROMPTS.map((item) => (
+                  {chatSuggestions.map((item) => (
                     <Button
                       key={item.label}
                       type="button"
@@ -1604,21 +1953,52 @@ export default function CanvasPage({ params }: PageProps) {
 
                 <div className="pt-1 space-y-2">
                   <div className="text-xs font-semibold text-muted-foreground">Context</div>
-                  <div className="flex flex-wrap gap-2">
-                    {clickEditArmed ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-                        onClick={() => setClickEditArmed(false)}
-                      >
-                        <LocateFixed className="size-3 text-muted-foreground" />
-                        <span>Pin armed</span>
-                      </button>
-                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      {clickEditArmed ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                          onClick={() => setClickEditArmed(false)}
+                        >
+                          <LocateFixed className="size-3 text-muted-foreground" />
+                          <span>Pin armed</span>
+                        </button>
+                      ) : null}
 
-                    {selectionContext ? (
-                      <button
-                        type="button"
+                      {pinnedContexts.map((ctx) => (
+                        <div
+                          key={ctx.shapeId}
+                          className="inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
+                        >
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 hover:bg-background transition"
+                            onClick={() => focusShapeId(ctx.shapeId)}
+                            aria-label={`Focus ${ctx.label}`}
+                          >
+                            <AtSign className="size-3 text-muted-foreground" />
+                            {ctx.previewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={ctx.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                            ) : null}
+                            <span className="max-w-[140px] truncate">{ctx.label}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-background transition"
+                            onClick={() =>
+                              setPinnedShapeIds((current) => current.filter((shapeId) => shapeId !== ctx.shapeId))
+                            }
+                            aria-label="Remove context"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {selectionContext ? (
+                        <button
+                          type="button"
                         className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
                         onClick={() => focusShapeId(selectionContext.shapeId)}
                       >
@@ -1730,43 +2110,119 @@ export default function CanvasPage({ params }: PageProps) {
                       }
                       setClickEditArmed((current) => !current);
                     }}
-                  >
-                    <LocateFixed className="size-4" />
-                  </Button>
-
-                  <div className="flex-1 rounded-full border bg-background px-4 py-2">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => {
-                        chatInputRef.current = e.target.value;
-                        setChatInput(e.target.value);
-                      }}
-                      placeholder={
-                        boardCrashMessage
-                          ? "Board unavailable…"
-                          : !editor || !boardHydrated
-                            ? "Loading canvas…"
-                            : "Type a prompt… (try: “landing page for…”)"
-                      }
-                      className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                      disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                          event.preventDefault();
-                          void sendMessage();
-                        }
-                      }}
-                    />
-                  </div>
+                    >
+                      <LocateFixed className="size-4" />
+                    </Button>
 
                   <Button
                     type="button"
+                    variant="ghost"
                     size="icon"
                     className="rounded-full"
-                    onClick={() => void sendMessage()}
-                    disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-                    aria-label="Send"
+                    disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    aria-label="Mention a canvas item"
+                    onClick={() => {
+                      const input = desktopChatInputElRef.current;
+                      if (!input) return;
+                      mentionFocusElRef.current = input;
+                      input.focus();
+                      const hasActive = Boolean(getActiveAtMention(chatInputRef.current));
+                      if (!hasActive) {
+                        const prefix = chatInputRef.current.trim().length ? `${chatInputRef.current.trim()} ` : "";
+                        const next = `${prefix}@`;
+                        chatInputRef.current = next;
+                        setChatInput(next);
+                      }
+                      openMentionPicker(input);
+                    }}
                   >
+                    <AtSign className="size-4" />
+                  </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="secondary" className="rounded-full px-3">
+                          <span className="text-xs font-semibold">
+                            {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
+                        </span>
+                        <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64">
+                      <DropdownMenuLabel>Model</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup
+                        value={aiProfile}
+                        onValueChange={(value) => {
+                          const next = parseNanoBananaProfileOption(value);
+                          if (!next) return;
+                          setAiProfile(next);
+                          try {
+                            window.localStorage.setItem(NANO_BANANA_PROFILE_STORAGE_KEY, next);
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                      >
+                        {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
+                          <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{opt.label}</span>
+                              <span className="text-xs text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                    <div className="flex-1 rounded-full border bg-background px-4 py-2">
+                      <Input
+                        ref={desktopChatInputElRef}
+                        value={chatInput}
+                        onChange={(e) => {
+                          chatInputRef.current = e.target.value;
+                          setChatInput(e.target.value);
+                        }}
+                        onFocus={(event) => {
+                          mentionFocusElRef.current = event.currentTarget;
+                        }}
+                        placeholder={
+                          boardCrashMessage
+                            ? "Board unavailable…"
+                            : !editor || !boardHydrated
+                            ? "Loading canvas…"
+                            : "Type a prompt… (try: “landing page for…”)"
+                      }
+                        className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                        disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                        onKeyDown={(event) => {
+                        if (event.key === "Escape" && mentionPicker) {
+                          event.preventDefault();
+                          closeMentionPicker();
+                          return;
+                        }
+                        if (event.key === "@" && !event.nativeEvent.isComposing) {
+                          window.setTimeout(() => {
+                            openMentionPicker(event.currentTarget);
+                          }, 0);
+                        }
+                          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                            event.preventDefault();
+                            void sendMessage(undefined, { shapeIds: pinnedShapeIds });
+                          }
+                        }}
+                      />
+                    </div>
+
+                  <Button
+                      type="button"
+                      size="icon"
+                      className="rounded-full"
+                      onClick={() => void sendMessage(undefined, { shapeIds: pinnedShapeIds })}
+                      disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                      aria-label="Send"
+                    >
                     {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                   </Button>
                 </div>
@@ -1776,218 +2232,467 @@ export default function CanvasPage({ params }: PageProps) {
         </div>
       </main>
 
-	      <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
-	        <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
-	          <div className="flex h-full flex-col bg-background">
-	            <div className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur flex items-center justify-between px-4">
-	              <div className="flex items-center gap-2 text-sm font-semibold">
-	                <Bot className="size-4 text-muted-foreground" />
-	                Pigcasso Agent
-	              </div>
-	              <div className="flex items-center gap-2">
-	                <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
-	                  Close
-	                </Button>
-	              </div>
-		            </div>
-	
-		            <div className="flex-1 overflow-auto p-4 space-y-4">
-		              {selectionContext || recentAttachments.length || clickEditArmed ? (
-		                <div className="space-y-2">
-		                  <div className="text-xs font-semibold text-muted-foreground">Context</div>
-		                  <div className="flex flex-wrap gap-2">
-		                    {clickEditArmed ? (
-		                      <button
-		                        type="button"
-		                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-		                        onClick={() => setClickEditArmed(false)}
-		                      >
-		                        <LocateFixed className="size-3 text-muted-foreground" />
-		                        <span>Pin armed</span>
-		                      </button>
-		                    ) : null}
-
-		                    {selectionContext ? (
-		                      <button
-		                        type="button"
-		                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-		                        onClick={() => {
-		                          focusShapeId(selectionContext.shapeId);
-		                          setMobileChatOpen(false);
-		                        }}
-		                      >
-		                        {selectionContext.previewUrl ? (
-		                          // eslint-disable-next-line @next/next/no-img-element
-		                          <img
-		                            src={selectionContext.previewUrl}
-		                            alt=""
-		                            className="h-4 w-4 rounded-sm object-cover"
-		                          />
-		                        ) : null}
-		                        <span className="max-w-[160px] truncate">{selectionContext.label}</span>
-		                      </button>
-		                    ) : null}
-
-		                    {recentAttachments.map((att) => (
-		                      <CanvasChatAttachmentChip
-		                        key={att.id}
-		                        attachment={att}
-		                        onClick={() => {
-		                          focusShapeId(att.shapeId);
-		                          setMobileChatOpen(false);
-		                        }}
-		                      />
-		                    ))}
-		                  </div>
-		                </div>
-		              ) : null}
-
-		              <div className="space-y-4">
-		                {messages.length ? (
-		                  <div className="space-y-3">
-		                    {messages.map((msg) => (
-	                      <div
-	                        key={msg.id}
-	                        className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
-	                      >
-	                        <div
-	                          className={cn(
-	                            "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
-	                            msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-	                          )}
-	                        >
-		                          <div className="text-xs font-semibold text-muted-foreground">
-		                            {msg.role === "assistant" ? "Pigcasso" : "You"}
-		                          </div>
-		                          <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-		                          {msg.attachments?.length ? (
-		                            <div className="mt-2 flex flex-wrap gap-2">
-		                              {msg.attachments.map((att) => (
-		                                <CanvasChatAttachmentChip
-		                                  key={att.id}
-		                                  attachment={att}
-		                                  onClick={() => {
-		                                    focusShapeId(att.shapeId);
-		                                    setMobileChatOpen(false);
-		                                  }}
-		                                />
-		                              ))}
-		                            </div>
-		                          ) : null}
-		                        </div>
-		                      </div>
-		                    ))}
-
-	                    {busy ? (
-	                      <div className="flex justify-start">
-	                        <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
-	                          <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
-	                          <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-	                            <Loader2 className="size-4 animate-spin" />
-	                            Thinking…
-	                          </div>
-	                        </div>
-	                      </div>
-	                    ) : null}
-
-	                    <div ref={mobileChatEndRef} />
-	                  </div>
-	                ) : (
-	                  <div className="space-y-3">
-	                    <div className="text-sm text-muted-foreground">
-	                      Describe what you want to create, then refine by selecting parts on the canvas.
-	                    </div>
-		                    <div className="flex flex-wrap gap-2">
-		                      {QUICK_PROMPTS.map((item) => (
-		                        <Button
-		                          key={item.label}
-		                          type="button"
-		                          size="sm"
-		                          variant="secondary"
-		                          className="rounded-full"
-		                          disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-		                          onClick={() => {
-		                            chatInputRef.current = item.prompt;
-		                            setChatInput(item.prompt);
-		                          }}
-	                        >
-	                          {item.label}
-	                        </Button>
-	                      ))}
-	                    </div>
-	                    <div ref={mobileChatEndRef} />
-	                  </div>
-	                )}
-	              </div>
-	            </div>
-	
-	            <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
-	              <div className="flex items-center gap-2">
-	                <Button
-	                  type="button"
-	                  variant={clickEditArmed ? "secondary" : "ghost"}
-	                  size="icon"
-	                  className="rounded-full"
-	                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                  aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
-	                  aria-pressed={clickEditArmed}
-	                  onClick={() => {
-	                    if (activeTool !== "select") {
-	                      setActiveTool("select");
-	                      try {
-	                        editor?.setCurrentTool(toTldrawToolId("select") as any);
-	                      } catch {
-	                        // ignore
-	                      }
-	                    }
-	
-	                    if (!clickEditArmed) {
-	                      toast.message("Tap on the canvas to pin an edit.", { duration: 2200 });
-	                      setMobileChatOpen(false);
-	                    }
-	                    setClickEditArmed((current) => !current);
-	                  }}
-	                >
-	                  <LocateFixed className="size-4" />
-	                </Button>
-	
-		                <div className="flex-1 rounded-full border bg-background px-4 py-2">
-		                  <Input
-		                    value={chatInput}
-	                    onChange={(e) => {
-	                      chatInputRef.current = e.target.value;
-	                      setChatInput(e.target.value);
-	                    }}
-	                    placeholder={
-	                      boardCrashMessage
-	                        ? "Board unavailable…"
-	                        : !editor || !boardHydrated
-	                          ? "Loading canvas…"
-	                          : "Type a prompt…"
-	                    }
-	                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-	                    disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                    onKeyDown={(event) => {
-	                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-	                        event.preventDefault();
-	                        void sendMessage();
-                      }
-                    }}
-                  />
+        <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
+          <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
+            <div className="flex h-full flex-col bg-background">
+              <div className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur flex items-center justify-between px-4">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Bot className="size-4 text-muted-foreground" />
+                  Pigcasso Agent
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => setDownloadsOpen(true)}
+                    disabled={!allAttachments.length}
+                    aria-label="Download outputs"
+                  >
+                    <Download className="size-4" />
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setMobileChatOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+  
+                <div className="flex-1 overflow-auto p-4 space-y-4">
+                  {selectionContext || recentAttachments.length || clickEditArmed ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground">Context</div>
+                        <div className="flex flex-wrap gap-2">
+                          {clickEditArmed ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                              onClick={() => setClickEditArmed(false)}
+                            >
+                              <LocateFixed className="size-3 text-muted-foreground" />
+                              <span>Pin armed</span>
+                            </button>
+                          ) : null}
 
-	                <Button
-	                  type="button"
-	                  size="icon"
-	                  className="rounded-full"
-	                  onClick={() => void sendMessage()}
-	                  disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                  aria-label="Send"
-	                >
+                          {pinnedContexts.map((ctx) => (
+                            <div
+                              key={ctx.shapeId}
+                              className="inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
+                            >
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 px-2 py-1 hover:bg-background transition"
+                                onClick={() => {
+                                  focusShapeId(ctx.shapeId);
+                                  setMobileChatOpen(false);
+                                }}
+                                aria-label={`Focus ${ctx.label}`}
+                              >
+                                <AtSign className="size-3 text-muted-foreground" />
+                                {ctx.previewUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={ctx.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                                ) : null}
+                                <span className="max-w-[140px] truncate">{ctx.label}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-background transition"
+                                onClick={() =>
+                                  setPinnedShapeIds((current) => current.filter((shapeId) => shapeId !== ctx.shapeId))
+                                }
+                                aria-label="Remove context"
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </div>
+                          ))}
+
+                          {selectionContext ? (
+                            <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                            onClick={() => {
+                              focusShapeId(selectionContext.shapeId);
+                              setMobileChatOpen(false);
+                            }}
+                          >
+                            {selectionContext.previewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={selectionContext.previewUrl}
+                                alt=""
+                                className="h-4 w-4 rounded-sm object-cover"
+                              />
+                            ) : null}
+                            <span className="max-w-[160px] truncate">{selectionContext.label}</span>
+                          </button>
+                        ) : null}
+
+                        {recentAttachments.map((att) => (
+                          <CanvasChatAttachmentChip
+                            key={att.id}
+                            attachment={att}
+                            onClick={() => {
+                              focusShapeId(att.shapeId);
+                              setMobileChatOpen(false);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-4">
+                    {messages.length ? (
+                      <div className="space-y-3">
+                        {messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+                        >
+                          <div
+                            className={cn(
+                              "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+                              msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+                            )}
+                          >
+                              <div className="text-xs font-semibold text-muted-foreground">
+                                {msg.role === "assistant" ? "Pigcasso" : "You"}
+                              </div>
+                              <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+                              {msg.attachments?.length ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {msg.attachments.map((att) => (
+                                    <CanvasChatAttachmentChip
+                                      key={att.id}
+                                      attachment={att}
+                                      onClick={() => {
+                                        focusShapeId(att.shapeId);
+                                        setMobileChatOpen(false);
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+
+                      {busy ? (
+                        <div className="flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+                            <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+                            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="size-4 animate-spin" />
+                              Thinking…
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div ref={mobileChatEndRef} />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        Describe what you want to create, then refine by selecting parts on the canvas.
+                      </div>
+                          <div className="flex flex-wrap gap-2">
+                            {chatSuggestions.map((item) => (
+                              <Button
+                                key={item.label}
+                                type="button"
+                                size="sm"
+                              variant="secondary"
+                              className="rounded-full"
+                              disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                              onClick={() => {
+                                chatInputRef.current = item.prompt;
+                                setChatInput(item.prompt);
+                              }}
+                          >
+                            {item.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div ref={mobileChatEndRef} />
+                    </div>
+                  )}
+                </div>
+              </div>
+  
+              <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
+                <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={clickEditArmed ? "secondary" : "ghost"}
+                      size="icon"
+                      className="rounded-full"
+                    disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+                    aria-pressed={clickEditArmed}
+                    onClick={() => {
+                      if (activeTool !== "select") {
+                        setActiveTool("select");
+                        try {
+                          editor?.setCurrentTool(toTldrawToolId("select") as any);
+                        } catch {
+                          // ignore
+                        }
+                      }
+  
+                      if (!clickEditArmed) {
+                        toast.message("Tap on the canvas to pin an edit.", { duration: 2200 });
+                        setMobileChatOpen(false);
+                      }
+                      setClickEditArmed((current) => !current);
+                    }}
+                      >
+                        <LocateFixed className="size-4" />
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full"
+                        disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                        aria-label="Mention a canvas item"
+                        onClick={() => {
+                          const input = mobileChatInputElRef.current;
+                          if (!input) return;
+                          mentionFocusElRef.current = input;
+                          input.focus();
+                          const hasActive = Boolean(getActiveAtMention(chatInputRef.current));
+                          if (!hasActive) {
+                            const prefix = chatInputRef.current.trim().length ? `${chatInputRef.current.trim()} ` : "";
+                            const next = `${prefix}@`;
+                            chatInputRef.current = next;
+                            setChatInput(next);
+                          }
+                          openMentionPicker(input);
+                        }}
+                      >
+                        <AtSign className="size-4" />
+                      </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="secondary" className="rounded-full px-3">
+                          <span className="text-xs font-semibold">
+                            {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
+                          </span>
+                          <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-64">
+                        <DropdownMenuLabel>Model</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={aiProfile}
+                          onValueChange={(value) => {
+                            const next = parseNanoBananaProfileOption(value);
+                            if (!next) return;
+                            setAiProfile(next);
+                            try {
+                              window.localStorage.setItem(NANO_BANANA_PROFILE_STORAGE_KEY, next);
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                        >
+                          {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
+                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">{opt.label}</span>
+                                <span className="text-xs text-muted-foreground">{opt.description}</span>
+                              </div>
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+    
+                        <div className="flex-1 rounded-full border bg-background px-4 py-2">
+                          <Input
+                            ref={mobileChatInputElRef}
+                            value={chatInput}
+                        onChange={(e) => {
+                          chatInputRef.current = e.target.value;
+                          setChatInput(e.target.value);
+                        }}
+                        onFocus={(event) => {
+                          mentionFocusElRef.current = event.currentTarget;
+                        }}
+                        placeholder={
+                          boardCrashMessage
+                            ? "Board unavailable…"
+                            : !editor || !boardHydrated
+                            ? "Loading canvas…"
+                            : "Type a prompt…"
+                      }
+                        className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                        disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape" && mentionPicker) {
+                            event.preventDefault();
+                            closeMentionPicker();
+                            return;
+                          }
+                          if (event.key === "@" && !event.nativeEvent.isComposing) {
+                            window.setTimeout(() => {
+                              openMentionPicker(event.currentTarget);
+                            }, 0);
+                          }
+                          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                            event.preventDefault();
+                            void sendMessage(undefined, { shapeIds: pinnedShapeIds });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <Button
+                      type="button"
+                      size="icon"
+                      className="rounded-full"
+                      onClick={() => void sendMessage(undefined, { shapeIds: pinnedShapeIds })}
+                      disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                      aria-label="Send"
+                    >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
                 </Button>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={downloadsOpen} onOpenChange={setDownloadsOpen}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden">
+          <div className="border-b border-border/60 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Download outputs</div>
+                <div className="mt-1 text-sm text-muted-foreground">Export images and HTML from this session.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={selectAllDownloads}
+                  disabled={!allAttachments.length || downloadBusy}
+                >
+                  Select all
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={clearDownloadSelection}
+                  disabled={!selectedDownloadIds.length || downloadBusy}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {allAttachments.length ? (
+              <ScrollArea className="h-[360px] pr-3">
+                <div className="space-y-2">
+                  {allAttachments.map((att) => {
+                    const checked = selectedDownloadIds.includes(att.id);
+
+                    return (
+                      <div
+                        key={att.id}
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border bg-background/60 p-3 transition hover:bg-background",
+                          checked ? "border-primary/40" : "border-border/60",
+                        )}
+                        onClick={() => toggleDownloadSelection(att.id)}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          toggleDownloadSelection(att.id);
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDownloadSelection(att.id)}
+                          onClick={(event) => event.stopPropagation()}
+                          className="h-4 w-4"
+                          disabled={downloadBusy}
+                          aria-label={`Select ${att.label}`}
+                        />
+
+                        {att.type === "image" ? (
+                          att.url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={att.url} alt="" className="h-9 w-9 rounded-md object-cover" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center">
+                              <ImageIcon className="size-4 text-muted-foreground" />
+                            </div>
+                          )
+                        ) : (
+                          <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center">
+                            <Code2 className="size-4 text-muted-foreground" />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{att.label}</div>
+                          <div className="text-xs text-muted-foreground">{att.type === "image" ? "Image" : "HTML"}</div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-full"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            focusShapeId(att.shapeId);
+                            setDownloadsOpen(false);
+                          }}
+                          disabled={!editor}
+                          aria-label="Locate on canvas"
+                        >
+                          <LocateFixed className="size-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="text-sm text-muted-foreground">No outputs yet.</div>
+            )}
+          </div>
+
+          <div className="border-t border-border/60 p-5 flex items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              {selectedDownloadIds.length} selected • {allAttachments.length} total
+            </div>
+            <Button
+              type="button"
+              className="rounded-full"
+              onClick={() => void downloadSelectedOutputs()}
+              disabled={!selectedDownloadIds.length || downloadBusy}
+            >
+              {downloadBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Download className="mr-2 size-4" />}
+              Download
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

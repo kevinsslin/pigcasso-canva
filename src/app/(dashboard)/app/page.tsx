@@ -3,14 +3,30 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { ArrowUp, ChevronDown, Loader2, Sparkles } from "lucide-react";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
+import {
+  NANO_BANANA_PROFILE_OPTIONS,
+  NANO_BANANA_PROFILE_STORAGE_KEY,
+  parseNanoBananaProfileOption,
+  toNanoBananaApiProfile,
+  type NanoBananaProfileOption,
+} from "@/features/ai/lib/nano-banana-profile";
 import { useGetCanvases } from "@/features/canvases/api/use-get-canvases";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetTemplates } from "@/features/projects/api/use-get-templates";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 
 import { TemplateCard } from "../template-card";
@@ -42,6 +58,7 @@ export default function AppHomePage() {
 
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiProfile, setAiProfile] = useState<NanoBananaProfileOption>("auto");
 
   const recentCanvases = canvases.data?.pages.flatMap((page) => page.data) ?? [];
   useEffect(() => {
@@ -49,6 +66,13 @@ export default function AppHomePage() {
     if (searchParams.get("new") !== "1") return;
     promptRef.current?.focus();
   }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = parseNanoBananaProfileOption(window.localStorage.getItem(NANO_BANANA_PROFILE_STORAGE_KEY));
+    if (!stored) return;
+    setAiProfile(stored);
+  }, []);
 
   if (!ready || !authenticated) {
     return (
@@ -65,7 +89,13 @@ export default function AppHomePage() {
     setBusy(true);
     try {
       const canvasId = crypto.randomUUID();
-      router.push(`/canvas/${canvasId}?prompt=${encodeURIComponent(trimmed)}`);
+      const params = new URLSearchParams();
+      params.set("prompt", trimmed);
+      const apiProfile = toNanoBananaApiProfile(aiProfile);
+      if (apiProfile) {
+        params.set("profile", apiProfile);
+      }
+      router.push(`/canvas/${canvasId}?${params.toString()}`);
     } finally {
       setBusy(false);
     }
@@ -114,7 +144,44 @@ export default function AppHomePage() {
             />
 
             <div className="flex items-center justify-between gap-3 px-4 pb-4">
-              <div className="flex-1" />
+              <div className="flex-1 flex items-center justify-start">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="secondary" className="rounded-full">
+                      <span className="text-xs font-semibold">
+                        {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
+                      </span>
+                      <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuLabel>Model</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={aiProfile}
+                      onValueChange={(value) => {
+                        const next = parseNanoBananaProfileOption(value);
+                        if (!next) return;
+                        setAiProfile(next);
+                        try {
+                          window.localStorage.setItem(NANO_BANANA_PROFILE_STORAGE_KEY, next);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                    >
+                      {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
+                        <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
               <Button
                 type="button"
