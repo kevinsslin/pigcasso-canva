@@ -1508,10 +1508,10 @@ export default function CanvasPage({ params }: PageProps) {
 		            </div>
 		          ) : null}
 
-	          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-	            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
-	              {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
-	                <Button
+          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-card/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+            <div className="h-[72px] px-2 flex items-center gap-1 overflow-x-auto">
+              {DOCK_BUTTONS.map(({ tool, label, icon: Icon }) => (
+                <Button
 	                  key={tool}
 	                  type="button"
 	                  variant="ghost"
@@ -1559,209 +1559,221 @@ export default function CanvasPage({ params }: PageProps) {
               </Button>
             </div>
           </nav>
-        </div>
+          {desktopChatOpen ? (
+            <aside className="hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[400px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
+              <div className="p-5 border-b border-border/60 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Bot className="size-4 text-muted-foreground" />
+                    Pigcasso Agent
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => setDesktopChatOpen(false)}
+                    aria-label="Close chat"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
 
-		        {desktopChatOpen ? (
-		        <aside className="hidden md:flex h-full w-[400px] border-l border-border/60 bg-card/90 backdrop-blur flex-col">
-		          <div className="p-5 border-b border-border/60 space-y-3">
-		            <div className="flex items-center gap-2 text-sm font-semibold">
-		              <Bot className="size-4 text-muted-foreground" />
-		              Pigcasso Agent
-		            </div>
-		            <div className="text-xs text-muted-foreground">
-		              Create with prompts, then select something on the canvas to refine it.
-		            </div>
+                <div className="text-xs text-muted-foreground">
+                  Create with prompts, then select something on the canvas to refine it.
+                </div>
 
-			            <div className="flex flex-wrap gap-2">
-			              {QUICK_PROMPTS.map((item) => (
-			                <Button
-			                  key={item.label}
-		                  type="button"
-		                  size="sm"
-			                  variant="secondary"
-			                  className="rounded-full"
-			                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-			                  onClick={() => {
-			                    chatInputRef.current = item.prompt;
-			                    setChatInput(item.prompt);
-			                  }}
-		                >
-		                  {item.label}
-	                </Button>
-	              ))}
-		            </div>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_PROMPTS.map((item) => (
+                    <Button
+                      key={item.label}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="rounded-full"
+                      disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                      onClick={() => {
+                        chatInputRef.current = item.prompt;
+                        setChatInput(item.prompt);
+                      }}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
+                </div>
 
-		            <div className="pt-1 space-y-2">
-		              <div className="text-xs font-semibold text-muted-foreground">Context</div>
-		              <div className="flex flex-wrap gap-2">
-		                {clickEditArmed ? (
-		                  <button
-		                    type="button"
-		                    className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-		                    onClick={() => setClickEditArmed(false)}
-		                  >
-		                    <LocateFixed className="size-3 text-muted-foreground" />
-		                    <span>Pin armed</span>
-		                  </button>
-		                ) : null}
+                <div className="pt-1 space-y-2">
+                  <div className="text-xs font-semibold text-muted-foreground">Context</div>
+                  <div className="flex flex-wrap gap-2">
+                    {clickEditArmed ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                        onClick={() => setClickEditArmed(false)}
+                      >
+                        <LocateFixed className="size-3 text-muted-foreground" />
+                        <span>Pin armed</span>
+                      </button>
+                    ) : null}
 
-		                {selectionContext ? (
-		                  <button
-		                    type="button"
-		                    className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-		                    onClick={() => focusShapeId(selectionContext.shapeId)}
-		                  >
-		                    {selectionContext.previewUrl ? (
-		                      // eslint-disable-next-line @next/next/no-img-element
-		                      <img
-		                        src={selectionContext.previewUrl}
-		                        alt=""
-		                        className="h-4 w-4 rounded-sm object-cover"
-		                      />
-		                    ) : null}
-		                    <span className="max-w-[160px] truncate">{selectionContext.label}</span>
-		                  </button>
-		                ) : null}
+                    {selectionContext ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                        onClick={() => focusShapeId(selectionContext.shapeId)}
+                      >
+                        {selectionContext.previewUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectionContext.previewUrl}
+                            alt=""
+                            className="h-4 w-4 rounded-sm object-cover"
+                          />
+                        ) : null}
+                        <span className="max-w-[160px] truncate">{selectionContext.label}</span>
+                      </button>
+                    ) : null}
 
-		                {recentAttachments.map((att) => (
-		                  <CanvasChatAttachmentChip
-		                    key={att.id}
-		                    attachment={att}
-		                    onClick={() => focusShapeId(att.shapeId)}
-		                  />
-		                ))}
+                    {recentAttachments.map((att) => (
+                      <CanvasChatAttachmentChip
+                        key={att.id}
+                        attachment={att}
+                        onClick={() => focusShapeId(att.shapeId)}
+                      />
+                    ))}
 
-		                {!selectionContext && !recentAttachments.length && !clickEditArmed ? (
-		                  <div className="text-xs text-muted-foreground">Select something to add context.</div>
-		                ) : null}
-		              </div>
-		            </div>
-		          </div>
-
-		          <div className="flex-1 overflow-auto p-5 space-y-4">
-		            <div className="space-y-4">
-		              {messages.length ? (
-	                <div className="space-y-3">
-	                  {messages.map((msg) => (
-	                    <div
-	                      key={msg.id}
-	                      className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
-	                    >
-	                      <div
-	                        className={cn(
-	                          "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
-	                          msg.role === "assistant" ? "bg-muted/40" : "bg-background",
-	                        )}
-		                      >
-		                        <div className="text-xs font-semibold text-muted-foreground">
-		                          {msg.role === "assistant" ? "Pigcasso" : "You"}
-		                        </div>
-		                        <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
-		                        {msg.attachments?.length ? (
-		                          <div className="mt-2 flex flex-wrap gap-2">
-		                            {msg.attachments.map((att) => (
-		                              <CanvasChatAttachmentChip
-		                                key={att.id}
-		                                attachment={att}
-		                                onClick={() => focusShapeId(att.shapeId)}
-		                              />
-		                            ))}
-		                          </div>
-		                        ) : null}
-		                      </div>
-		                    </div>
-		                  ))}
-
-	                  {busy ? (
-	                    <div className="flex justify-start">
-	                      <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
-	                        <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
-	                        <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-	                          <Loader2 className="size-4 animate-spin" />
-	                          Thinking…
-	                        </div>
-	                      </div>
-	                    </div>
-	                  ) : null}
-
-	                  <div ref={desktopChatEndRef} />
-	                </div>
-	              ) : (
-	                <div className="space-y-3">
-	                  <div className="text-sm text-muted-foreground">
-	                    Describe what you want to create, then refine by selecting parts on the canvas.
-	                  </div>
-	                  <div className="text-xs text-muted-foreground">Try a quick prompt above, or type your own.</div>
-	                  <div ref={desktopChatEndRef} />
-	                </div>
-	              )}
-	            </div>
-		          </div>
-	
-	          <div className="p-4 border-t border-border/60">
-	            <div className="flex items-center gap-2">
-	              <Button
-	                type="button"
-	                variant={clickEditArmed ? "secondary" : "ghost"}
-	                size="icon"
-	                className="rounded-full"
-	                disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
-	                aria-pressed={clickEditArmed}
-	                onClick={() => {
-	                  if (activeTool !== "select") {
-	                    setActiveTool("select");
-	                    try {
-	                      editor?.setCurrentTool(toTldrawToolId("select") as any);
-	                    } catch {
-	                      // ignore
-	                    }
-	                  }
-	                  setClickEditArmed((current) => !current);
-	                }}
-	              >
-	                <LocateFixed className="size-4" />
-	              </Button>
-
-		              <div className="flex-1 rounded-full border bg-background px-4 py-2">
-		                <Input
-		                  value={chatInput}
-		                  onChange={(e) => {
-	                    chatInputRef.current = e.target.value;
-	                    setChatInput(e.target.value);
-	                  }}
-	                  placeholder={
-	                    boardCrashMessage
-	                      ? "Board unavailable…"
-	                      : !editor || !boardHydrated
-	                        ? "Loading canvas…"
-	                        : "Type a prompt… (try: “landing page for…”)"
-	                  }
-	                  className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-	                  disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                  onKeyDown={(event) => {
-	                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-	                      event.preventDefault();
-	                      void sendMessage();
-                    }
-                  }}
-                />
+                    {!selectionContext && !recentAttachments.length && !clickEditArmed ? (
+                      <div className="text-xs text-muted-foreground">Select something to add context.</div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
-	              <Button
-	                type="button"
-	                size="icon"
-	                className="rounded-full"
-	                onClick={() => void sendMessage()}
-	                disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-	                aria-label="Send"
-	              >
-	                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-	                </Button>
-	              </div>
-	            </div>
-	        </aside>
-	        ) : null}
+              <div className="flex-1 overflow-auto p-5 space-y-4">
+                <div className="space-y-4">
+                  {messages.length ? (
+                    <div className="space-y-3">
+                      {messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+                        >
+                          <div
+                            className={cn(
+                              "max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm",
+                              msg.role === "assistant" ? "bg-muted/40" : "bg-background",
+                            )}
+                          >
+                            <div className="text-xs font-semibold text-muted-foreground">
+                              {msg.role === "assistant" ? "Pigcasso" : "You"}
+                            </div>
+                            <div className="mt-1 whitespace-pre-wrap">{msg.content}</div>
+                            {msg.attachments?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {msg.attachments.map((att) => (
+                                  <CanvasChatAttachmentChip
+                                    key={att.id}
+                                    attachment={att}
+                                    onClick={() => focusShapeId(att.shapeId)}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+
+                      {busy ? (
+                        <div className="flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl border p-3 text-sm shadow-sm bg-muted/40">
+                            <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
+                            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="size-4 animate-spin" />
+                              Thinking…
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div ref={desktopChatEndRef} />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        Describe what you want to create, then refine by selecting parts on the canvas.
+                      </div>
+                      <div className="text-xs text-muted-foreground">Try a quick prompt above, or type your own.</div>
+                      <div ref={desktopChatEndRef} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-border/60 bg-card/80">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={clickEditArmed ? "secondary" : "ghost"}
+                    size="icon"
+                    className="rounded-full"
+                    disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+                    aria-pressed={clickEditArmed}
+                    onClick={() => {
+                      if (activeTool !== "select") {
+                        setActiveTool("select");
+                        try {
+                          editor?.setCurrentTool(toTldrawToolId("select") as any);
+                        } catch {
+                          // ignore
+                        }
+                      }
+                      setClickEditArmed((current) => !current);
+                    }}
+                  >
+                    <LocateFixed className="size-4" />
+                  </Button>
+
+                  <div className="flex-1 rounded-full border bg-background px-4 py-2">
+                    <Input
+                      value={chatInput}
+                      onChange={(e) => {
+                        chatInputRef.current = e.target.value;
+                        setChatInput(e.target.value);
+                      }}
+                      placeholder={
+                        boardCrashMessage
+                          ? "Board unavailable…"
+                          : !editor || !boardHydrated
+                            ? "Loading canvas…"
+                            : "Type a prompt… (try: “landing page for…”)"
+                      }
+                      className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                      disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                          event.preventDefault();
+                          void sendMessage();
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="rounded-full"
+                    onClick={() => void sendMessage()}
+                    disabled={!chatInput.trim() || busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
+                    aria-label="Send"
+                  >
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+            </aside>
+          ) : null}
+        </div>
       </main>
 
 	      <Dialog open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
