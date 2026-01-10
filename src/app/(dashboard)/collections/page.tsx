@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function CollectionsPage() {
-  redirect("/nfts");
+  redirect("/space?tab=nfts");
 }

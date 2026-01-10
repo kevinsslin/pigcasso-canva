@@ -1,23 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Globe, Pencil, Rocket, Sparkles } from "lucide-react";
+
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
 import { useMe } from "@/features/auth/api/use-me";
+import { NftsPanel } from "@/features/nfts/components/nfts-panel";
 import { getCanonicalSpaceHandle } from "@/features/spaces/lib/space-handle";
 import { useMySpaceDocument } from "@/features/spaces/api/use-my-space-document";
 import { CopySpaceLink } from "@/features/spaces/components/copy-space-link";
 
-export default function SpaceHomePage() {
-  const { ready, authenticated } = useRequireAuth("/space");
-  const me = useMe();
-  const space = useMySpaceDocument({ enabled: ready && authenticated });
+type SpaceTab = "space" | "nfts";
 
-  if (!ready || !authenticated || me.isLoading || space.isLoading) {
+const getSpaceTab = (value: string | null) => (value === "nfts" ? ("nfts" satisfies SpaceTab) : "space");
+
+export default function SpaceHomePage() {
+  const searchParams = useSearchParams();
+  const tab = getSpaceTab(searchParams?.get("tab") ?? null);
+  const redirectPath = tab === "nfts" ? "/space?tab=nfts" : "/space";
+  const { ready, authenticated } = useRequireAuth(redirectPath);
+
+  const me = useMe({ enabled: ready && authenticated && tab === "space" });
+  const space = useMySpaceDocument({ enabled: ready && authenticated && tab === "space" });
+
+  if (!ready || !authenticated) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         Loading Space…
@@ -25,21 +37,20 @@ export default function SpaceHomePage() {
     );
   }
 
-  const user = me.data?.data.user ?? null;
-  if (!user) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Failed to load your profile.
-      </div>
-    );
-  }
+  const tabs = [
+    { key: "space" as const, label: "Space", href: "/space" },
+    { key: "nfts" as const, label: "NFTs", href: "/space?tab=nfts" },
+  ];
 
-  const handle = getCanonicalSpaceHandle({ id: user.id, socials: user.socials });
-  const spacePath = `/space/${encodeURIComponent(handle)}`;
-  const isPublished = space.data?.isPublished ?? false;
-  const draftJson = JSON.stringify(space.data?.document ?? null);
-  const publishedJson = space.data?.publishedDocument ? JSON.stringify(space.data.publishedDocument) : null;
-  const hasLiveChanges = Boolean(isPublished && (publishedJson === null || draftJson !== publishedJson));
+  const user = tab === "space" ? me.data?.data.user ?? null : null;
+  const handle = user ? getCanonicalSpaceHandle({ id: user.id, socials: user.socials }) : null;
+  const spacePath = handle ? `/space/${encodeURIComponent(handle)}` : null;
+
+  const isPublished = tab === "space" ? (space.data?.isPublished ?? false) : false;
+  const draftJson = tab === "space" ? JSON.stringify(space.data?.document ?? null) : null;
+  const publishedJson =
+    tab === "space" && space.data?.publishedDocument ? JSON.stringify(space.data.publishedDocument) : null;
+  const hasLiveChanges = Boolean(tab === "space" && isPublished && (publishedJson === null || draftJson !== publishedJson));
 
   const statusLabel = !isPublished ? "Draft" : hasLiveChanges ? "Changes not live" : "Live";
   const statusIcon = !isPublished ? (
@@ -64,99 +75,143 @@ export default function SpaceHomePage() {
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-gray-700 shadow-soft">
               <Sparkles className="size-4 text-primary" />
-              Bento-style public gateway page
+              {tab === "nfts" ? "Export + mint history" : "Bento-style public gateway page"}
             </div>
             <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               My Space
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Drag modules, arrange your layout, and publish a shareable Space URL.
+              {tab === "nfts"
+                ? "View exported assets, token URIs, and deployed collections."
+                : "Drag modules, arrange your layout, and publish a shareable Space URL."}
             </p>
+            <div className="mt-4 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/70 p-1 shadow-soft backdrop-blur">
+              {tabs.map((item) => {
+                const active = tab === item.key;
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    className={cn(
+                      "rounded-full px-4 py-2 text-xs font-semibold transition-colors",
+                      active
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-muted-foreground hover:text-gray-900 hover:bg-white/60",
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-700 shadow-soft">
-              {statusIcon}
-              {statusLabel}
-            </div>
-            {spacePath ? (
-              <div className="text-xs text-muted-foreground">
-                {spacePath}
+          {tab === "space" ? (
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-700 shadow-soft">
+                {statusIcon}
+                {statusLabel}
               </div>
-            ) : null}
+              {spacePath ? (
+                <div className="text-xs text-muted-foreground">
+                  {spacePath}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {tab === "space" ? (
+          <>
+            {me.isLoading || space.isLoading ? (
+              <div className="mt-8 flex items-center justify-center text-sm text-muted-foreground">
+                Loading Space…
+              </div>
+            ) : !user ? (
+              <div className="mt-8 flex items-center justify-center text-sm text-muted-foreground">
+                Failed to load your profile.
+              </div>
+            ) : (
+              <>
+                <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  <Card className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-soft backdrop-blur">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-extrabold text-gray-900">Edit your Space</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Rearrange blocks like Bento, then publish when it looks right.
+                        </div>
+                      </div>
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Pencil className="size-5" />
+                      </div>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Button asChild className="rounded-2xl bg-primary text-white shadow-glow hover:opacity-95">
+                        <Link href="/space/builder">
+                          Open builder <ArrowRight className="ml-2 size-4" />
+                        </Link>
+                      </Button>
+                      <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                        <Link href="/app">
+                          Open editor <ArrowRight className="ml-2 size-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </Card>
+
+                  <Card className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-soft backdrop-blur">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-extrabold text-gray-900">View public Space</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {isPublished
+                            ? "See what others will see at your published URL."
+                            : "Preview your Space before publishing it publicly."}
+                        </div>
+                      </div>
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-700">
+                        <Globe className="size-5" />
+                      </div>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {isPublished && spacePath ? (
+                        <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                          <Link href={spacePath} target="_blank" rel="noreferrer">
+                            View live <ArrowRight className="ml-2 size-4" />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
+                          <Link href="/space/builder?mode=preview">
+                            Preview draft <ArrowRight className="ml-2 size-4" />
+                          </Link>
+                        </Button>
+                      )}
+                      {spacePath ? <CopySpaceLink path={spacePath} /> : null}
+                    </div>
+                    <div className="mt-4 text-xs text-muted-foreground">
+                      {!isPublished
+                        ? "Tip: Publish when you’re ready to share your Space publicly."
+                        : hasLiveChanges
+                          ? "Your draft has changes that aren’t live yet. Open the builder to update your Space."
+                          : "Your Space is live and up to date."}
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="mt-auto pt-10 text-xs text-muted-foreground">
+                  Need to onboard Projects or manage templates? Use the admin dashboard (coming soon).
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <div className="mt-8">
+            <NftsPanel enabled={ready && authenticated} />
           </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <Card className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-soft backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-extrabold text-gray-900">Edit your Space</div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Rearrange blocks like Bento, then publish when it looks right.
-                </div>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Pencil className="size-5" />
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button asChild className="rounded-2xl bg-primary text-white shadow-glow hover:opacity-95">
-                <Link href="/space/builder">
-                  Open builder <ArrowRight className="ml-2 size-4" />
-                </Link>
-              </Button>
-              <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                <Link href="/app">
-                  Open editor <ArrowRight className="ml-2 size-4" />
-                </Link>
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-soft backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-extrabold text-gray-900">View public Space</div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {isPublished
-                    ? "See what others will see at your published URL."
-                    : "Preview your Space before publishing it publicly."}
-                </div>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-700">
-                <Globe className="size-5" />
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {isPublished ? (
-                <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                  <Link href={spacePath} target="_blank" rel="noreferrer">
-                    View live <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button asChild variant="secondary" className="rounded-2xl border border-white/70 bg-white/70">
-                  <Link href="/space/builder?mode=preview">
-                    Preview draft <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
-              )}
-              <CopySpaceLink path={spacePath} />
-            </div>
-            <div className="mt-4 text-xs text-muted-foreground">
-              {!isPublished
-                ? "Tip: Publish when you’re ready to share your Space publicly."
-                : hasLiveChanges
-                  ? "Your draft has changes that aren’t live yet. Open the builder to update your Space."
-                  : "Your Space is live and up to date."}
-            </div>
-          </Card>
-        </div>
-
-        <div className="mt-auto pt-10 text-xs text-muted-foreground">
-          Need to onboard Projects or manage templates? Use the admin dashboard (coming soon).
-        </div>
+        )}
       </div>
     </div>
   );

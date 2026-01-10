@@ -29,7 +29,10 @@ export type ResponseType = {
   nextPage: number | null;
 };
 
-export const useGetProjectHubs = (params: { page: string; limit: string }) => {
+export const useGetProjectHubs = (
+  params: { page: string; limit: string },
+  options?: { enabled?: boolean },
+) => {
   const { ready, authenticated } = usePrivy();
 
   return useQuery<ResponseType, Error>({
@@ -41,7 +44,6 @@ export const useGetProjectHubs = (params: { page: string; limit: string }) => {
       return readApiResponse<ResponseType>(response, "Failed to load projects");
     },
     staleTime: 30_000,
-    enabled: ready && authenticated,
+    enabled: (options?.enabled ?? true) && ready && authenticated,
   });
 };
-

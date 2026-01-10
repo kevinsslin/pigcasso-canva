@@ -106,7 +106,7 @@ export const PresetsSection = () => {
           ))}
           <button
             type="button"
-            onClick={() => router.push("/nfts")}
+            onClick={() => router.push("/space?tab=nfts")}
             disabled={mutation.isPending || Boolean(transitioning)}
             className="text-left group"
           >

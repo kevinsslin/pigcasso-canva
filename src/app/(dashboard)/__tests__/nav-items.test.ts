@@ -3,9 +3,11 @@ import { describe, expect, test } from "bun:test";
 import { DASHBOARD_NAV_ITEMS, MOBILE_DOCK_ITEMS } from "../nav-items";
 
 describe("dashboard nav items (UX regression)", () => {
-  test("includes Boards and removes Creator Hub", () => {
+  test("includes Boards and removes legacy routes", () => {
     expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === "/canvases")).toBe(true);
     expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === "/creator-hub")).toBe(false);
+    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === "/nfts")).toBe(false);
+    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === "/leaderboards")).toBe(false);
   });
 
   test("mobile dock includes Boards", () => {

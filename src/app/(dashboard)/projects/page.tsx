@@ -1,19 +1,82 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader, TriangleAlert } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
+import { GlobalLeaderboardsPanel } from "@/features/leaderboards/components/global-leaderboards-panel";
 import { useGetProjectHubs } from "@/features/project-hubs/api/use-get-project-hubs";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function ProjectsPage() {
-  const { ready, authenticated } = useRequireAuth("/projects");
-  const hubs = useGetProjectHubs({ page: "1", limit: "24" });
+type ProjectsTab = "projects" | "leaderboards";
 
-  if (!ready || !authenticated || hubs.isLoading) {
+const getProjectsTab = (value: string | null) =>
+  value === "leaderboards" ? ("leaderboards" satisfies ProjectsTab) : "projects";
+
+export default function ProjectsPage() {
+  const searchParams = useSearchParams();
+  const tab = getProjectsTab(searchParams?.get("tab") ?? null);
+  const redirectPath = tab === "leaderboards" ? "/projects?tab=leaderboards" : "/projects";
+
+  const { ready, authenticated } = useRequireAuth(redirectPath);
+  const hubs = useGetProjectHubs(
+    { page: "1", limit: "24" },
+    { enabled: ready && authenticated && tab === "projects" },
+  );
+
+  if (!ready || !authenticated) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader className="size-6 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  const tabs = [
+    { key: "projects" as const, label: "Projects", href: "/projects" },
+    { key: "leaderboards" as const, label: "Leaderboards", href: "/projects?tab=leaderboards" },
+  ];
+
+  if (tab === "leaderboards") {
+    return (
+      <div className="max-w-screen-xl mx-auto space-y-6 pb-10">
+        <div>
+          <h1 className="text-2xl font-semibold">Leaderboards</h1>
+          <p className="text-sm text-muted-foreground">
+            Global rankings across projects.
+          </p>
+          <div className="mt-4 inline-flex items-center gap-1 rounded-full border bg-card/80 p-1 shadow-soft backdrop-blur">
+            {tabs.map((item) => {
+              const active = tab === item.key;
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={cn(
+                    "rounded-full px-4 py-2 text-xs font-semibold transition-colors",
+                    active
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                  )}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+        <GlobalLeaderboardsPanel enabled={ready && authenticated && tab === "leaderboards"} />
+      </div>
+    );
+  }
+
+  if (hubs.isLoading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <Loader className="size-6 text-muted-foreground animate-spin" />
@@ -52,6 +115,26 @@ export default function ProjectsPage() {
         <p className="text-sm text-muted-foreground">
           Explore community projects and their asset hubs.
         </p>
+        <div className="mt-4 inline-flex items-center gap-1 rounded-full border bg-card/80 p-1 shadow-soft backdrop-blur">
+          {tabs.map((item) => {
+            const active = tab === item.key;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={cn(
+                  "rounded-full px-4 py-2 text-xs font-semibold transition-colors",
+                  active
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                )}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {data.length === 0 ? (
@@ -99,4 +182,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-

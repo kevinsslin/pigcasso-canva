@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FolderOpen, Github, Home, LayoutGrid, Settings, Trophy, UserRound, Wallet } from "lucide-react";
+import { FolderOpen, Github, Home, LayoutGrid, Settings, UserRound } from "lucide-react";
 
 export type DashboardNavItem = {
   href: string;
@@ -24,15 +24,23 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/app", label: "Home", icon: Home, match: matchPrefix("/app"), showInDock: true },
   { href: "/canvases", label: "Boards", icon: LayoutGrid, match: matchPrefix("/canvases"), showInDock: true },
   { href: "/repositories", label: "Repositories", icon: Github, match: matchPrefix("/repositories"), showInDock: false },
-  { href: "/projects", label: "Projects", icon: FolderOpen, match: matchPrefix("/projects"), showInDock: true },
-  { href: "/leaderboards", label: "Leaderboards", icon: Trophy, match: matchPrefix("/leaderboards"), showInDock: false },
-  { href: "/space", label: "My Space", icon: UserRound, match: matchPrefix("/space"), showInDock: true },
   {
-    href: "/nfts",
-    label: "NFTs",
-    icon: Wallet,
-    match: (pathname) => pathname === "/nfts" || pathname === "/assets" || pathname === "/collections",
-    showInDock: false,
+    href: "/projects",
+    label: "Projects",
+    icon: FolderOpen,
+    match: (pathname) => matchPrefix("/projects")(pathname) || matchPrefix("/leaderboards")(pathname),
+    showInDock: true,
+  },
+  {
+    href: "/space",
+    label: "My Space",
+    icon: UserRound,
+    match: (pathname) =>
+      matchPrefix("/space")(pathname) ||
+      pathname === "/nfts" ||
+      pathname === "/assets" ||
+      pathname === "/collections",
+    showInDock: true,
   },
   { href: "/settings", label: "Settings", icon: Settings, match: matchPrefix("/settings"), showInDock: false },
 ];

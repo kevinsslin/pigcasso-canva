@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AssetsPage() {
-  redirect("/nfts");
+  redirect("/space?tab=nfts");
 }
