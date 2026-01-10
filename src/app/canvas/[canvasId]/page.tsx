@@ -77,6 +77,7 @@ export default function CanvasPage({ params }: PageProps) {
   const searchParams = useSearchParams();
 
   const { ready, authenticated } = useRequireAuth(`/canvas/${params.canvasId}`);
+  const debug = searchParams?.get("debug") === "1";
 
   const [editor, setEditor] = useState<TldrawEditor | null>(null);
   const [activeTool, setActiveTool] = useState<CanvasTool>("select");
@@ -97,7 +98,14 @@ export default function CanvasPage({ params }: PageProps) {
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
 
   const remountingRef = useRef(false);
+  const reloadTimeoutRef = useRef<number | null>(null);
   const hasMountedEditorRef = useRef(false);
+  const hasEverHydratedRef = useRef(false);
+  const autoRecoverAttemptsRef = useRef(0);
+  const mountCountRef = useRef(0);
+  const unmountCountRef = useRef(0);
+  const lastMountAtRef = useRef<number | null>(null);
+  const lastUnmountAtRef = useRef<number | null>(null);
 
   const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
   const tldrawUser = useTldrawUser({
@@ -220,10 +228,27 @@ export default function CanvasPage({ params }: PageProps) {
     };
   }, [busy, mobileChatOpen, messages.length]);
 
+  useEffect(() => {
+    if (!boardHydrated) return;
+    hasEverHydratedRef.current = true;
+  }, [boardHydrated]);
+
   const handleTldrawMount = useCallback((next: unknown) => {
     const nextEditor = next as TldrawEditor;
+    mountCountRef.current += 1;
+    lastMountAtRef.current = Date.now();
     remountingRef.current = false;
     hasMountedEditorRef.current = true;
+    autoRecoverAttemptsRef.current = 0;
+
+    if (typeof window !== "undefined" && reloadTimeoutRef.current) {
+      window.clearTimeout(reloadTimeoutRef.current);
+      reloadTimeoutRef.current = null;
+    }
+
+    setBoardCrashMessage((current) =>
+      current?.startsWith("Board disconnected") ? null : current,
+    );
     setBoardHydrated(false);
     setEditor(nextEditor);
 
@@ -243,6 +268,8 @@ export default function CanvasPage({ params }: PageProps) {
     }
 
     return () => {
+      unmountCountRef.current += 1;
+      lastUnmountAtRef.current = Date.now();
       try {
         nextEditor.off("crash" as any, onCrash as any);
       } catch {
@@ -264,16 +291,58 @@ export default function CanvasPage({ params }: PageProps) {
     upsertCanvas.mutate({ id: params.canvasId, name: "Untitled" });
   }, [authenticated, canvasQuery.error, canvasQuery.isError, params.canvasId, ready, upsertCanvas]);
 
-  const handleBoardDisconnect = useCallback(() => {
-    setBoardCrashMessage("Board disconnected. Reload to continue.");
+  useEffect(() => {
+    if (editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+    if (!hasMountedEditorRef.current) return;
+    if (remountingRef.current) return;
+    setBoardHydrated(false);
+  }, [boardCrashMessage, boardHydrated, editor]);
+
+  const reloadBoard = useCallback(() => {
+    remountingRef.current = true;
+
+    if (typeof window !== "undefined") {
+      if (reloadTimeoutRef.current) {
+        window.clearTimeout(reloadTimeoutRef.current);
+      }
+      reloadTimeoutRef.current = window.setTimeout(() => {
+        reloadTimeoutRef.current = null;
+        remountingRef.current = false;
+        setBoardCrashMessage("Board disconnected. Reload to continue.");
+      }, 5000);
+    }
+
+    setBoardCrashMessage(null);
+    setBoardHydrated(false);
+    loadedSnapshotEditorRef.current = null;
+    bootstrappedEditorRef.current = null;
+    hydratingRef.current = false;
+    lastKnownToolIdRef.current = null;
+    tabPointerDownRef.current = null;
+    setTabAnchor(null);
+    setActiveTool("select");
+    setTldrawMountKey((prev) => prev + 1);
   }, []);
+
+  const handleBoardDisconnect = useCallback(() => {
+    if (autoRecoverAttemptsRef.current < 1) {
+      autoRecoverAttemptsRef.current += 1;
+      toast.message("Reconnecting board…", { duration: 1800 });
+      reloadBoard();
+      return;
+    }
+    setBoardCrashMessage("Board disconnected. Reload to continue.");
+  }, [reloadBoard]);
 
   useBoardDisconnectGuard({
     editor,
-    boardHydrated,
+    boardHydrated: hasEverHydratedRef.current,
     boardCrashMessage,
     hasMountedEditor: hasMountedEditorRef.current,
     remounting: remountingRef.current,
+    delayMs: 1200,
     onDisconnect: handleBoardDisconnect,
   });
 
@@ -956,19 +1025,7 @@ export default function CanvasPage({ params }: PageProps) {
 		                    <Button
 		                      type="button"
 		                      className="rounded-full"
-		                      onClick={() => {
-                        remountingRef.current = true;
-		                        setBoardCrashMessage(null);
-		                        setBoardHydrated(false);
-		                        loadedSnapshotEditorRef.current = null;
-		                        bootstrappedEditorRef.current = null;
-		                        hydratingRef.current = false;
-	                        lastKnownToolIdRef.current = null;
-	                        tabPointerDownRef.current = null;
-	                        setTabAnchor(null);
-	                        setActiveTool("select");
-	                        setTldrawMountKey((prev) => prev + 1);
-	                      }}
+		                      onClick={reloadBoard}
 	                    >
 	                      <RotateCcw className="mr-2 size-4" />
 	                      Reload board
@@ -1372,6 +1429,31 @@ export default function CanvasPage({ params }: PageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {debug ? (
+        <div className="fixed bottom-4 left-4 z-[80] max-w-[calc(100vw-32px)] rounded-2xl border bg-card/90 backdrop-blur px-3 py-2 text-[11px] shadow-soft space-y-1">
+          <div className="font-semibold">Canvas debug</div>
+          <div className="text-muted-foreground">
+            editor: {editor ? "yes" : "no"} • hydrated: {boardHydrated ? "yes" : "no"} • remounting:{" "}
+            {remountingRef.current ? "yes" : "no"}
+          </div>
+          <div className="text-muted-foreground">
+            mounts: {mountCountRef.current} • unmounts: {unmountCountRef.current} • mountKey:{" "}
+            {tldrawMountKey}
+          </div>
+          <div className="text-muted-foreground">
+            last mount:{" "}
+            {lastMountAtRef.current ? new Date(lastMountAtRef.current).toLocaleTimeString() : "—"} • last unmount:{" "}
+            {lastUnmountAtRef.current ? new Date(lastUnmountAtRef.current).toLocaleTimeString() : "—"}
+          </div>
+          <div className="text-muted-foreground">auto-recover attempts: {autoRecoverAttemptsRef.current}</div>
+          {boardCrashMessage ? (
+            <div className="mt-1 rounded-xl border bg-background/70 p-2 whitespace-pre-wrap break-words">
+              {boardCrashMessage}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
