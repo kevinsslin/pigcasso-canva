@@ -104,6 +104,21 @@ export default function CanvasPage({ params }: PageProps) {
     userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
   });
   const shapeUtils = useMemo(() => [HtmlCardShapeUtil], []);
+  const tldrawComponents = useMemo(() => {
+    function ErrorFallback({ error }: { error: unknown }) {
+      useEffect(() => {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : null;
+        const detail = stack ? `${message}\n\n${stack}` : message;
+        console.error("[tldraw] crashed", error);
+        setBoardCrashMessage(detail || "The board crashed unexpectedly.");
+      }, [error]);
+
+      return null;
+    }
+
+    return { ErrorFallback };
+  }, []);
 
   const generateImage = useGenerateImage();
   const editImage = useEditImage();
@@ -907,6 +922,7 @@ export default function CanvasPage({ params }: PageProps) {
 		              user={tldrawUser}
 		              inferDarkMode={false}
 		              shapeUtils={shapeUtils}
+		              components={tldrawComponents}
 		              className="pigcasso-paper-tldraw"
 		              onMount={handleTldrawMount}
 		            />
@@ -921,7 +937,11 @@ export default function CanvasPage({ params }: PageProps) {
 	            {boardCrashMessage ? (
 	              <div className="absolute inset-0 z-[60] grid place-items-center bg-background/80 backdrop-blur-sm p-6">
 	                <div className="w-full max-w-md rounded-2xl border bg-card shadow-soft p-5 space-y-3">
-	                  <div className="text-sm font-semibold">Board crashed</div>
+	                  <div className="text-sm font-semibold">
+	                    {boardCrashMessage.startsWith("Board disconnected")
+	                      ? "Board disconnected"
+	                      : "Board crashed"}
+	                  </div>
 	                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">
 	                    {boardCrashMessage}
 	                  </div>
