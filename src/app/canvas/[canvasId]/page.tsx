@@ -1166,99 +1166,12 @@ export default function CanvasPage({ params }: PageProps) {
 	  }
 
   return (
-    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background flex flex-col">
-      <header className="h-14 px-4 flex items-center justify-between bg-transparent relative z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/app"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
-            aria-label="Back to app"
-          >
-            <span className="md:hidden inline-flex items-center justify-center rounded-full border bg-card/80 backdrop-blur h-9 w-9">
-              <ChevronLeft className="size-4" />
-            </span>
-            <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black shadow-lg shadow-pink-500/20">
-              P
-            </span>
-          </Link>
-          <EditableBoardTitle name={canvasName} onRename={handleRenameBoard} />
-        </div>
-
-        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
-          <span className="px-3 py-1.5 text-xs font-semibold text-muted-foreground tabular-nums">
-            {editor ? `${zoomPercent}%` : "—"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="rounded-full hidden md:inline-flex"
-            onClick={() => setDesktopChatOpen((current) => !current)}
-            aria-label="Toggle chat panel"
-          >
-            {desktopChatOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="rounded-full hidden md:inline-flex"
-            onClick={() => editor?.undo()}
-            disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-            aria-label="Undo"
-          >
-            <Undo2 className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="rounded-full hidden md:inline-flex"
-            onClick={() => editor?.redo()}
-            disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-            aria-label="Redo"
-          >
-            <Redo2 className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            className="rounded-full md:hidden"
-            onClick={() => setMobileChatOpen(true)}
-            aria-label="Open chat"
-          >
-            <Bot className="size-4" />
-          </Button>
-
-          <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" compact />
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="rounded-full hidden md:inline-flex"
-            onClick={() => void toggleFullscreen()}
-            aria-label="Toggle fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-          </Button>
-
-          <UserButton />
-        </div>
-      </header>
-
-	      <main className="flex-1 overflow-hidden flex">
-	        <CanvasToolRail
-	          activeTool={activeTool}
-	          disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-	          onToolChange={(tool) => {
+    <div className="pigcasso-paper-theme h-[100dvh] w-[100dvw] overflow-hidden bg-background">
+		      <main className="h-full w-full overflow-hidden flex">
+		        <CanvasToolRail
+		          activeTool={activeTool}
+		          disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+		          onToolChange={(tool) => {
 	            setActiveTool(tool);
 	            if (!editor) return;
             try {
@@ -1266,14 +1179,100 @@ export default function CanvasPage({ params }: PageProps) {
             } catch {
               // ignore
             }
-          }}
-        />
-	        <div className="flex-1 relative overflow-hidden">
-			          <div
-			            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
-			            onPointerDownCapture={(event) => {
-                    try {
-                      const active = document.activeElement as HTMLElement | null;
+	          }}
+	        />
+		        <div className="flex-1 relative overflow-hidden">
+              <div className="absolute left-4 top-4 z-40 flex items-center gap-3">
+                <Link
+                  href="/app"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
+                  aria-label="Back to app"
+                >
+                  <span className="inline-flex items-center justify-center rounded-full border bg-card/80 backdrop-blur h-9 w-9 md:hidden">
+                    <ChevronLeft className="size-4" />
+                  </span>
+                  <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 text-primary-foreground items-center justify-center font-black shadow-lg shadow-pink-500/20">
+                    P
+                  </span>
+                </Link>
+
+                <EditableBoardTitle name={canvasName} onRename={handleRenameBoard} />
+              </div>
+
+              <div className="absolute left-1/2 top-4 z-40 hidden -translate-x-1/2 md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
+                <span className="px-3 py-1.5 text-xs font-semibold text-muted-foreground tabular-nums">
+                  {editor ? `${zoomPercent}%` : "—"}
+                </span>
+              </div>
+
+              <div className="absolute right-4 top-4 z-40 flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hidden md:inline-flex"
+                  onClick={() => setDesktopChatOpen((current) => !current)}
+                  aria-label="Toggle chat panel"
+                >
+                  {desktopChatOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hidden md:inline-flex"
+                  onClick={() => editor?.undo()}
+                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                  aria-label="Undo"
+                >
+                  <Undo2 className="size-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hidden md:inline-flex"
+                  onClick={() => editor?.redo()}
+                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="size-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="rounded-full md:hidden"
+                  onClick={() => setMobileChatOpen(true)}
+                  aria-label="Open chat"
+                >
+                  <Bot className="size-4" />
+                </Button>
+
+                <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" compact />
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hidden md:inline-flex"
+                  onClick={() => void toggleFullscreen()}
+                  aria-label="Toggle fullscreen"
+                >
+                  {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                </Button>
+
+                <UserButton />
+              </div>
+
+				          <div
+				            className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"
+				            onPointerDownCapture={(event) => {
+	                    try {
+	                      const active = document.activeElement as HTMLElement | null;
                       if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
                         active.blur();
                       }
