@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Lock, Sparkles, Star } from "lucide-react";
+import { ExternalLink, GitFork, Lock, Sparkles, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ type Repo = {
   language: string | null;
   private: boolean;
   stargazersCount: number;
+  forksCount: number;
   updatedAt: string;
   owner: {
     login: string;
@@ -38,7 +39,7 @@ export const RepoCard = (props: {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-base truncate">{repo.fullName}</CardTitle>
+            <CardTitle className="text-base truncate">{repo.name}</CardTitle>
             {repo.description ? (
               <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
                 {repo.description}
@@ -74,8 +75,13 @@ export const RepoCard = (props: {
             {repo.stargazersCount}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1">
-            Updated {formatDate(repo.updatedAt)}
+            <GitFork className="size-3" />
+            {repo.forksCount}
           </span>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Updated {formatDate(repo.updatedAt)}
         </div>
 
         <Button
@@ -91,4 +97,3 @@ export const RepoCard = (props: {
     </Card>
   );
 };
-
