@@ -970,6 +970,19 @@ export default function CanvasPage({ params }: PageProps) {
 	                      type="button"
 	                      variant="secondary"
 	                      className="rounded-full"
+	                      onClick={async () => {
+	                        const copied = await copyTextToClipboard(boardCrashMessage);
+	                        toast.message(copied ? "Copied error details." : "Couldn’t copy error details.", {
+	                          duration: 2000,
+	                        });
+	                      }}
+	                    >
+	                      Copy error
+	                    </Button>
+	                    <Button
+	                      type="button"
+	                      variant="secondary"
+	                      className="rounded-full"
 	                      onClick={() => {
 	                        setBoardCrashMessage(null);
 	                      }}
