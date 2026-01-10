@@ -3,6 +3,7 @@
 import { BaseBoxShapeUtil, HTMLContainer, RecordProps, T, toDomPrecision, type TLBaseShape, type TLResizeInfo, resizeBox, useIsEditing } from "tldraw";
 
 import { createHtmlCardSrcDoc, HTML_CARD_MIN_SIZE, HTML_CARD_SHAPE_TYPE, HTML_CARD_DEFAULT_SIZE } from "@/features/canvases/tldraw/html-card";
+import { getHtmlCardIframeStyle, HTML_CARD_IFRAME_SANDBOX } from "@/features/canvases/tldraw/html-card-iframe";
 
 export type HtmlCardShape = TLBaseShape<
   typeof HTML_CARD_SHAPE_TYPE,
@@ -54,7 +55,7 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
       <HTMLContainer id={shape.id} className="rounded-2xl overflow-hidden">
         <iframe
           title="HTML preview"
-          sandbox="allow-scripts"
+          sandbox={HTML_CARD_IFRAME_SANDBOX}
           srcDoc={srcDoc}
           width={toDomPrecision(w)}
           height={toDomPrecision(h)}
@@ -63,10 +64,7 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
           loading="eager"
           tabIndex={isEditing ? 0 : -1}
           className="w-full h-full bg-white"
-          style={{
-            border: 0,
-            pointerEvents: isInteractive ? "auto" : "none",
-          }}
+          style={getHtmlCardIframeStyle(isInteractive)}
         />
       </HTMLContainer>
     );
