@@ -17,7 +17,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import debounce from "lodash.debounce";
-import { getSnapshot, loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
+import { loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
 import { toast } from "sonner";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
@@ -293,7 +293,14 @@ export default function CanvasPage({ params }: PageProps) {
 
     const tryLoad = (raw: string) => {
       try {
-        const snapshot = JSON.parse(raw) as unknown;
+        const parsed = JSON.parse(raw) as any;
+        const snapshot = (() => {
+          const doc = parsed && typeof parsed === "object" ? parsed.document : null;
+          if (doc && typeof doc === "object" && "store" in doc) {
+            return doc;
+          }
+          return parsed;
+        })();
         loadSnapshot(editor.store, snapshot as any);
         lastSavedSnapshotRef.current = raw;
         try {
@@ -437,7 +444,7 @@ export default function CanvasPage({ params }: PageProps) {
       const run = () => {
         let snapshotJson: string;
         try {
-          snapshotJson = JSON.stringify(getSnapshot(editor.store));
+          snapshotJson = JSON.stringify(editor.store.getStoreSnapshot());
         } catch {
           return;
         }
