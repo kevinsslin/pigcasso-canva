@@ -10,6 +10,28 @@ const baseUrl =
     ? window.location.origin
     : process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "http://localhost:3000";
 
+const getRequestTimeoutMs = (input: RequestInfo | URL) => {
+  let url: URL | null = null;
+  try {
+    if (typeof input === "string") {
+      url = new URL(input, baseUrl);
+    } else if (input instanceof URL) {
+      url = input;
+    } else if (input instanceof Request) {
+      url = new URL(input.url);
+    }
+  } catch {
+    url = null;
+  }
+
+  const pathname = url?.pathname ?? "";
+  if (pathname.startsWith("/api/ai") || pathname.startsWith("/api/assistant")) {
+    return 180_000;
+  }
+
+  return 30_000;
+};
+
 export const client = hc<AppType>(baseUrl, {
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
     const token = await getAuthToken({
@@ -22,11 +44,26 @@ export const client = hc<AppType>(baseUrl, {
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(input, {
-      ...init,
-      headers,
-      credentials: "include",
-    });
+    const timeoutMs = getRequestTimeoutMs(input);
+    const controller = init?.signal ? null : new AbortController();
+    const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+    let res: Response;
+    try {
+      res = await fetch(input, {
+        ...init,
+        headers,
+        credentials: "include",
+        signal: init?.signal ?? controller?.signal,
+      });
+    } catch (error) {
+      if (controller?.signal.aborted) {
+        throw new Error(`Request timed out after ${timeoutMs}ms`);
+      }
+      throw error;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
 
     if (res.status !== 401) {
       return res;
@@ -42,11 +79,26 @@ export const client = hc<AppType>(baseUrl, {
     const retryHeaders = new Headers(init?.headers);
     retryHeaders.set("Authorization", `Bearer ${retryToken}`);
 
-    const retryRes = await fetch(input, {
-      ...init,
-      headers: retryHeaders,
-      credentials: "include",
-    });
+    const retryController = init?.signal ? null : new AbortController();
+    const retryTimeoutMs = timeoutMs;
+    const retryTimeout = retryController ? setTimeout(() => retryController.abort(), retryTimeoutMs) : null;
+
+    let retryRes: Response;
+    try {
+      retryRes = await fetch(input, {
+        ...init,
+        headers: retryHeaders,
+        credentials: "include",
+        signal: init?.signal ?? retryController?.signal,
+      });
+    } catch (error) {
+      if (retryController?.signal.aborted) {
+        throw new Error(`Request timed out after ${retryTimeoutMs}ms`);
+      }
+      throw error;
+    } finally {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    }
 
     if (retryRes.status === 401) {
       dispatchUnauthorizedEvent();

@@ -239,6 +239,8 @@ export default function CanvasPage({ params }: PageProps) {
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
   const hasProxiedImageAssetsRef = useRef(false);
+  const hasUserEditedRef = useRef(false);
+  const hasShownRemoteSyncSkippedToastRef = useRef(false);
   const tabPointerDownRef = useRef<{ x: number; y: number; trigger: PinEditTrigger } | null>(null);
   const lastKnownToolIdRef = useRef<CanvasTool | null>(null);
   const lastZoomPercentRef = useRef<number | null>(null);
@@ -407,6 +409,8 @@ export default function CanvasPage({ params }: PageProps) {
     hydratingRef.current = false;
     lastKnownToolIdRef.current = null;
     hasProxiedImageAssetsRef.current = false;
+    hasUserEditedRef.current = false;
+    hasShownRemoteSyncSkippedToastRef.current = false;
     tabPointerDownRef.current = null;
     setTabAnchor(null);
     setActiveTool("select");
@@ -441,11 +445,6 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
-    if (loadedSnapshotEditorRef.current === editor) return;
-    if (!canvasQuery.isError && !canvasQuery.isSuccess) return;
-
-    loadedSnapshotEditorRef.current = editor;
-    hydratingRef.current = true;
 
     const tryLoad = (raw: string) => {
       try {
@@ -470,49 +469,133 @@ export default function CanvasPage({ params }: PageProps) {
       }
     };
 
-    const serverSnapshot = canvasQuery.data?.snapshot ?? null;
-    if (serverSnapshot) {
-      tryLoad(serverSnapshot);
-    } else {
-      try {
-        const local = localStorage.getItem(localSnapshotKey);
-        if (local) {
-          tryLoad(local);
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (!hasProxiedImageAssetsRef.current) {
+    const tryProxyImageAssets = () => {
+      if (hasProxiedImageAssetsRef.current) return;
       hasProxiedImageAssetsRef.current = true;
+
       try {
         const snapshot = editor.store.getStoreSnapshot() as any;
         const records = snapshot?.store;
-        if (records && typeof records === "object") {
-          const updates: any[] = [];
-          Object.values(records).forEach((record) => {
-            if (!record || typeof record !== "object") return;
-            if ((record as any).typeName !== "asset") return;
-            if ((record as any).type !== "image") return;
-            const src = (record as any).props?.src;
-            if (typeof src !== "string" || !src.trim()) return;
-            const proxied = toCanvasImageUrl(src);
-            if (proxied === src) return;
-            updates.push({ ...(record as any), props: { ...(record as any).props, src: proxied } });
-          });
-          if (updates.length) {
-            editor.updateAssets?.(updates);
-          }
+        if (!records || typeof records !== "object") return;
+
+        const updates: any[] = [];
+        Object.values(records).forEach((record) => {
+          if (!record || typeof record !== "object") return;
+          if ((record as any).typeName !== "asset") return;
+          if ((record as any).type !== "image") return;
+          const src = (record as any).props?.src;
+          if (typeof src !== "string" || !src.trim()) return;
+          const proxied = toCanvasImageUrl(src);
+          if (proxied === src) return;
+          updates.push({ ...(record as any), props: { ...(record as any).props, src: proxied } });
+        });
+        if (updates.length) {
+          editor.updateAssets?.(updates);
         }
       } catch {
         // ignore
       }
+    };
+
+    const setHydrated = () => {
+      setBoardHydrated(true);
+    };
+
+    const maybeLoadLocal = () => {
+      try {
+        const local = localStorage.getItem(localSnapshotKey);
+        if (!local) return false;
+        hydratingRef.current = true;
+        loadedSnapshotEditorRef.current = editor;
+        const ok = tryLoad(local);
+        if (ok) {
+          tryProxyImageAssets();
+        }
+        hydratingRef.current = false;
+        return ok;
+      } catch {
+        hydratingRef.current = false;
+        return false;
+      }
+    };
+
+    const maybeLoadServer = (serverSnapshot: string) => {
+      hydratingRef.current = true;
+      loadedSnapshotEditorRef.current = editor;
+      const ok = tryLoad(serverSnapshot);
+      if (ok) {
+        tryProxyImageAssets();
+      }
+      hydratingRef.current = false;
+      return ok;
+    };
+
+    const serverSnapshot = canvasQuery.isSuccess ? (canvasQuery.data?.snapshot ?? null) : null;
+
+    if (loadedSnapshotEditorRef.current !== editor) {
+      const loadedLocal = maybeLoadLocal();
+      if (!loadedLocal && serverSnapshot && !hasUserEditedRef.current) {
+        maybeLoadServer(serverSnapshot);
+      }
+
+      if (!loadedLocal && !serverSnapshot && (canvasQuery.isError || canvasQuery.isSuccess) && !hydratingRef.current) {
+        loadedSnapshotEditorRef.current = editor;
+      }
+
+      setHydrated();
+      return;
     }
 
-    hydratingRef.current = false;
-    setBoardHydrated(true);
-  }, [canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+    if (serverSnapshot && serverSnapshot !== lastSavedSnapshotRef.current) {
+      if (hasUserEditedRef.current) {
+        if (!hasShownRemoteSyncSkippedToastRef.current) {
+          hasShownRemoteSyncSkippedToastRef.current = true;
+          toast.message("Board sync is taking longer—skipping remote snapshot to avoid overwriting your edits.", {
+            duration: 3500,
+          });
+        }
+      } else {
+        maybeLoadServer(serverSnapshot);
+      }
+    }
+
+    setHydrated();
+  }, [boardHydrated, canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+
+  useEffect(() => {
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+
+    hasUserEditedRef.current = false;
+
+    let ignore = true;
+    let raf = 0;
+
+    if (typeof window !== "undefined") {
+      raf = window.requestAnimationFrame(() => {
+        ignore = false;
+      });
+    } else {
+      ignore = false;
+    }
+
+    const unsubscribe = editor.store.listen(
+      () => {
+        if (ignore) return;
+        if (hydratingRef.current) return;
+        hasUserEditedRef.current = true;
+      },
+      { source: "user", scope: "document" },
+    );
+
+    return () => {
+      if (typeof window !== "undefined" && raf) {
+        window.cancelAnimationFrame(raf);
+      }
+      unsubscribe();
+    };
+  }, [boardCrashMessage, boardHydrated, editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -584,6 +667,7 @@ export default function CanvasPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!editor) return;
+    if (!canvasQuery.isError && !canvasQuery.isSuccess) return;
     if (loadedSnapshotEditorRef.current !== editor) return;
     if (bootstrappedEditorRef.current === editor) return;
     if (hydratingRef.current) return;
@@ -611,7 +695,7 @@ export default function CanvasPage({ params }: PageProps) {
     } catch {
       // ignore
     }
-  }, [editor]);
+  }, [canvasQuery.isError, canvasQuery.isSuccess, editor]);
 
   useEffect(() => {
     if (!editor) return;
