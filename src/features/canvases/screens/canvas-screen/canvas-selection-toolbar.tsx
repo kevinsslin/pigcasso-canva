@@ -110,14 +110,15 @@ export const CanvasSelectionToolbar = ({
       <div className="flex flex-wrap items-center gap-1">
         <Button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-full"
+          variant="secondary"
+          size="sm"
+          className="h-9 rounded-full px-3"
           disabled={disabled}
           onClick={onAddToChat}
           aria-label="Add selection to chat"
         >
           <AtSign className="size-4" />
+          <span className="ml-2">Add to chat</span>
         </Button>
 
         {isGroup ? (
@@ -137,19 +138,6 @@ export const CanvasSelectionToolbar = ({
 
         {isImage ? (
           <>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-9 rounded-full px-3"
-              disabled={disabled}
-              onClick={onEditWithAi}
-              aria-label="Edit selected image"
-            >
-              <Sparkles className="mr-2 size-4" />
-              Edit
-            </Button>
-
             <Button
               type="button"
               variant="secondary"
