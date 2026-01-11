@@ -23,10 +23,6 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Pigcasso Canvas",
   description: "Web3-native design editor with token-gated Pro on Mantle.",
-  icons: {
-    icon: [{ url: "/logo-pig.png", type: "image/png" }],
-    apple: [{ url: "/logo-pig.png", type: "image/png" }],
-  },
 };
 
 export default function RootLayout({
