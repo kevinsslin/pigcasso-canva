@@ -120,125 +120,153 @@ export const CanvasChatPanel = ({
       />
 
       {desktopOpen ? (
-      <aside className="hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[460px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
-        <div className="p-5 border-b border-border/60 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <span className="inline-flex size-6 rounded-full bg-gradient-to-tr from-primary to-cyan-400 items-center justify-center overflow-hidden shadow-sm">
-                <Image src="/logo-pig.png" alt="Pigcasso" width={24} height={24} className="h-full w-full object-cover" />
-              </span>
-              Pigcasso Agent
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={onOpenDownloads}
-                disabled={!hasOutputs}
-                aria-label="Download outputs"
-              >
-                <Download className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={() => onDesktopOpenChange(false)}
-                aria-label="Close chat"
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground">Create with prompts, then select something on the canvas to refine it.</div>
-
-          <div className="flex flex-wrap gap-2">
-            {chatSuggestions.map((item) => (
-              <Button
-                key={item.label}
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="rounded-full"
-                disabled={disabled}
-                onClick={() => onPickSuggestion(item.prompt)}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-
-          <div className="pt-1 space-y-2">
-            <div className="text-xs font-semibold text-muted-foreground">Context</div>
-            <div className="flex flex-wrap gap-2">
-              {clickEditArmed ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-                  onClick={onCancelPinEdit}
-                >
-                  <LocateFixed className="size-3 text-muted-foreground" />
-                  <span>Pin armed</span>
-                </button>
-              ) : null}
-
-              {pinnedContexts.map((ctx) => (
-                <div
-                  key={ctx.shapeId}
-                  className="inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
-                >
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-2 py-1 hover:bg-background transition"
-                    onClick={() => onFocusShape(ctx.shapeId)}
-                    aria-label={`Focus ${ctx.label}`}
-                  >
-                    <AtSign className="size-3 text-muted-foreground" />
-                    {ctx.previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={ctx.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
-                    ) : null}
-                    <span className="max-w-[140px] truncate">{ctx.label}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-background transition"
-                    onClick={() => onRemovePinnedContext(ctx.shapeId)}
-                    aria-label="Remove context"
-                  >
-                    <X className="size-3" />
-                  </button>
+        <aside className="hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[520px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
+          <div className="p-4 border-b border-border/60 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 items-center justify-center overflow-hidden shadow-sm">
+                  <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} className="h-full w-full object-cover" />
+                </span>
+                <div className="leading-tight">
+                  <div className="text-base font-semibold">Pigcasso Agent</div>
+                  <div className="text-xs text-muted-foreground">Describe → generate → iterate on the canvas.</div>
                 </div>
-              ))}
+              </div>
 
-              {selectionContext ? (
-                <button
+              <div className="flex items-center gap-1">
+                <Button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
-                  onClick={() => onFocusShape(selectionContext.shapeId)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={onOpenDownloads}
+                  disabled={!hasOutputs}
+                  aria-label="Download outputs"
                 >
-                  {selectionContext.previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={selectionContext.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
-                  ) : null}
-                  <span className="max-w-[160px] truncate">{selectionContext.label}</span>
-                </button>
-              ) : null}
-
-              {recentAttachments.map((att) => (
-                <CanvasChatAttachmentChip key={att.id} attachment={att} onClick={() => onFocusShape(att.shapeId)} />
-              ))}
-
-              {!selectionContext && !recentAttachments.length && !clickEditArmed ? (
-                <div className="text-xs text-muted-foreground">Select something to add context.</div>
-              ) : null}
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => onDesktopOpenChange(false)}
+                  aria-label="Close chat"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
             </div>
+
+            {chatSuggestions.length ? (
+              <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
+                {chatSuggestions.map((item) => (
+                  <Button
+                    key={item.label}
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="rounded-full whitespace-nowrap shrink-0"
+                    disabled={disabled}
+                    onClick={() => onPickSuggestion(item.prompt)}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-muted-foreground">Context</div>
+                {pinnedContexts.length ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full px-2 text-xs"
+                    disabled={disabled}
+                    onClick={() => {
+                      pinnedContexts.forEach((ctx) => onRemovePinnedContext(ctx.shapeId));
+                    }}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+
+              {clickEditArmed || pinnedContexts.length || selectionContext ? (
+                <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
+                  {clickEditArmed ? (
+                    <button
+                      type="button"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                      onClick={onCancelPinEdit}
+                    >
+                      <LocateFixed className="size-3 text-muted-foreground" />
+                      <span>Pin armed</span>
+                    </button>
+                  ) : null}
+
+                  {pinnedContexts.map((ctx) => (
+                    <div
+                      key={ctx.shapeId}
+                      className="shrink-0 inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 px-2 py-1 hover:bg-background transition"
+                        onClick={() => onFocusShape(ctx.shapeId)}
+                        aria-label={`Focus ${ctx.label}`}
+                      >
+                        <AtSign className="size-3 text-muted-foreground" />
+                        {ctx.previewUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={ctx.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                        ) : null}
+                        <span className="max-w-[160px] truncate">{ctx.label}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-background transition"
+                        onClick={() => onRemovePinnedContext(ctx.shapeId)}
+                        aria-label="Remove context"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {selectionContext ? (
+                    <button
+                      type="button"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-dashed bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                      onClick={() => onFocusShape(selectionContext.shapeId)}
+                    >
+                      {selectionContext.previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={selectionContext.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                      ) : null}
+                      <span className="max-w-[180px] truncate">{selectionContext.label}</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Select something on the canvas to add context.</div>
+              )}
+            </div>
+
+            {recentAttachments.length ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">Recent outputs</div>
+                <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
+                  {recentAttachments.map((att) => (
+                    <CanvasChatAttachmentChip key={att.id} attachment={att} onClick={() => onFocusShape(att.shapeId)} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        </div>
 
         <div className="flex-1 overflow-auto p-5 space-y-4">
           <div className="space-y-4">
@@ -289,161 +317,216 @@ export const CanvasChatPanel = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-border/60 bg-card/80">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant={clickEditArmed ? "secondary" : "ghost"}
-              size="icon"
-              className="rounded-full"
-              disabled={disabled}
-              aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
-              aria-pressed={clickEditArmed}
-              onClick={onDesktopTogglePinEdit}
-            >
-              <LocateFixed className="size-4" />
-            </Button>
+          <div className="p-4 border-t border-border/60 bg-card/80">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant={clickEditArmed ? "secondary" : "ghost"}
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+                    aria-pressed={clickEditArmed}
+                    onClick={onDesktopTogglePinEdit}
+                  >
+                    <LocateFixed className="size-4" />
+                  </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              disabled={disabled}
-              aria-label="Mention a canvas item"
-              onClick={onDesktopMentionButtonClick}
-            >
-              <AtSign className="size-4" />
-            </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label="Mention a canvas item"
+                    onClick={onDesktopMentionButtonClick}
+                  >
+                    <AtSign className="size-4" />
+                  </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              disabled={disabled}
-              aria-label="Upload files"
-              onClick={openFilePicker}
-            >
-              <Paperclip className="size-4" />
-            </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label="Upload files"
+                    onClick={openFilePicker}
+                  >
+                    <Paperclip className="size-4" />
+                  </Button>
+                </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="secondary" className="rounded-full px-3" disabled={disabled}>
-                  <span className="text-xs font-semibold">
-                    {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
-                  </span>
-                  <ChevronDown className="ml-2 size-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>Model</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={aiProfile} onValueChange={(value) => onAiProfileChange(value as NanoBananaProfileOption)}>
-                  {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
-                    <DropdownMenuRadioItem key={opt.id} value={opt.id}>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{opt.label}</span>
-                        <span className="text-xs text-muted-foreground">{opt.description}</span>
-                      </div>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="secondary" className="h-9 rounded-full px-3" disabled={disabled}>
+                      <span className="text-xs font-semibold">
+                        {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
+                      </span>
+                      <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>Model</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={aiProfile}
+                      onValueChange={(value) => onAiProfileChange(value as NanoBananaProfileOption)}
+                    >
+                      {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
+                        <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
-            <div className="flex-1 rounded-2xl border bg-background px-4 py-2">
-              <Textarea
-                ref={desktopInputRef}
-                value={chatInput}
-                rows={2}
-                onChange={(e) =>
-                  onChatInputChange(e.target.value, {
-                    selectionStart: e.currentTarget.selectionStart,
-                    selectionEnd: e.currentTarget.selectionEnd,
-                  })
-                }
-                placeholder={
-                  boardCrashMessage
-                    ? "Board unavailable…"
-                    : disabled
-                    ? "Loading canvas…"
-                    : "Type a prompt… (try: “landing page for…”)"
-                }
-                className="min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                disabled={disabled}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && mentionPickerOpen) {
-                    event.preventDefault();
-                    onCloseMentionPicker();
-                    return;
+              <div className="relative">
+                <Textarea
+                  ref={desktopInputRef}
+                  value={chatInput}
+                  rows={4}
+                  onChange={(e) =>
+                    onChatInputChange(e.target.value, {
+                      selectionStart: e.currentTarget.selectionStart,
+                      selectionEnd: e.currentTarget.selectionEnd,
+                    })
                   }
+                  placeholder={
+                    boardCrashMessage
+                      ? "Board unavailable…"
+                      : disabled
+                      ? "Loading canvas…"
+                      : "Type a prompt… (Enter to send, Shift+Enter for a new line)"
+                  }
+                  className="min-h-[96px] max-h-[240px] resize-none rounded-2xl bg-background px-4 py-3 pr-12 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  disabled={disabled}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && mentionPickerOpen) {
+                      event.preventDefault();
+                      onCloseMentionPicker();
+                      return;
+                    }
                     if (event.key === "@" && !event.nativeEvent.isComposing) {
                       window.setTimeout(() => {
                         onOpenMentionPicker(event.currentTarget);
                       }, 0);
                     }
-                  if (event.key === "Enter" && !event.nativeEvent.isComposing && !event.shiftKey) {
-                    event.preventDefault();
-                    onSend();
-                  }
-                }}
-              />
-            </div>
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing && !event.shiftKey) {
+                      event.preventDefault();
+                      onSend();
+                    }
+                  }}
+                />
 
-            <Button
-              type="button"
-              size="icon"
-              className="rounded-full"
-              onClick={onSend}
-              disabled={!chatInput.trim() || disabled}
-              aria-label="Send"
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-            </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  className="rounded-full absolute bottom-2 right-2"
+                  onClick={onSend}
+                  disabled={!chatInput.trim() || disabled}
+                  aria-label="Send"
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
       </aside>
     ) : null}
 
     <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
       <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
         <div className="flex h-full flex-col bg-background">
-          <div className="h-14 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur flex items-center justify-between px-4">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <span className="inline-flex size-6 rounded-full bg-gradient-to-tr from-primary to-cyan-400 items-center justify-center overflow-hidden shadow-sm">
-                <Image src="/logo-pig.png" alt="Pigcasso" width={24} height={24} className="h-full w-full object-cover" />
-              </span>
-              Pigcasso Agent
+          <div className="shrink-0 border-b border-border/60 bg-background/80 backdrop-blur p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 items-center justify-center overflow-hidden shadow-sm">
+                  <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} className="h-full w-full object-cover" />
+                </span>
+                <div className="leading-tight">
+                  <div className="text-base font-semibold">Pigcasso Agent</div>
+                  <div className="text-xs text-muted-foreground">Describe → generate → iterate on the canvas.</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={onOpenDownloads}
+                  disabled={!hasOutputs}
+                  aria-label="Download outputs"
+                >
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => onMobileOpenChange(false)}
+                  aria-label="Close chat"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={onOpenDownloads}
-                disabled={!hasOutputs}
-                aria-label="Download outputs"
-              >
-                <Download className="size-4" />
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => onMobileOpenChange(false)}>
-                Close
-              </Button>
-            </div>
+
+            {chatSuggestions.length ? (
+              <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
+                {chatSuggestions.map((item) => (
+                  <Button
+                    key={item.label}
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="rounded-full whitespace-nowrap shrink-0"
+                    disabled={disabled}
+                    onClick={() => onPickSuggestion(item.prompt)}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {selectionContext || recentAttachments.length || clickEditArmed ? (
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-semibold text-muted-foreground">Context</div>
-                <div className="flex flex-wrap gap-2">
+                {pinnedContexts.length ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full px-2 text-xs"
+                    disabled={disabled}
+                    onClick={() => {
+                      pinnedContexts.forEach((ctx) => onRemovePinnedContext(ctx.shapeId));
+                    }}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+
+              {clickEditArmed || pinnedContexts.length || selectionContext ? (
+                <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
                   {clickEditArmed ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
                       onClick={onCancelPinEdit}
                     >
                       <LocateFixed className="size-3 text-muted-foreground" />
@@ -454,7 +537,7 @@ export const CanvasChatPanel = ({
                   {pinnedContexts.map((ctx) => (
                     <div
                       key={ctx.shapeId}
-                      className="inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
+                      className="shrink-0 inline-flex items-center rounded-full border bg-background/70 text-[11px] font-medium text-foreground overflow-hidden"
                     >
                       <button
                         type="button"
@@ -470,7 +553,7 @@ export const CanvasChatPanel = ({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={ctx.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
                         ) : null}
-                        <span className="max-w-[140px] truncate">{ctx.label}</span>
+                        <span className="max-w-[160px] truncate">{ctx.label}</span>
                       </button>
                       <button
                         type="button"
@@ -486,7 +569,7 @@ export const CanvasChatPanel = ({
                   {selectionContext ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-dashed bg-background/70 px-2 py-1 text-[11px] font-medium text-foreground hover:bg-background transition"
                       onClick={() => {
                         onFocusShape(selectionContext.shapeId);
                         onMobileOpenChange(false);
@@ -496,10 +579,19 @@ export const CanvasChatPanel = ({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={selectionContext.previewUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
                       ) : null}
-                      <span className="max-w-[160px] truncate">{selectionContext.label}</span>
+                      <span className="max-w-[180px] truncate">{selectionContext.label}</span>
                     </button>
                   ) : null}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Select something on the canvas to add context.</div>
+              )}
+            </div>
 
+            {recentAttachments.length ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">Recent outputs</div>
+                <div className="-mx-1 px-1 flex items-center gap-2 overflow-x-auto pb-1">
                   {recentAttachments.map((att) => (
                     <CanvasChatAttachmentChip
                       key={att.id}
@@ -562,21 +654,6 @@ export const CanvasChatPanel = ({
               ) : (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">Describe what you want to create, then refine by selecting parts on the canvas.</div>
-                  <div className="flex flex-wrap gap-2">
-                    {chatSuggestions.map((item) => (
-                      <Button
-                        key={item.label}
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="rounded-full"
-                        disabled={disabled}
-                        onClick={() => onPickSuggestion(item.prompt)}
-                      >
-                        {item.label}
-                      </Button>
-                    ))}
-                  </div>
                   <div ref={mobileEndRef} />
                 </div>
               )}
@@ -584,82 +661,95 @@ export const CanvasChatPanel = ({
           </div>
 
           <div className="p-4 border-t border-border/60 pb-[calc(16px+env(safe-area-inset-bottom))]">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={clickEditArmed ? "secondary" : "ghost"}
-                size="icon"
-                className="rounded-full"
-                disabled={disabled}
-                aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
-                aria-pressed={clickEditArmed}
-                onClick={onMobileTogglePinEdit}
-              >
-                <LocateFixed className="size-4" />
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                disabled={disabled}
-                aria-label="Mention a canvas item"
-                onClick={onMobileMentionButtonClick}
-              >
-                <AtSign className="size-4" />
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                disabled={disabled}
-                aria-label="Upload files"
-                onClick={openFilePicker}
-              >
-                <Paperclip className="size-4" />
-              </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="secondary" className="rounded-full px-3" disabled={disabled}>
-                    <span className="text-xs font-semibold">
-                      {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
-                    </span>
-                    <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant={clickEditArmed ? "secondary" : "ghost"}
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label={clickEditArmed ? "Cancel pin edit" : "Pin an edit to the canvas"}
+                    aria-pressed={clickEditArmed}
+                    onClick={onMobileTogglePinEdit}
+                  >
+                    <LocateFixed className="size-4" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
-                  <DropdownMenuLabel>Model</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup value={aiProfile} onValueChange={(value) => onAiProfileChange(value as NanoBananaProfileOption)}>
-                    {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
-                      <DropdownMenuRadioItem key={opt.id} value={opt.id}>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{opt.label}</span>
-                          <span className="text-xs text-muted-foreground">{opt.description}</span>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
-              <div className="flex-1 rounded-2xl border bg-background px-4 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label="Mention a canvas item"
+                    onClick={onMobileMentionButtonClick}
+                  >
+                    <AtSign className="size-4" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    disabled={disabled}
+                    aria-label="Upload files"
+                    onClick={openFilePicker}
+                  >
+                    <Paperclip className="size-4" />
+                  </Button>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="secondary" className="h-9 rounded-full px-3" disabled={disabled}>
+                      <span className="text-xs font-semibold">
+                        {NANO_BANANA_PROFILE_OPTIONS.find((opt) => opt.id === aiProfile)?.label ?? "Model"}
+                      </span>
+                      <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>Model</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={aiProfile}
+                      onValueChange={(value) => onAiProfileChange(value as NanoBananaProfileOption)}
+                    >
+                      {NANO_BANANA_PROFILE_OPTIONS.map((opt) => (
+                        <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="relative">
                 <Textarea
                   ref={mobileInputRef}
                   value={chatInput}
-                  rows={2}
+                  rows={4}
                   onChange={(e) =>
                     onChatInputChange(e.target.value, {
                       selectionStart: e.currentTarget.selectionStart,
                       selectionEnd: e.currentTarget.selectionEnd,
                     })
                   }
-                  placeholder={boardCrashMessage ? "Board unavailable…" : disabled ? "Loading canvas…" : "Type a prompt…"}
-                  className="min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  placeholder={
+                    boardCrashMessage
+                      ? "Board unavailable…"
+                      : disabled
+                      ? "Loading canvas…"
+                      : "Type a prompt… (Enter to send, Shift+Enter for a new line)"
+                  }
+                  className="min-h-[96px] max-h-[240px] resize-none rounded-2xl bg-background px-4 py-3 pr-12 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   disabled={disabled}
                   onKeyDown={(event) => {
                     if (event.key === "Escape" && mentionPickerOpen) {
@@ -678,18 +768,18 @@ export const CanvasChatPanel = ({
                     }
                   }}
                 />
-              </div>
 
-              <Button
-                type="button"
-                size="icon"
-                className="rounded-full"
-                onClick={onSend}
-                disabled={!chatInput.trim() || disabled}
-                aria-label="Send"
-              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-              </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  className="rounded-full absolute bottom-2 right-2"
+                  onClick={onSend}
+                  disabled={!chatInput.trim() || disabled}
+                  aria-label="Send"
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
