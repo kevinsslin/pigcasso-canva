@@ -50,6 +50,7 @@ describe("CanvasSelectionToolbar", () => {
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
           onViewHtmlCode={() => {}}
+          onUngroup={() => {}}
           textStyle={null}
           onUpdateTextStyle={() => {}}
         />,
@@ -92,6 +93,7 @@ describe("CanvasSelectionToolbar", () => {
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
           onViewHtmlCode={() => {}}
+          onUngroup={() => {}}
           textStyle={{ font: "sans", size: "m", color: "black", sizePx: 24, fontFamily: null }}
           onUpdateTextStyle={() => {}}
         />,
@@ -132,6 +134,7 @@ describe("CanvasSelectionToolbar", () => {
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
           onViewHtmlCode={() => {}}
+          onUngroup={() => {}}
           textStyle={null}
           onUpdateTextStyle={() => {}}
         />,

@@ -6,6 +6,8 @@ const getToolbarSize = (kind: CanvasSelectionToolbarAnchor["kind"]) => {
   switch (kind) {
     case "text":
       return { width: 440, height: 68 };
+    case "group":
+      return { width: 260, height: 52 };
     case "html":
       return { width: 300, height: 52 };
     case "image":

@@ -35,6 +35,12 @@ export type CanvasSelectionToolbarAnchor =
       screenX: number;
       screenY: number;
       shapeId: string;
+    }
+  | {
+      kind: "group";
+      screenX: number;
+      screenY: number;
+      shapeId: string;
     };
 
 export const CanvasSelectionToolbar = ({
@@ -49,6 +55,7 @@ export const CanvasSelectionToolbar = ({
   onRemoveBackground,
   onMakeTextEditable,
   onViewHtmlCode,
+  onUngroup,
   textStyle,
   onUpdateTextStyle,
 }: {
@@ -63,6 +70,7 @@ export const CanvasSelectionToolbar = ({
   onRemoveBackground: () => void;
   onMakeTextEditable: () => void;
   onViewHtmlCode: () => void;
+  onUngroup: () => void;
   textStyle: { font: string; size: string; color: string; sizePx: number; fontFamily: string | null } | null;
   onUpdateTextStyle: (
     partial: Partial<{ font: string; size: string; color: string; sizePx: number; fontFamily: string | null }>,
@@ -73,6 +81,7 @@ export const CanvasSelectionToolbar = ({
   const isImage = anchor.kind === "image";
   const isHtml = anchor.kind === "html";
   const isText = anchor.kind === "text";
+  const isGroup = anchor.kind === "group";
 
   const resolvedFontLabel = (() => {
     if (!isText || !textStyle) return null;
@@ -110,6 +119,21 @@ export const CanvasSelectionToolbar = ({
         >
           <AtSign className="size-4" />
         </Button>
+
+        {isGroup ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-9 rounded-full px-3"
+            disabled={disabled}
+            onClick={onUngroup}
+            aria-label="Ungroup selection"
+          >
+            <Layers3 className="mr-2 size-4" />
+            Ungroup
+          </Button>
+        ) : null}
 
         {isImage ? (
           <>

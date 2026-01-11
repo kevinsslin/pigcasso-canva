@@ -380,8 +380,13 @@ export const generateHtml = async (params: { prompt: string }) => {
 You are an expert front-end engineer and designer.
 Return a SINGLE self-contained HTML document (no markdown, no code fences).
 Constraints:
+- Must start with <!doctype html> and include <html>, <head>, and <body>.
 - Inline CSS only (no external stylesheets).
-- Prefer no external network requests (no external images/fonts/libs).
+- NO external network requests: no <script src>, no <link rel="stylesheet" href>, no external images, no external fonts, no CDNs.
+- Use system fonts only.
+- Use a LIGHT background (prefer #F3F4F5 or white) and high-contrast text (prefer #111827).
+- Avoid dark/black full-screen backgrounds unless explicitly requested.
+- Ensure the layout is immediately visible (no blank screens; no relying on external JS).
 - Make it responsive, modern, and readable.
 `.trim();
 

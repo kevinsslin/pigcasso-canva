@@ -299,7 +299,6 @@ export default function CanvasScreen({ params }: PageProps) {
   const coverGenerationInFlightRef = useRef(false);
   const coverGenerationRerunRequestedRef = useRef(false);
   const pendingCoverSnapshotRef = useRef<string | null>(null);
-  const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
   const hasLoadedChatRef = useRef(false);
   const chatHydratingRef = useRef(false);
   const lastSavedChatRef = useRef<string | null>(null);
@@ -478,8 +477,8 @@ export default function CanvasScreen({ params }: PageProps) {
       if (handledDelete || handledShortcut) return;
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [applyTool, boardCrashMessage, boardHydrated, canvasClipboardRef, editor]);
 
   useEffect(() => {
@@ -604,7 +603,6 @@ export default function CanvasScreen({ params }: PageProps) {
     setBoardCrashMessage(null);
     setBoardHydrated(false);
     loadedSnapshotEditorRef.current = null;
-    bootstrappedEditorRef.current = null;
     hydratingRef.current = false;
     lastKnownToolIdRef.current = null;
     hasProxiedImageAssetsRef.current = false;
@@ -948,6 +946,8 @@ export default function CanvasScreen({ params }: PageProps) {
                 ? ("text" as const)
                 : shape?.type === HTML_CARD_SHAPE_TYPE
                   ? ("html" as const)
+                  : shape?.type === "group"
+                    ? ("group" as const)
                   : null;
           if (!kind) return null;
 
@@ -971,11 +971,34 @@ export default function CanvasScreen({ params }: PageProps) {
             | ((pt: { x: number; y: number }) => { x: number; y: number })
             | undefined;
           if (bounds && typeof bounds === "object" && typeof pageToScreen === "function") {
+            const pageToScreenWithOffset = (pt: { x: number; y: number }) => {
+              const screen = pageToScreen(pt);
+              const tlContainer = document.querySelector(".tl-container") as HTMLElement | null;
+              const rect = tlContainer?.getBoundingClientRect?.() ?? null;
+              if (!rect) return screen;
+
+              const isContainerRelative =
+                screen.x >= 0 &&
+                screen.y >= 0 &&
+                screen.x <= rect.width &&
+                screen.y <= rect.height;
+              const isWindowRelative =
+                screen.x >= rect.left &&
+                screen.y >= rect.top &&
+                screen.x <= rect.right &&
+                screen.y <= rect.bottom;
+
+              if (isContainerRelative && !isWindowRelative) {
+                return { x: screen.x + rect.left, y: screen.y + rect.top };
+              }
+              return screen;
+            };
+
             return computeCanvasSelectionToolbarAnchor({
               kind,
               shapeId,
               bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
-              pageToScreen,
+              pageToScreen: pageToScreenWithOffset,
               viewport,
             });
           }
@@ -1026,38 +1049,6 @@ export default function CanvasScreen({ params }: PageProps) {
       unsubscribe?.();
     };
   }, [editor]);
-
-  useEffect(() => {
-    if (!editor) return;
-    if (!canvasQuery.isError && !canvasQuery.isSuccess) return;
-    if (loadedSnapshotEditorRef.current !== editor) return;
-    if (bootstrappedEditorRef.current === editor) return;
-    if (hydratingRef.current) return;
-
-    bootstrappedEditorRef.current = editor;
-
-    const shapes = editor.getCurrentPageShapes?.() ?? [];
-    if (shapes.length > 0) return;
-
-    try {
-      const viewport = editor.getViewportPageBounds();
-      const centerX = viewport.x + viewport.w / 2;
-      const centerY = viewport.y + viewport.h / 2;
-      const w = 960;
-      const h = 600;
-
-      editor.createShape({
-        type: "frame",
-        x: centerX - w / 2,
-        y: centerY - h / 2,
-        props: { w, h, name: "Frame 1", color: "black" },
-      } as any);
-
-      editor.zoomToFit({ animation: { duration: 220 } } as any);
-    } catch {
-      // ignore
-    }
-  }, [canvasQuery.isError, canvasQuery.isSuccess, editor]);
 
   const ensureHtmlCardPreview = useCallback(
     async (shapeId: string, html: string) => {
@@ -1914,6 +1905,18 @@ export default function CanvasScreen({ params }: PageProps) {
     }
   }, [editor, selectedShapeIds]);
 
+  const selectedGroupShape = useMemo(() => {
+    if (!editor) return null;
+    if (selectedShapeIds.length !== 1) return null;
+    try {
+      const shape = editor.getShape(selectedShapeIds[0] as any) as any;
+      if (!shape || typeof shape !== "object" || shape.type !== "group") return null;
+      return shape as any;
+    } catch {
+      return null;
+    }
+  }, [editor, selectedShapeIds]);
+
   const selectedImageAsset = useMemo(() => {
     if (!editor) return null;
     const assetId = (selectedImageShape as any)?.props?.assetId;
@@ -1957,8 +1960,16 @@ export default function CanvasScreen({ params }: PageProps) {
     if (selectionToolbarAnchor.kind === "image" && !selectedImageShape) return null;
     if (selectionToolbarAnchor.kind === "html" && !selectedHtmlShape) return null;
     if (selectionToolbarAnchor.kind === "text" && !selectedTextShape) return null;
+    if (selectionToolbarAnchor.kind === "group" && !selectedGroupShape) return null;
     return selectionToolbarAnchor;
-  }, [selectedHtmlShape, selectedImageShape, selectedShapeIds, selectedTextShape, selectionToolbarAnchor]);
+  }, [
+    selectedGroupShape,
+    selectedHtmlShape,
+    selectedImageShape,
+    selectedShapeIds,
+    selectedTextShape,
+    selectionToolbarAnchor,
+  ]);
 
   const updateSelectedTextStyle = useCallback(
     (
@@ -2502,6 +2513,30 @@ export default function CanvasScreen({ params }: PageProps) {
     [boardCrashMessage, boardHydrated, editor, insertImageFileToBoard, insertTextToBoard],
   );
 
+  const ungroupSelectedShapes = useCallback(() => {
+    if (!editor || !boardHydrated || boardCrashMessage) return;
+    const selected = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
+    if (selected.length !== 1) return;
+
+    const shape = (() => {
+      try {
+        return editor.getShape?.(selected[0] as any) as any;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!shape || typeof shape !== "object" || shape.type !== "group") return;
+
+    try {
+      void withHistorySquash(editor as any, "ungroup", async () => {
+        editor.ungroupShapes?.(selected as any);
+      });
+    } catch {
+      toast.error("Couldn’t ungroup that selection.", { duration: 2500 });
+    }
+  }, [boardCrashMessage, boardHydrated, editor]);
+
   const regenerateSelectedImage = useCallback(async () => {
     const toastId = "pigcasso:canvas:regenerate";
     const targetShape = selectedImageShape;
@@ -3044,6 +3079,7 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                       onMakeTextEditable={() => void makeSelectedImageTextEditable()}
                       onViewHtmlCode={() => viewSelectedHtmlCode()}
+                      onUngroup={() => void ungroupSelectedShapes()}
                       textStyle={selectedTextShape ? selectedTextStyle : null}
                       onUpdateTextStyle={updateSelectedTextStyle}
                     />,

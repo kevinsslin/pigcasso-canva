@@ -58,7 +58,11 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
 
     return (
       <HTMLContainer id={shape.id} className="relative rounded-2xl overflow-hidden bg-white">
-        {!isEditing && previewDataUrl ? (
+        {!isEditing && previewStatus === "rendering" ? (
+          <div className="h-full w-full grid place-items-center bg-white text-xs text-muted-foreground">
+            Rendering preview…
+          </div>
+        ) : !isEditing && previewDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             alt=""

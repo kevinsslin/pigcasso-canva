@@ -14,7 +14,10 @@ describe("tldraw HTML card helpers", () => {
 
   test("createHtmlCardSrcDoc passes through full documents", () => {
     const full = "<!doctype html><html><body><h1>Hi</h1></body></html>";
-    expect(createHtmlCardSrcDoc(full)).toBe(full);
+    const srcDoc = createHtmlCardSrcDoc(full);
+    expect(srcDoc).toContain("<!doctype html>");
+    expect(srcDoc).toContain("<style id=\"pigcasso-base\">");
+    expect(srcDoc).toContain("<h1>Hi</h1>");
   });
 
   test("upsertHtmlCard creates a new shape at a centered position", () => {
@@ -95,4 +98,3 @@ describe("tldraw HTML card helpers", () => {
     });
   });
 });
-

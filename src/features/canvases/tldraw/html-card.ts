@@ -22,21 +22,52 @@ export type HtmlCardEditor = {
   select: (...shapes: unknown[]) => unknown;
 };
 
+const PIGCASSO_HTML_BASE_STYLES = `
+  :root{color-scheme:light;}
+  html,body{height:100%;margin:0;padding:0;background:#F3F4F5 !important;color:#111827 !important;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+  *,*::before,*::after{box-sizing:border-box;}
+  img,svg,video,canvas{max-width:100%;height:auto;}
+`.trim();
+
+const buildPigcassoHtmlHeadInjection = () =>
+  [
+    '<meta charset="utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    "<base target=\"_blank\" />",
+    `<style id="pigcasso-base">${PIGCASSO_HTML_BASE_STYLES}</style>`,
+  ].join("");
+
+const injectIntoFullHtmlDocument = (html: string) => {
+  const injection = buildPigcassoHtmlHeadInjection();
+
+  if (/<\/head\s*>/i.test(html)) {
+    return html.replace(/<\/head\s*>/i, `${injection}</head>`);
+  }
+
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${injection}`);
+  }
+
+  if (/<body[^>]*>/i.test(html)) {
+    return html.replace(/<body/i, `<head>${injection}</head><body`);
+  }
+
+  return html;
+};
+
 export function createHtmlCardSrcDoc(html: string) {
   const trimmed = html.trim();
   if (!trimmed) return "";
 
   const looksLikeFullDoc = /<html[\s>]/i.test(trimmed) || /<!doctype\s+html/i.test(trimmed);
-  if (looksLikeFullDoc) return trimmed;
+  if (looksLikeFullDoc) return injectIntoFullHtmlDocument(trimmed);
 
+  const injection = buildPigcassoHtmlHeadInjection();
   return [
     "<!doctype html>",
     "<html>",
     "<head>",
-    '<meta charset="utf-8" />',
-    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
-    "<base target=\"_blank\" />",
-    "<style>html,body{height:100%;margin:0;padding:0;}</style>",
+    injection,
     "</head>",
     "<body>",
     trimmed,
