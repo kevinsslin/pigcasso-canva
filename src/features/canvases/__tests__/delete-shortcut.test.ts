@@ -12,9 +12,12 @@ const globals = {
 let dom: JSDOM | null = null;
 
 beforeEach(() => {
-  dom = new JSDOM("<!doctype html><html><body><input id=\"i\" /></body></html>", {
+  dom = new JSDOM(
+    "<!doctype html><html><body><input id=\"i\" /><div class=\"tl-container\"><input id=\"tl\" /></div></body></html>",
+    {
     url: "https://app.example",
-  });
+    },
+  );
   (globalThis as any).window = dom.window as any;
   (globalThis as any).document = dom.window.document as any;
   (globalThis as any).HTMLElement = dom.window.HTMLElement as any;
@@ -83,5 +86,58 @@ describe("tldraw delete shortcut helper", () => {
     expect(deleted).toEqual([]);
     expect(event.defaultPrevented).toBe(false);
   });
-});
 
+  test("deletes when keydown happens inside a tldraw container input", async () => {
+    const { handleCanvasDeleteShortcut } = await import("@/features/canvases/tldraw/delete-shortcut");
+
+    const deleted: string[][] = [];
+    const editor = {
+      getSelectedShapeIds: () => ["shape:a"],
+      deleteShapes: (ids: string[]) => {
+        deleted.push(ids);
+      },
+    };
+
+    let handled = false;
+
+    window.addEventListener("keydown", (event) => {
+      handled = handleCanvasDeleteShortcut(editor, event);
+    });
+
+    const input = document.getElementById("tl") as HTMLInputElement;
+    input.focus();
+
+    const event = new window.KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true });
+    input.dispatchEvent(event);
+
+    expect(handled).toBe(true);
+    expect(deleted).toEqual([["shape:a"]]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test("does not delete while editing a shape", async () => {
+    const { handleCanvasDeleteShortcut } = await import("@/features/canvases/tldraw/delete-shortcut");
+
+    const deleted: string[][] = [];
+    const editor = {
+      getEditingShapeId: () => "shape:editing",
+      getSelectedShapeIds: () => ["shape:a"],
+      deleteShapes: (ids: string[]) => {
+        deleted.push(ids);
+      },
+    };
+
+    let handled = false;
+
+    window.addEventListener("keydown", (event) => {
+      handled = handleCanvasDeleteShortcut(editor, event);
+    });
+
+    const event = new window.KeyboardEvent("keydown", { key: "Backspace", bubbles: true, cancelable: true });
+    document.body.dispatchEvent(event);
+
+    expect(handled).toBe(false);
+    expect(deleted).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
