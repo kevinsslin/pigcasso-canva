@@ -20,8 +20,10 @@ export const PrivyAuthCard = () => {
     <Card className="w-full p-8 rounded-2xl bg-white/80 backdrop-blur">
       <CardHeader className="px-0 pt-0 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="relative size-10 shrink-0">
-            <Image src="/logo.svg" alt="Pigcasso Canvas" fill sizes="40px" />
+          <div className="size-10 shrink-0 rounded-full bg-gradient-to-tr from-primary to-cyan-400 p-0.5 shadow-lg shadow-pink-500/20">
+            <div className="relative h-full w-full overflow-hidden rounded-full bg-white">
+              <Image src="/logo-pig.png" alt="Pigcasso" fill sizes="40px" className="object-cover" />
+            </div>
           </div>
           <div className="min-w-0">
             <CardTitle className="text-xl">Sign in to Pigcasso Canvas</CardTitle>

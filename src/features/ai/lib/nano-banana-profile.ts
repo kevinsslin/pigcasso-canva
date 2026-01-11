@@ -1,4 +1,4 @@
-export type NanoBananaProfileOption = "auto" | "nano-banana" | "nano-banana-pro";
+export type NanoBananaProfileOption = "auto" | "gemini-pro-3" | "nano-banana" | "nano-banana-pro";
 
 export const NANO_BANANA_PROFILE_STORAGE_KEY = "pigcasso:aiProfile";
 
@@ -8,6 +8,7 @@ export const NANO_BANANA_PROFILE_OPTIONS: Array<{
   description: string;
 }> = [
   { id: "auto", label: "Auto", description: "Default quality (recommended)." },
+  { id: "gemini-pro-3", label: "Gemini Pro 3", description: "Chat & reasoning (text-only)." },
   { id: "nano-banana", label: "Nano Banana", description: "Fast, standard quality." },
   { id: "nano-banana-pro", label: "Nano Banana Pro", description: "Higher quality (Pro gated)." },
 ];
@@ -16,6 +17,7 @@ export const parseNanoBananaProfileOption = (raw: string | null | undefined): Na
   const value = raw?.trim();
   if (!value) return null;
   if (value === "auto") return "auto";
+  if (value === "gemini-pro-3") return "gemini-pro-3";
   if (value === "nano-banana") return "nano-banana";
   if (value === "nano-banana-pro") return "nano-banana-pro";
   return null;
@@ -27,4 +29,3 @@ export const toNanoBananaApiProfile = (
   if (option === "nano-banana" || option === "nano-banana-pro") return option;
   return undefined;
 };
-

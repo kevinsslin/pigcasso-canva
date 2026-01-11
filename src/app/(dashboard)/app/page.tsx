@@ -10,7 +10,6 @@ import {
   NANO_BANANA_PROFILE_OPTIONS,
   NANO_BANANA_PROFILE_STORAGE_KEY,
   parseNanoBananaProfileOption,
-  toNanoBananaApiProfile,
   type NanoBananaProfileOption,
 } from "@/features/ai/lib/nano-banana-profile";
 import { useGetCanvases } from "@/features/canvases/api/use-get-canvases";
@@ -91,9 +90,8 @@ export default function AppHomePage() {
       const canvasId = crypto.randomUUID();
       const params = new URLSearchParams();
       params.set("prompt", trimmed);
-      const apiProfile = toNanoBananaApiProfile(aiProfile);
-      if (apiProfile) {
-        params.set("profile", apiProfile);
+      if (aiProfile !== "auto") {
+        params.set("profile", aiProfile);
       }
       router.push(`/canvas/${canvasId}?${params.toString()}`);
     } finally {

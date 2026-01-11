@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+
+const require = createRequire(import.meta.url);
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -38,6 +43,17 @@ const nextConfig = {
         pathname: "/**",
       },
     ],
+  },
+  webpack: (config, { isServer }) => {
+    const kitDistDir = dirname(require.resolve("@solana/kit"));
+    const kitEntry = join(kitDistDir, isServer ? "index.node.mjs" : "index.browser.mjs");
+
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "@solana/kit": kitEntry,
+    };
+    return config;
   },
 };
 

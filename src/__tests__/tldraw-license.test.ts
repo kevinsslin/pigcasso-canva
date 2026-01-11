@@ -12,7 +12,15 @@ describe("tldraw license config (regression)", () => {
 
   test("canvas page references NEXT_PUBLIC_TLDRAW_LICENSE_KEY to avoid silent disconnect loops", () => {
     const content = readFileSync(
-      join(process.cwd(), "src", "app", "canvas", "[canvasId]", "page.tsx"),
+      join(
+        process.cwd(),
+        "src",
+        "features",
+        "canvases",
+        "screens",
+        "canvas-screen",
+        "canvas-screen.tsx",
+      ),
       "utf8",
     );
 
@@ -20,4 +28,3 @@ describe("tldraw license config (regression)", () => {
     expect(content).toContain("Missing tldraw license key");
   });
 });
-

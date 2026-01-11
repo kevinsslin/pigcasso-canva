@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
+import { isHtmlPrompt, isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 
 describe("isHtmlPrompt", () => {
   test("matches explicit /html command", () => {
@@ -26,3 +26,30 @@ describe("isHtmlPrompt", () => {
   });
 });
 
+describe("isImageVariationPrompt", () => {
+  test("matches explicit regen/variation phrases", () => {
+    expect(isImageVariationPrompt("regenerate")).toBe(true);
+    expect(isImageVariationPrompt("/regen")).toBe(true);
+    expect(isImageVariationPrompt("make a variation")).toBe(true);
+    expect(isImageVariationPrompt("new version please")).toBe(true);
+  });
+
+  test("matches Chinese variation phrases", () => {
+    expect(isImageVariationPrompt("重新生成")).toBe(true);
+    expect(isImageVariationPrompt("再來一張")).toBe(true);
+    expect(isImageVariationPrompt("做個變體")).toBe(true);
+  });
+
+  test("returns false for typical edit instructions", () => {
+    expect(isImageVariationPrompt("make the background blue")).toBe(false);
+    expect(isImageVariationPrompt("remove the background")).toBe(false);
+  });
+});
+
+describe("stripImageVariationPrompt", () => {
+  test("removes leading variation commands", () => {
+    expect(stripImageVariationPrompt("/regen make the background blue")).toBe("make the background blue");
+    expect(stripImageVariationPrompt("regenerate: add a border")).toBe("add a border");
+    expect(stripImageVariationPrompt("重新生成：背景換成藍色")).toBe("背景換成藍色");
+  });
+});

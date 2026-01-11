@@ -368,7 +368,7 @@ export const editImage = async (params: {
 const stripCodeFences = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) return "";
-  const match = trimmed.match(/```(?:html)?\\s*([\\s\\S]*?)\\s*```/i);
+  const match = trimmed.match(/```(?:html)?\s*([\s\S]*?)\s*```/i);
   return match ? match[1].trim() : trimmed;
 };
 
@@ -416,34 +416,56 @@ Constraints:
   return { html, provider: "gemini" as const };
 };
 
+export const chatAssistant = async (params: { prompt: string }) => {
+  const ai = getGeminiClient();
+  const model = GEMINI_ASSISTANT_MODEL;
+
+  const system = `
+You are Pigcasso, an AI design partner.
+Respond with plain text (no markdown, no code fences).
+Be concise by default; ask clarifying questions when needed.
+`.trim();
+
+  let response: unknown;
+  try {
+    response = await ai.models.generateContent({
+      model,
+      contents: params.prompt,
+      config: {
+        systemInstruction: system,
+        maxOutputTokens: 1200,
+        temperature: 0.7,
+      },
+    });
+  } catch (error) {
+    throw normalizeGeminiError(error, {
+      model,
+      operation: "chatAssistant",
+    });
+  }
+
+  const text =
+    typeof (response as { text?: unknown })?.text === "string"
+      ? ((response as { text?: string }).text ?? "").trim()
+      : "";
+
+  if (!text) {
+    throw new HttpError(502, "No response generated", { expose: true });
+  }
+
+  return { text, provider: "gemini" as const };
+};
+
 export const getAssistantModel = () => GEMINI_ASSISTANT_MODEL;
 
 const extractTextBlocksSchema = z.object({
-  blocks: z
-    .array(
-      z.object({
-        text: z.string().trim().min(1),
-        box: z.object({
-          x: z.number().min(0).max(1),
-          y: z.number().min(0).max(1),
-          w: z.number().min(0).max(1),
-          h: z.number().min(0).max(1),
-        }),
-        font: z.enum(["draw", "sans", "serif", "mono"]).optional(),
-        size: z.enum(["s", "m", "l", "xl"]).optional(),
-        color: z
-          .enum(["black", "white", "grey", "red", "orange", "yellow", "green", "blue", "violet"])
-          .optional(),
-        align: z.enum(["start", "middle", "end"]).optional(),
-      }),
-    )
-    .max(40),
+  blocks: z.array(z.unknown()).default([]),
 });
 
 const stripJsonFences = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) return "";
-  const match = trimmed.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);
+  const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   return match ? match[1].trim() : trimmed;
 };
 
@@ -469,17 +491,62 @@ export const parseExtractTextBlocksResponse = (text: string) => {
     throw new HttpError(502, "AI returned invalid JSON", { expose: true });
   }
 
-  const result = extractTextBlocksSchema.safeParse(parsed);
-  if (!result.success) {
+  const normalizeCoord = (value: unknown) => {
+    const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+    if (!Number.isFinite(num)) return null;
+
+    const normalized = num > 1 && num <= 100 ? num / 100 : num;
+    if (!Number.isFinite(normalized)) return null;
+
+    return Math.min(1, Math.max(0, normalized));
+  };
+
+  const allowedFont = z.enum(["draw", "sans", "serif", "mono"]);
+  const allowedSize = z.enum(["s", "m", "l", "xl"]);
+  const allowedColor = z.enum(["black", "white", "grey", "red", "orange", "yellow", "green", "blue", "violet"]);
+  const allowedAlign = z.enum(["start", "middle", "end"]);
+
+  const rawResult = extractTextBlocksSchema.safeParse(parsed);
+  if (!rawResult.success) {
     throw new HttpError(502, "AI returned an unexpected text extraction format", { expose: true });
   }
 
-  return result.data;
+  const blocks = (rawResult.data.blocks ?? [])
+    .map((block) => {
+      const textValue = typeof (block as any)?.text === "string" ? String((block as any).text).trim() : "";
+      if (!textValue) return null;
+
+      const box = (block as any)?.box ?? {};
+      const x = normalizeCoord(box.x);
+      const y = normalizeCoord(box.y);
+      const w = normalizeCoord(box.w);
+      const h = normalizeCoord(box.h);
+      if (x === null || y === null || w === null || h === null) return null;
+
+      const font = allowedFont.safeParse((block as any)?.font).success ? (block as any).font : undefined;
+      const size = allowedSize.safeParse((block as any)?.size).success ? (block as any).size : undefined;
+      const color = allowedColor.safeParse((block as any)?.color).success ? (block as any).color : undefined;
+      const align = allowedAlign.safeParse((block as any)?.align).success ? (block as any).align : undefined;
+
+      return {
+        text: textValue,
+        box: { x, y, w, h },
+        font,
+        size,
+        color,
+        align,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 40);
+
+  return { blocks };
 };
 
 export const extractTextBlocks = async (params: { image: string }) => {
   const ai = getGeminiClient();
-  const model = GEMINI_ASSISTANT_MODEL;
+  // Use a vision-capable model for OCR. Gemini assistant model may be text-only depending on config.
+  const model = GEMINI_IMAGE_MODEL || GEMINI_ASSISTANT_MODEL;
 
   const system = `
 You are a vision OCR + layout analyzer.
@@ -501,6 +568,7 @@ Rules:
 - Only include text that is visibly present in the image.
 - Keep the exact wording and line breaks.
 - Coordinates are normalized to the full image (top-left origin).
+- Group words into sensible blocks (usually lines/phrases), not per-character.
 - Keep blocks in reading order top-to-bottom.
 - Max 40 blocks.
 `.trim();
@@ -516,9 +584,10 @@ Rules:
         { inlineData: { mimeType: inline.mimeType, data: inline.base64 } },
       ],
       config: {
+        responseModalities: ["TEXT"],
         systemInstruction: system,
         maxOutputTokens: 1800,
-        temperature: 0.2,
+        temperature: 0,
       },
     });
   } catch (error) {

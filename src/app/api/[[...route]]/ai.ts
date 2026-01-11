@@ -4,6 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 
 import { requireAuth } from "@/server/hono-auth";
 import {
+  chatAssistant,
   editImage,
   extractTextBlocks,
   generateHtml,
@@ -16,6 +17,34 @@ import {
 import { incrementAiUsage } from "@/server/ai-usage";
 
 const app = new Hono()
+  .post(
+    "/chat",
+    requireAuth,
+    zValidator(
+      "json",
+      z.object({
+        prompt: z.string().trim().min(1).max(8000),
+      }),
+    ),
+    async (c) => {
+      const authUser = c.get("authUser");
+      const { prompt } = c.req.valid("json");
+
+      const { decision } = await getAiAccessDecision({
+        authUser,
+        action: "generate",
+      });
+
+      if (!decision.allowed || !decision.usageRow) {
+        return c.json(getAiLimitErrorBody(decision), 429);
+      }
+
+      const result = await chatAssistant({ prompt });
+      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+
+      return c.json({ data: { text: result.text }, meta: { provider: result.provider } });
+    },
+  )
   .post(
     "/remove-bg",
     requireAuth,

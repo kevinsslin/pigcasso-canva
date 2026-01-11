@@ -7,7 +7,15 @@ import { join } from "node:path";
 describe("Canvas URL cleanup (UX regression)", () => {
   test("does not trigger Next.js navigation when clearing prompt/image params", () => {
     const content = readFileSync(
-      join(process.cwd(), "src", "app", "canvas", "[canvasId]", "page.tsx"),
+      join(
+        process.cwd(),
+        "src",
+        "features",
+        "canvases",
+        "screens",
+        "canvas-screen",
+        "canvas-screen.tsx",
+      ),
       "utf8",
     );
 
@@ -15,4 +23,3 @@ describe("Canvas URL cleanup (UX regression)", () => {
     expect(content).toContain("history.replaceState");
   });
 });
-

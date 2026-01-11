@@ -10,6 +10,7 @@ import {
 describe("nano banana profile helpers", () => {
   test("parseNanoBananaProfileOption accepts known values", () => {
     expect(parseNanoBananaProfileOption("auto")).toBe("auto");
+    expect(parseNanoBananaProfileOption("gemini-pro-3")).toBe("gemini-pro-3");
     expect(parseNanoBananaProfileOption("nano-banana")).toBe("nano-banana");
     expect(parseNanoBananaProfileOption("nano-banana-pro")).toBe("nano-banana-pro");
   });
@@ -21,7 +22,7 @@ describe("nano banana profile helpers", () => {
 
   test("toNanoBananaApiProfile maps auto to undefined", () => {
     expect(toNanoBananaApiProfile("auto")).toBeUndefined();
+    expect(toNanoBananaApiProfile("gemini-pro-3")).toBeUndefined();
     expect(toNanoBananaApiProfile("nano-banana")).toBe("nano-banana");
   });
 });
-

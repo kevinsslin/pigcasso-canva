@@ -20,6 +20,12 @@ Last updated: 2026-01-10
   - Context + output chips：`IMG_0001` / `HTML_0002` 可點擊回到 canvas 物件
   - Pin edit：Alt+click / Pin → 在畫布位置開浮動輸入框 → 指令 → 產出落在該位置
   - Header：board title pill（可 rename）、zoom % 指示、undo/redo、fullscreen、toggle chat panel
+
+### Engineering / Maintainability
+
+- `/canvas/:id` refactor：route (`src/app/canvas/[canvasId]/page.tsx`) 變成薄 wrapper，主實作移到 `src/features/canvases/screens/canvas-screen/*`
+- 拆出可重用子元件：`CanvasChatPanel`、`CanvasDownloadsDialog`、`CanvasMentionPicker`、`CanvasMobileDock`、`CanvasDebugPanel`
+- 抽出純 helper：`src/features/canvases/lib/text-style.ts`（文字樣式選項 / richText helpers）
 - Space builder：
   - Drag collision：由上往下拖曳碰撞會 **swap**（不再把其他項目往下擠）
   - Drag handle：可直接拖整個 block
@@ -27,6 +33,7 @@ Last updated: 2026-01-10
 
 ### AI (Gemini)
 
+- `POST /api/ai/chat`（Gemini Pro 3 text chat / ideation）
 - `POST /api/ai/generate-image`
 - `POST /api/ai/edit-image`
 - `POST /api/ai/generate-html`
