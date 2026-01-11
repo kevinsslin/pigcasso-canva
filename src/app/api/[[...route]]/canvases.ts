@@ -24,6 +24,7 @@ const updateSchema = z
   .object({
     name: z.string().trim().min(1).max(80).optional(),
     snapshot: z.string().min(1).nullable().optional(),
+    chatJson: z.string().min(1).nullable().optional(),
     coverImageUrl: z.string().trim().url().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -96,4 +97,3 @@ const app = new Hono()
   );
 
 export default app;
-

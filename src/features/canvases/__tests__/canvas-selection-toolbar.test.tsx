@@ -44,9 +44,11 @@ describe("CanvasSelectionToolbar", () => {
           onAddToChat={() => {}}
           onEditWithAi={() => {}}
           onDownloadSelected={() => {}}
+          onDownloadSelectedHtml={() => {}}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
+          onViewHtmlCode={() => {}}
           textStyle={null}
           onUpdateTextStyle={() => {}}
         />,
@@ -80,9 +82,11 @@ describe("CanvasSelectionToolbar", () => {
           onAddToChat={() => {}}
           onEditWithAi={() => {}}
           onDownloadSelected={() => {}}
+          onDownloadSelectedHtml={() => {}}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
+          onViewHtmlCode={() => {}}
           textStyle={{ font: "sans", size: "m", color: "black", sizePx: 24, fontFamily: null }}
           onUpdateTextStyle={() => {}}
         />,
@@ -91,6 +95,42 @@ describe("CanvasSelectionToolbar", () => {
 
     expect(container?.querySelector("button[aria-label=\"Download selected image\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Edit selected image\"]")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("shows code actions for HTML selections", async () => {
+    const { CanvasSelectionToolbar } = await import("../screens/canvas-screen/canvas-selection-toolbar");
+    const { createRoot } = await import("react-dom/client");
+
+    const container = document.getElementById("root");
+    expect(container).not.toBeNull();
+
+    const root = createRoot(container as HTMLElement);
+
+    await act(async () => {
+      root.render(
+        <CanvasSelectionToolbar
+          anchor={{ kind: "html", screenX: 20, screenY: 20, shapeId: "shape:html" }}
+          disabled={false}
+          onAddToChat={() => {}}
+          onEditWithAi={() => {}}
+          onDownloadSelected={() => {}}
+          onDownloadSelectedHtml={() => {}}
+          onRegenerate={() => {}}
+          onRemoveBackground={() => {}}
+          onMakeTextEditable={() => {}}
+          onViewHtmlCode={() => {}}
+          textStyle={null}
+          onUpdateTextStyle={() => {}}
+        />,
+      );
+    });
+
+    expect(container?.querySelector("button[aria-label=\"View HTML code\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Download HTML\"]")).not.toBeNull();
 
     await act(async () => {
       root.unmount();

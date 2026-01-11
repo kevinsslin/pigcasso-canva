@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, ChevronDown, Download, Edit3, MoreHorizontal, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
+import { AtSign, ChevronDown, Code2, Download, Edit3, MoreHorizontal, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,12 @@ export type CanvasSelectionToolbarAnchor =
       shapeId: string;
     }
   | {
+      kind: "html";
+      screenX: number;
+      screenY: number;
+      shapeId: string;
+    }
+  | {
       kind: "text";
       screenX: number;
       screenY: number;
@@ -37,9 +43,11 @@ export const CanvasSelectionToolbar = ({
   onAddToChat,
   onEditWithAi,
   onDownloadSelected,
+  onDownloadSelectedHtml,
   onRegenerate,
   onRemoveBackground,
   onMakeTextEditable,
+  onViewHtmlCode,
   textStyle,
   onUpdateTextStyle,
 }: {
@@ -48,9 +56,11 @@ export const CanvasSelectionToolbar = ({
   onAddToChat: () => void;
   onEditWithAi: () => void;
   onDownloadSelected: () => void;
+  onDownloadSelectedHtml: () => void;
   onRegenerate: () => void;
   onRemoveBackground: () => void;
   onMakeTextEditable: () => void;
+  onViewHtmlCode: () => void;
   textStyle: { font: string; size: string; color: string; sizePx: number; fontFamily: string | null } | null;
   onUpdateTextStyle: (
     partial: Partial<{ font: string; size: string; color: string; sizePx: number; fontFamily: string | null }>,
@@ -59,6 +69,7 @@ export const CanvasSelectionToolbar = ({
   if (!anchor) return null;
 
   const isImage = anchor.kind === "image";
+  const isHtml = anchor.kind === "html";
   const isText = anchor.kind === "text";
 
   return (
@@ -137,6 +148,35 @@ export const CanvasSelectionToolbar = ({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </>
+        ) : null}
+
+        {isHtml ? (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onViewHtmlCode}
+              aria-label="View HTML code"
+            >
+              <Code2 className="mr-2 size-4" />
+              Code
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              disabled={disabled}
+              onClick={onDownloadSelectedHtml}
+              aria-label="Download HTML"
+            >
+              <Download className="size-4" />
+            </Button>
           </>
         ) : null}
 

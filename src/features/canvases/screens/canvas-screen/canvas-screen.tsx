@@ -41,7 +41,8 @@ import { useRemoveBg } from "@/features/ai/api/use-remove-bg";
 import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
-import { HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { parseCanvasChatMessages, serializeCanvasChatMessages } from "@/features/canvases/lib/chat-history";
+import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
@@ -82,10 +83,12 @@ import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "
 import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
+import { generateHtmlPreviewDataUrl, PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { CanvasChatPanel } from "@/features/canvases/screens/canvas-screen/canvas-chat-panel";
 import { CanvasDebugPanel } from "@/features/canvases/screens/canvas-screen/canvas-debug-panel";
 import { CanvasDownloadsDialog } from "@/features/canvases/screens/canvas-screen/canvas-downloads-dialog";
+import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/canvas-html-code-dialog";
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
 import { CanvasSelectionToolbar, type CanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/canvas-selection-toolbar";
@@ -139,6 +142,9 @@ export default function CanvasScreen({ params }: PageProps) {
   const [selectionContext, setSelectionContext] = useState<SelectionContext | null>(null);
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [selectionToolbarAnchor, setSelectionToolbarAnchor] = useState<CanvasSelectionToolbarAnchor | null>(null);
+  const [htmlCodeDialogOpen, setHtmlCodeDialogOpen] = useState(false);
+  const [htmlCodeDialogHtml, setHtmlCodeDialogHtml] = useState("");
+  const [htmlCodeDialogFilename, setHtmlCodeDialogFilename] = useState("HTML");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [chatInput, setChatInput] = useState("");
@@ -166,6 +172,7 @@ export default function CanvasScreen({ params }: PageProps) {
   const mentionCursorIndexRef = useRef<number | null>(null);
   const canvasClipboardRef = useRef<unknown | null>(null) as CanvasClipboardRef;
   const heldPanToolRef = useRef<CanvasTool | null>(null);
+  const htmlPreviewInFlightRef = useRef<Set<string>>(new Set());
 
   const lastSelectionToolbarKeyRef = useRef<string>("");
 
@@ -181,6 +188,7 @@ export default function CanvasScreen({ params }: PageProps) {
   const lastUnmountAtRef = useRef<number | null>(null);
 
   const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
+  const localChatKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:chat`, [params.canvasId]);
   const tldrawUser = useTldrawUser({
     userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
   });
@@ -259,6 +267,10 @@ export default function CanvasScreen({ params }: PageProps) {
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
+  const hasLoadedChatRef = useRef(false);
+  const chatHydratingRef = useRef(false);
+  const lastSavedChatRef = useRef<string | null>(null);
+  const hasEnsuredHtmlPreviewsRef = useRef(false);
   const hasProxiedImageAssetsRef = useRef(false);
   const hasUserEditedRef = useRef(false);
   const hasShownRemoteSyncSkippedToastRef = useRef(false);
@@ -748,6 +760,42 @@ export default function CanvasScreen({ params }: PageProps) {
   }, [boardHydrated, canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!ready || !authenticated) return;
+    if (!canvasQuery.isSuccess && !canvasQuery.isError) return;
+    if (hasLoadedChatRef.current) return;
+
+    hasLoadedChatRef.current = true;
+    chatHydratingRef.current = true;
+
+    const remoteMessages = canvasQuery.isSuccess ? parseCanvasChatMessages(canvasQuery.data?.chatJson ?? null) : [];
+
+    let localMessages: CanvasChatMessage[] = [];
+    try {
+      localMessages = parseCanvasChatMessages(localStorage.getItem(localChatKey));
+    } catch {
+      localMessages = [];
+    }
+
+    const chosen = remoteMessages.length ? remoteMessages : localMessages;
+    setMessages(chosen);
+
+    const serialized = serializeCanvasChatMessages(chosen);
+    lastSavedChatRef.current = serialized;
+    try {
+      if (serialized) {
+        localStorage.setItem(localChatKey, serialized);
+      } else {
+        localStorage.removeItem(localChatKey);
+      }
+    } catch {
+      // ignore
+    }
+
+    chatHydratingRef.current = false;
+  }, [authenticated, canvasQuery.data?.chatJson, canvasQuery.isError, canvasQuery.isSuccess, localChatKey, ready]);
+
+  useEffect(() => {
     if (!editor) return;
     if (!boardHydrated) return;
     if (boardCrashMessage) return;
@@ -840,7 +888,13 @@ export default function CanvasScreen({ params }: PageProps) {
 
           const shape = editor.getShape?.(shapeId as any) as any;
           const kind =
-            shape?.type === "image" ? ("image" as const) : shape?.type === "text" ? ("text" as const) : null;
+            shape?.type === "image"
+              ? ("image" as const)
+              : shape?.type === "text"
+                ? ("text" as const)
+                : shape?.type === HTML_CARD_SHAPE_TYPE
+                  ? ("html" as const)
+                  : null;
           if (!kind) return null;
 
           const bounds = editor.getShapePageBounds?.(shapeId as any) as any;
@@ -852,7 +906,7 @@ export default function CanvasScreen({ params }: PageProps) {
           const screenPoint = pageToScreen({ x: bounds.x + bounds.w / 2, y: bounds.y });
           if (!screenPoint || typeof screenPoint.x !== "number" || typeof screenPoint.y !== "number") return null;
 
-          const toolbarWidth = kind === "text" ? 440 : 340;
+          const toolbarWidth = kind === "text" ? 440 : kind === "html" ? 300 : 340;
           const toolbarHeight = kind === "text" ? 68 : 52;
           const padding = 12;
           const offset = 10;
@@ -943,6 +997,102 @@ export default function CanvasScreen({ params }: PageProps) {
       // ignore
     }
   }, [canvasQuery.isError, canvasQuery.isSuccess, editor]);
+
+  const ensureHtmlCardPreview = useCallback(
+    async (shapeId: string, html: string) => {
+      if (!editor) return;
+      if (!html.trim()) return;
+
+      const inFlight = htmlPreviewInFlightRef.current;
+      if (inFlight.has(shapeId)) return;
+      inFlight.add(shapeId);
+
+      try {
+        let w = 960;
+        let h = 600;
+        try {
+          const shape = editor.getShape?.(shapeId as any) as any;
+          const rawW = Number(shape?.props?.w);
+          const rawH = Number(shape?.props?.h);
+          if (Number.isFinite(rawW) && rawW > 0 && Number.isFinite(rawH) && rawH > 0) {
+            w = Math.max(320, Math.min(1200, Math.round(rawW)));
+            h = Math.max(200, Math.min(1200, Math.round((w * rawH) / rawW)));
+          }
+        } catch {
+          // ignore
+        }
+
+        try {
+          (editor as any).run(
+            () => {
+              editor.updateShape?.({
+                id: shapeId as any,
+                type: HTML_CARD_SHAPE_TYPE,
+                meta: { [PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY]: "rendering" },
+              } as any);
+            },
+            { history: "ignore" },
+          );
+        } catch {
+          // ignore
+        }
+
+        const previewDataUrl = await generateHtmlPreviewDataUrl({ html, width: w, height: h });
+        const nextMetaValue = previewDataUrl || "failed";
+
+        try {
+          (editor as any).run(
+            () => {
+              editor.updateShape?.({
+                id: shapeId as any,
+                type: HTML_CARD_SHAPE_TYPE,
+                meta: { [PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY]: nextMetaValue },
+              } as any);
+            },
+            { history: "ignore" },
+          );
+        } catch {
+          // ignore
+        }
+      } finally {
+        inFlight.delete(shapeId);
+      }
+    },
+    [editor],
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+    if (hasEnsuredHtmlPreviewsRef.current) return;
+
+    hasEnsuredHtmlPreviewsRef.current = true;
+
+    const candidates = (editor.getCurrentPageShapes?.() ?? [])
+      .filter((shape) => (shape as any)?.type === HTML_CARD_SHAPE_TYPE)
+      .slice(0, 4) as any[];
+
+    if (!candidates.length) return;
+
+    let canceled = false;
+    const run = async () => {
+      for (const shape of candidates) {
+        if (canceled) return;
+        const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
+        if (!html.trim()) continue;
+        const previewRaw = shape?.meta?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
+        if (typeof previewRaw === "string" && previewRaw.startsWith("data:image/")) continue;
+        if (previewRaw === "rendering") continue;
+        await ensureHtmlCardPreview(String(shape.id), html);
+      }
+    };
+
+    void run();
+    return () => {
+      canceled = true;
+    };
+  }, [boardCrashMessage, boardHydrated, editor, ensureHtmlCardPreview]);
 
   useEffect(() => {
     if (!editor) return;
@@ -1036,6 +1186,47 @@ export default function CanvasScreen({ params }: PageProps) {
       cancelIdle();
     };
   }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
+
+  const saveChat = useMemo(
+    () =>
+      debounce((chatJson: string | null) => {
+        if (!canvasQuery.data) return;
+        updateCanvas.mutate({
+          param: { id: params.canvasId },
+          json: { chatJson },
+        });
+      }, 900),
+    [canvasQuery.data, params.canvasId, updateCanvas],
+  );
+
+  useEffect(() => {
+    return () => {
+      saveChat.cancel();
+    };
+  }, [saveChat]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!ready || !authenticated) return;
+    if (chatHydratingRef.current) return;
+    if (boardCrashMessage) return;
+
+    const serialized = serializeCanvasChatMessages(messages);
+    if (serialized === lastSavedChatRef.current) return;
+    lastSavedChatRef.current = serialized;
+
+    try {
+      if (serialized) {
+        localStorage.setItem(localChatKey, serialized);
+      } else {
+        localStorage.removeItem(localChatKey);
+      }
+    } catch {
+      // ignore
+    }
+
+    saveChat(serialized);
+  }, [authenticated, boardCrashMessage, localChatKey, messages, ready, saveChat]);
 
     useEffect(() => {
       if (!editor) return;
@@ -1181,13 +1372,16 @@ export default function CanvasScreen({ params }: PageProps) {
           );
         }
 
+        if (htmlCardShapeId) {
+          void ensureHtmlCardPreview(htmlCardShapeId, html);
+        }
+
         const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
           ? {
               id: crypto.randomUUID(),
               type: "html",
               label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
               shapeId: htmlCardShapeId,
-              html,
             }
           : null;
         if (htmlAttachment) {
@@ -1449,7 +1643,7 @@ export default function CanvasScreen({ params }: PageProps) {
       busyRef.current = false;
       setBusy(false);
     }
-        }, [aiProfile, boardCrashMessage, boardHydrated, chatAssistant, editImage, editor, generateHtml, generateImage, params.canvasId, updateCanvas]);
+        }, [aiProfile, boardCrashMessage, boardHydrated, chatAssistant, editImage, editor, ensureHtmlCardPreview, generateHtml, generateImage, params.canvasId, updateCanvas]);
 
   const pinnedContexts = useMemo(() => {
     if (!editor) return [];
@@ -1477,6 +1671,18 @@ export default function CanvasScreen({ params }: PageProps) {
     try {
       const shape = editor.getShape(selectedShapeIds[0] as any) as any;
       if (!shape || typeof shape !== "object" || shape.type !== "image") return null;
+      return shape as any;
+    } catch {
+      return null;
+    }
+  }, [editor, selectedShapeIds]);
+
+  const selectedHtmlShape = useMemo(() => {
+    if (!editor) return null;
+    if (selectedShapeIds.length !== 1) return null;
+    try {
+      const shape = editor.getShape(selectedShapeIds[0] as any) as any;
+      if (!shape || typeof shape !== "object" || shape.type !== HTML_CARD_SHAPE_TYPE) return null;
       return shape as any;
     } catch {
       return null;
@@ -1523,9 +1729,10 @@ export default function CanvasScreen({ params }: PageProps) {
     if (selectedShapeIds.length !== 1) return null;
     if (selectionToolbarAnchor.shapeId !== selectedShapeIds[0]) return null;
     if (selectionToolbarAnchor.kind === "image" && !selectedImageShape) return null;
+    if (selectionToolbarAnchor.kind === "html" && !selectedHtmlShape) return null;
     if (selectionToolbarAnchor.kind === "text" && !selectedTextShape) return null;
     return selectionToolbarAnchor;
-  }, [selectedImageShape, selectedShapeIds, selectedTextShape, selectionToolbarAnchor]);
+  }, [selectedHtmlShape, selectedImageShape, selectedShapeIds, selectedTextShape, selectionToolbarAnchor]);
 
   const updateSelectedTextStyle = useCallback(
     (
@@ -1729,6 +1936,32 @@ export default function CanvasScreen({ params }: PageProps) {
       toast.error(message, { duration: 3500 });
     }
   }, [downloadBlob, selectedImageAsset]);
+
+  const viewSelectedHtmlCode = useCallback(() => {
+    const shape = selectedHtmlShape as any;
+    const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
+    if (!html.trim()) {
+      toast.error("Select an HTML card to view its code.");
+      return;
+    }
+
+    setHtmlCodeDialogHtml(html);
+    setHtmlCodeDialogFilename(`HTML_${Date.now()}`);
+    setHtmlCodeDialogOpen(true);
+  }, [selectedHtmlShape]);
+
+  const downloadSelectedHtml = useCallback(() => {
+    const shape = selectedHtmlShape as any;
+    const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
+    if (!html.trim()) {
+      toast.error("Select an HTML card to download.");
+      return;
+    }
+
+    const srcDoc = createHtmlCardSrcDoc(html);
+    const blob = new Blob([srcDoc], { type: "text/html;charset=utf-8" });
+    downloadBlob(blob, `pigcasso_html_${Date.now()}.html`);
+  }, [downloadBlob, selectedHtmlShape]);
 
   const readFileAsDataUrl = useCallback(async (file: File) => {
     if (typeof FileReader === "undefined") {
@@ -2426,9 +2659,11 @@ export default function CanvasScreen({ params }: PageProps) {
                 onAddToChat={() => addSelectionToChat()}
                 onEditWithAi={() => addSelectionToChat({ prefill: "Edit this: " })}
                 onDownloadSelected={() => void downloadSelectedImage()}
+                onDownloadSelectedHtml={() => downloadSelectedHtml()}
                 onRegenerate={() => void regenerateSelectedImage()}
                 onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                 onMakeTextEditable={() => void makeSelectedImageTextEditable()}
+                onViewHtmlCode={() => viewSelectedHtmlCode()}
                 textStyle={selectedTextShape ? selectedTextStyle : null}
                 onUpdateTextStyle={updateSelectedTextStyle}
               />
@@ -2981,6 +3216,13 @@ export default function CanvasScreen({ params }: PageProps) {
         attachments={allAttachments}
         editor={editor}
         onFocusShape={focusShapeId}
+      />
+
+      <CanvasHtmlCodeDialog
+        open={htmlCodeDialogOpen}
+        onOpenChange={setHtmlCodeDialogOpen}
+        html={htmlCodeDialogHtml}
+        filename={htmlCodeDialogFilename}
       />
 
       <CanvasDebugPanel

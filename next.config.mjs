@@ -47,11 +47,14 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     const kitDistDir = dirname(require.resolve("@solana/kit"));
     const kitEntry = join(kitDistDir, isServer ? "index.node.mjs" : "index.browser.mjs");
+    const codecsCoreDistDir = dirname(require.resolve("@solana/codecs-core"));
+    const codecsCoreEntry = join(codecsCoreDistDir, isServer ? "index.node.mjs" : "index.browser.mjs");
 
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
       "@solana/kit": kitEntry,
+      "@solana/codecs-core": codecsCoreEntry,
     };
     return config;
   },

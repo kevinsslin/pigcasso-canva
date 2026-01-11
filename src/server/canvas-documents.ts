@@ -6,12 +6,22 @@ import { normalizeDbError } from "@/server/db-errors";
 import { HttpError } from "@/server/http-error";
 
 const MAX_SNAPSHOT_CHARS = 4_000_000;
+const MAX_CHAT_CHARS = 1_000_000;
 
 const assertSnapshotSize = (snapshot: string | null | undefined) => {
   if (!snapshot) return;
   if (snapshot.length <= MAX_SNAPSHOT_CHARS) return;
   throw new HttpError(413, "Canvas snapshot is too large.", {
     code: "CANVAS_SNAPSHOT_TOO_LARGE",
+    expose: true,
+  });
+};
+
+const assertChatSize = (chatJson: string | null | undefined) => {
+  if (!chatJson) return;
+  if (chatJson.length <= MAX_CHAT_CHARS) return;
+  throw new HttpError(413, "Canvas chat history is too large.", {
+    code: "CANVAS_CHAT_TOO_LARGE",
     expose: true,
   });
 };
@@ -71,6 +81,7 @@ export const getOrCreateCanvasDocumentForUserId = async (params: {
         userId: params.userId,
         name: params.name?.trim() ? params.name.trim().slice(0, 80) : "Untitled",
         snapshot: null,
+        chatJson: null,
         coverImageUrl: null,
         createdAt: now,
         updatedAt: now,
@@ -96,10 +107,12 @@ export const updateCanvasDocumentForUserId = async (params: {
   values: {
     name?: string;
     snapshot?: string | null;
+    chatJson?: string | null;
     coverImageUrl?: string | null;
   };
 }) => {
   assertSnapshotSize(params.values.snapshot);
+  assertChatSize(params.values.chatJson);
 
   try {
     const [row] = await db
@@ -116,4 +129,3 @@ export const updateCanvasDocumentForUserId = async (params: {
     throw normalizeDbError(error, { fallbackMessage: "Failed to update canvas." });
   }
 };
-

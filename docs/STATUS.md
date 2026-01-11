@@ -1,6 +1,6 @@
 # Pigcasso Canvas — Status / Progress
 
-Last updated: 2026-01-10
+Last updated: 2026-01-11
 
 這份文件是「目前做到哪 + 你還需要設定什麼 + 有哪些決策需要你 unblock」的單一來源。
 
@@ -15,7 +15,8 @@ Last updated: 2026-01-10
 - Dashboard navigation：桌面 floating sidebar + mobile 底部 tab bar（native-like）
 - `/canvases`：Canvas documents 列表（DB-backed）
 - `/canvas/new`、`/canvas/:id`：tldraw infinite canvas（DB persistence + mobile full-screen chat dialog）
-- HTML：在 chat 生成後會以 **HTML card（iframe）** 直接插入畫布（可 move/resize，reload 仍保留）
+- Chat history：會保存到 `canvas_document.chatJson`（DB + localStorage fallback；reload 可恢復）
+- HTML：在 chat 生成後會以 **HTML card（static preview）** 插入畫布（可 move/resize；可查看 code/下載 `.html`）
 - ChatCanvas（Lovart-style 右側 panel）：
   - Context + output chips：`IMG_0001` / `HTML_0002` 可點擊回到 canvas 物件
   - Pin edit：Alt+click / Pin → 在畫布位置開浮動輸入框 → 指令 → 產出落在該位置
@@ -136,7 +137,7 @@ bun run build
 1. ChatCanvas 與 Fabric editor 的關係：
    - `/canvas/:id` 是否要變成主工作區？還是跟 `/editor/:projectId` 並行一段時間？
 2. HTML preview 安全策略：
-   - 目前 HTML card 使用 `sandbox="allow-scripts"`（不含 `allow-same-origin`）；如要更嚴格或更開放請確認
+   - 目前 HTML card 預設顯示 screenshot preview；編輯態仍用 `sandbox="allow-scripts"`（不含 `allow-same-origin`）
 3. Video provider：
    - 先接 Kling / Veo / 其他？要 webhook callback 還是 polling？
 4. AI run persistence（provenance）：

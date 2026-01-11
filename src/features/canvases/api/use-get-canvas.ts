@@ -9,6 +9,7 @@ export type CanvasDocument = {
   userId: string;
   name: string;
   snapshot: string | null;
+  chatJson: string | null;
   coverImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -29,4 +30,3 @@ export const useGetCanvas = (id: string, options?: { enabled?: boolean }) => {
     },
   });
 };
-
