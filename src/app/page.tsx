@@ -30,7 +30,7 @@ import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
 export default function LandingPage() {
   const { openApp, opening } = useOpenApp();
-  const openChatCanvas = () => void openApp("/app?new=1");
+  const startCreating = () => void openApp("/app?new=1");
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,14 +88,14 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={openChatCanvas}
+              onClick={startCreating}
               disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
               {opening ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
-              Open ChatCanvas
+              Start creating
               <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
@@ -118,7 +118,7 @@ export default function LandingPage() {
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/75 backdrop-blur border border-white/50 shadow-sm motion-safe:animate-[pigcasso-enter_650ms_ease-out_0ms_both]">
                   <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
                   <span className="text-xs font-bold tracking-wider text-foreground/80">
-                    Infinite ChatCanvas for Web3
+                    Canva ship file, we ship asset
                   </span>
                 </div>
 
@@ -130,15 +130,15 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
-                  Talk to an AI design agent, iterate on an infinite canvas, and
-                  publish what you make as verifiable assets (IPFS/NFT).
-                  Repository → Asset turns GitHub repos into memes in one click.
+                  Describe what you want, get drafts instantly, and iterate on a
+                  single board. Export as shareable assets — including NFTs and
+                  prints when you’re ready.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
                   <Button
                     type="button"
-                    onClick={openChatCanvas}
+                    onClick={startCreating}
                     disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
@@ -148,19 +148,20 @@ export default function LandingPage() {
                     ) : (
                       <Brush className="mr-2 size-5" />
                     )}
-                    {opening ? "Opening…" : "Open ChatCanvas"}
+                    {opening ? "Opening…" : "Start creating"}
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
                   <Button
-                    type="button"
                     variant="secondary"
-                    onClick={() => void openApp("/app")}
                     disabled={opening}
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-white/75 border border-white/60 shadow-soft hover:bg-white/90"
+                    asChild
                   >
-                    <FolderOpen className="mr-2 size-5 text-primary" />
-                    Explore Creator Hub
+                    <Link href="/gallery">
+                      <FolderOpen className="mr-2 size-5 text-primary" />
+                      Explore gallery
+                    </Link>
                   </Button>
                 </div>
 
@@ -177,15 +178,15 @@ export default function LandingPage() {
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-2 motion-safe:animate-[pigcasso-enter_780ms_ease-out_320ms_both]">
                   <BentoBadge>
                     <Blocks className="size-3.5 text-primary" />
-                    ChatCanvas
+                    Infinite canvas
                   </BentoBadge>
                   <BentoBadge>
                     <Github className="size-3.5 text-primary" />
-                    Repository → Asset
+                    Repo → asset
                   </BentoBadge>
                   <BentoBadge>
                     <Coins className="size-3.5 text-yellow-500" />
-                    Mint-ready
+                    Mint & share
                   </BentoBadge>
                 </div>
               </div>
@@ -213,19 +214,19 @@ export default function LandingPage() {
 
                   <div className="hidden sm:block absolute left-6 bottom-6 motion-safe:animate-[pigcasso-float_10s_ease-in-out_0ms_infinite]">
                     <div className="rounded-2xl bg-white/90 backdrop-blur border border-white/60 shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                          <Sparkles className="size-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold">Gemini-native</div>
-                          <div className="text-xs text-muted-foreground">
-                            Image generation + assistant edits.
-                          </div>
-                        </div>
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                      <Sparkles className="size-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">AI-powered</div>
+                      <div className="text-xs text-muted-foreground">
+                        Drafts + quick edits.
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
                 </Tilt>
               </div>
             </div>
@@ -240,7 +241,7 @@ export default function LandingPage() {
             <SectionTitle
               eyebrow="Product"
               title="A canvas that turns ideas into assets"
-              description="ChatCanvas for creation — plus GitHub, IPFS/NFT, and Printr for publishing."
+              description="Prompt, arrange, refine, and publish — all in one place."
             />
 
             <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-12 lg:auto-rows-[minmax(240px,auto)] lg:gap-6 xl:auto-rows-[minmax(260px,auto)]">
@@ -264,10 +265,10 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          ChatCanvas
+                          Canvas
                         </div>
                         <div className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                          Talk. Iterate. Ship.
+                          Prompt. Iterate. Share.
                         </div>
                       </div>
                     </div>
@@ -278,32 +279,32 @@ export default function LandingPage() {
                       </BentoBadge>
                       <BentoBadge>
                         <Coins className="size-3.5 text-yellow-500" />
-                        Web3-native
+                        Onchain-ready
                       </BentoBadge>
                     </div>
                   </div>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                    Start with a prompt, drop outputs onto a board, and keep
-                    context in one workspace.
+                    Start with a prompt, place outputs on a board, and keep
+                    everything in one workspace.
                   </p>
 
                   <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
                     <div className="flex items-start gap-2">
                       <Blocks className="mt-0.5 size-4 text-cyan-500" />
-                      <span>Infinite canvas (tldraw) + pan/zoom</span>
+                      <span>Infinite canvas + pan/zoom</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <Mic className="mt-0.5 size-4 text-primary" />
-                      <span>Chat-driven iterations (Talk)</span>
+                      <Sparkles className="mt-0.5 size-4 text-primary" />
+                      <span>Chat-guided edits</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <Github className="mt-0.5 size-4 text-primary" />
-                      <span>Repository → Asset (GitHub)</span>
+                      <span>Repo → asset (GitHub)</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <Coins className="mt-0.5 size-4 text-yellow-500" />
-                      <span>IPFS/NFT export + publish</span>
+                      <span>Export, mint, and share</span>
                     </div>
                   </div>
                 </div>
@@ -321,7 +322,7 @@ export default function LandingPage() {
                           Space
                         </div>
                         <div className="text-xl font-extrabold tracking-tight">
-                          Bento-style pages
+                          Shareable profile pages
                         </div>
                       </div>
                     </div>
@@ -332,8 +333,8 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Build a public gateway page — drag blocks, swap order,
-                    resize, and publish to share in your bio.
+                    Build a public gateway page — drag blocks, reorder, resize,
+                    and share in your bio.
                   </p>
 
                   <div className="mt-auto pt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -341,8 +342,7 @@ export default function LandingPage() {
                       <Brush className="size-4 text-primary" /> Drag + resize
                     </span>
                     <span className="inline-flex items-center gap-2">
-                      <Rocket className="size-4 text-cyan-500" /> Publish +
-                      share
+                      <Rocket className="size-4 text-cyan-500" /> Share link
                     </span>
                   </div>
                 </div>
@@ -366,23 +366,23 @@ export default function LandingPage() {
                     </div>
                     <BentoBadge>
                       <Sparkles className="size-3.5 text-primary" />
-                      Draft-first
+                      Instant drafts
                     </BentoBadge>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Generate images (Nano Banana tiers), edit images, and draft
-                    HTML — always in a draft-first loop.
+                    Generate images, edit visuals, and draft pages — always in a
+                    fast iterate loop.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-col gap-2 text-[11px] text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Wand2 className="size-4 text-cyan-500" />
-                      Suggests changes based on your current canvas.
+                      Suggests next steps from what’s on your board.
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      You control the final apply step.
+                      You decide what to keep.
                     </div>
                   </div>
                 </div>
@@ -406,13 +406,13 @@ export default function LandingPage() {
                     </div>
                     <BentoBadge>
                       <BadgeCheck className="size-3.5 text-primary" />
-                      GitHub OAuth
+                      Connect GitHub
                     </BentoBadge>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Connect GitHub, browse repos, and generate meme assets from
-                    code context. Publish to Printr when ready.
+                    Connect GitHub, pick a repo, and turn your code into a
+                    visual you can share or mint.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-wrap gap-2">
@@ -422,11 +422,11 @@ export default function LandingPage() {
                         icon: <FolderOpen className="size-3.5 text-primary" />,
                       },
                       {
-                        label: "Org repos (read:org)",
+                        label: "Org repos supported",
                         icon: <Github className="size-3.5 text-gray-900" />,
                       },
                       {
-                        label: "Tokens encrypted at rest",
+                        label: "Secure by default",
                         icon: <BadgeCheck className="size-3.5 text-yellow-500" />,
                       },
                     ].map((item) => (
@@ -454,7 +454,7 @@ export default function LandingPage() {
                           Publish
                         </div>
                         <div className="text-xl font-extrabold tracking-tight">
-                          IPFS / Mint / Printr
+                          Mint & share
                         </div>
                       </div>
                     </div>
@@ -465,12 +465,11 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Export to IPFS, mint as an NFT, and publish to Printr.
-                    Template tokens can be layered on top (roadmap).
+                    Download, share, or mint as an NFT when you’re ready.
                   </p>
 
                   <div className="mt-auto pt-6 text-xs text-muted-foreground">
-                    IPFS metadata • tokenURI/image URLs • marketplace links
+                    Download • share links • collectible metadata
                   </div>
                 </div>
               </BentoCard>
@@ -483,7 +482,7 @@ export default function LandingPage() {
                     Try it
                   </div>
                   <div className="mt-1 text-xl font-extrabold tracking-tight text-gray-900">
-                    Open ChatCanvas and start creating
+                    Start creating in minutes
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
                     Generate, arrange, export, and publish — all in one place.
@@ -492,14 +491,14 @@ export default function LandingPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     type="button"
-                    onClick={openChatCanvas}
+                    onClick={startCreating}
                     disabled={opening}
                     className="rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/25 hover:opacity-95"
                   >
                     {opening ? (
                       <Loader2 className="mr-2 size-4 animate-spin" />
                     ) : null}
-                    Open ChatCanvas
+                    Start creating
                   </Button>
                   <Button
                     type="button"
@@ -508,7 +507,7 @@ export default function LandingPage() {
                     disabled={opening}
                     className="rounded-full"
                   >
-                    Build Space
+                    Create your Space
                   </Button>
                 </div>
               </div>
@@ -520,30 +519,30 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Workflow"
-              title="Talk → canvas → publish"
-              description="A simple loop from idea to verifiable assets."
+              title="Prompt → canvas → share"
+              description="A simple loop from idea to shareable assets."
             />
 
             <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               <FeatureCard
                 icon={<Sparkles className="size-5 text-primary" />}
                 title="1) Start with a prompt"
-                description="Generate an image, edit an existing one, or draft HTML in seconds."
+                description="Generate an image, edit an existing one, or draft a page in seconds."
               />
               <FeatureCard
                 icon={<Blocks className="size-5 text-cyan-500" />}
-                title="2) Drop onto ChatCanvas"
-                description="Pan/zoom on an infinite canvas and keep your context visible."
+                title="2) Place it on your canvas"
+                description="Pan/zoom on an infinite canvas and keep everything in view."
               />
               <FeatureCard
                 icon={<Wand2 className="size-5 text-yellow-500" />}
-                title="3) Tab/Tune (in progress)"
-                description="Select parts and iterate with point-and-chat edits (coming soon)."
+                title="3) Refine with one-click actions"
+                description="Select any part and iterate with fast, guided edits."
               />
               <FeatureCard
                 icon={<Rocket className="size-5 text-primary" />}
                 title="4) Export & publish"
-                description="Export to IPFS/NFT, then publish to Printr or share anywhere."
+                description="Download, share, or mint as an NFT — your call."
               />
             </div>
 
@@ -553,12 +552,12 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Sparkles className="size-4 text-primary" />
-                      Talk
+                      Chat
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
                     Describe what you want. Outputs land on your canvas as
-                    draftable assets.
+                    editable drafts.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -567,12 +566,11 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Wand2 className="size-4 text-cyan-500" />
-                      Tab
+                      Select
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    Click a part and ask for a change (in progress — coming
-                    soon).
+                    Click anything and ask for a targeted change.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -581,11 +579,11 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <BadgeCheck className="size-4 text-yellow-500" />
-                      Tune
+                      Polish
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    Iterate until it’s ready — then export/mint/publish.
+                    Iterate until it’s ready — then export, mint, and share.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -601,7 +599,7 @@ export default function LandingPage() {
             <SectionTitle
               eyebrow="Plans"
               title="Start free, upgrade when you’re ready"
-              description="Free to start. Pro unlocks via token gating — no credit card."
+              description="Free to start. Pro unlocks with your wallet — no credit card."
             />
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -618,26 +616,26 @@ export default function LandingPage() {
                   <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      ChatCanvas + editor workspace
+                      Infinite canvas workspace
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      Gemini AI (daily limits apply)
+                      AI drafts (daily limits apply)
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      GitHub repos + Space builder
+                      GitHub repos + Space pages
                     </div>
                     <Button
                       type="button"
-                      onClick={openChatCanvas}
+                      onClick={startCreating}
                       disabled={opening}
                       className="w-full rounded-2xl mt-3"
                     >
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open ChatCanvas
+                      Start creating
                       <ArrowRight className="ml-2 size-4" />
                     </Button>
                   </CardContent>
@@ -654,18 +652,18 @@ export default function LandingPage() {
                     <CardTitle className="flex items-center justify-between gap-4">
                       <span>Pro</span>
                       <span className="text-sm font-semibold text-white/80">
-                        Token-gated
+                        Unlock with PIG
                       </span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative space-y-3 text-sm text-white/80">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
-                      Nano Banana Pro + higher AI limits
+                      More models + higher limits
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
-                      Token-gated access (hold PIG threshold)
+                      Unlock with your wallet (hold PIG threshold)
                     </div>
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-white" />
@@ -673,14 +671,14 @@ export default function LandingPage() {
                     </div>
                     <Button
                       type="button"
-                      onClick={openChatCanvas}
+                      onClick={startCreating}
                       disabled={opening}
                       className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
                     >
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open ChatCanvas
+                      Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                   </CardContent>
@@ -700,27 +698,27 @@ export default function LandingPage() {
             <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <FAQItem
                 question="Do I need a wallet to use Pigcasso?"
-                answer="You can start with email/social sign-in. Privy creates an embedded wallet. Connecting an external wallet unlocks token-gated Pro and onchain exports."
+                answer="You can start with email/social sign-in. We create a wallet for you, and you can connect your own wallet anytime to unlock onchain features."
               />
               <FAQItem
-                question="What is ChatCanvas?"
-                answer="A Lovart-style infinite workspace where chat and assets live on the same canvas."
+                question="What’s an infinite canvas?"
+                answer="It’s a workspace where chat and your designs live together on one board, so you can iterate without losing context."
               />
               <FAQItem
-                question="How does Repository → Asset work?"
-                answer="Authorize GitHub, pick a repo, and Pigcasso generates a meme-style asset you can publish (Printr) or mint (NFT)."
+                question="How does repo → asset work?"
+                answer="Connect GitHub, pick a repo, and Pigcasso generates a visual you can share or mint."
               />
               <FAQItem
                 question="Why can’t my NFT preview load?"
-                answer="Most wallets require HTTPS gateway URLs. Set NEXT_PUBLIC_IPFS_GATEWAY (we normalize hostnames). If your tokenURI/image was minted as a relative URL, you must re-export + re-mint."
+                answer="Many wallets only preview HTTPS URLs. If an older collectible was minted with a broken or non-HTTPS link, re-export and mint again with a valid URL."
               />
               <FAQItem
                 question="Why can’t I see my GitHub repositories?"
-                answer="Ensure your GitHub scopes include 'repo' and 'read:org', then click “Authorize GitHub”. Some orgs require approving the OAuth app/SSO before repos appear."
+                answer="Re-authorize GitHub and grant access to the repos/orgs you want. Some orgs require admin approval or SSO before repos appear."
               />
               <FAQItem
                 question="How does Pro work?"
-                answer="No Stripe. Pro unlocks via token gating when your wallet holds enough PIG (threshold is configurable via env)."
+                answer="Pro unlocks with your PIG holdings — no credit card. Once unlocked, you get higher limits and extra tools."
               />
             </div>
           </div>
@@ -740,13 +738,13 @@ export default function LandingPage() {
                     Ready to turn ideas into assets?
                   </h2>
                   <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
-                    Open ChatCanvas, generate your first board, then
-                    export/mint/publish in one workflow.
+                    Start a board, generate drafts, and ship shareable assets in
+                    one workflow.
                   </p>
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
                       type="button"
-                      onClick={openChatCanvas}
+                      onClick={startCreating}
                       disabled={opening}
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
@@ -754,7 +752,7 @@ export default function LandingPage() {
                       {opening ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : null}
-                      Open ChatCanvas
+                      Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                     <Button
@@ -765,7 +763,7 @@ export default function LandingPage() {
                       onClick={() => void openApp("/app")}
                       disabled={opening}
                     >
-                      Explore Creator Hub
+                      Open app
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
                     <Button
@@ -805,20 +803,20 @@ export default function LandingPage() {
                 <div>
                   <div className="font-bold">Pigcasso Canvas</div>
                   <div className="text-xs text-muted-foreground">
-                    Infinite ChatCanvas + Web3 asset layer
+                    Canva ship file, we ship asset
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
-                  <Blocks className="size-4" /> ChatCanvas
+                  <Blocks className="size-4" /> Infinite canvas
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <Github className="size-4" /> Repository → Asset
+                  <Github className="size-4" /> Repo → asset
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <Coins className="size-4" /> IPFS/NFT export
+                  <Coins className="size-4" /> Mint & share
                 </span>
               </div>
             </div>
@@ -833,7 +831,7 @@ export default function LandingPage() {
                   Open app
                 </Link>
                 <Link href="/app?new=1" className="hover:underline">
-                  Open ChatCanvas
+                  Start creating
                 </Link>
                 <a href="#faq" className="hover:underline">
                   FAQ
