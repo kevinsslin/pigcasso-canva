@@ -13,8 +13,7 @@ import {
   type NanoBananaProfileOption,
 } from "@/features/ai/lib/nano-banana-profile";
 import { useGetCanvases } from "@/features/canvases/api/use-get-canvases";
-import { useGetProjects } from "@/features/projects/api/use-get-projects";
-import { useGetTemplates } from "@/features/projects/api/use-get-templates";
+import { useGetGalleryCanvases } from "@/features/gallery/api/use-get-gallery-canvases";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -49,11 +48,7 @@ export default function AppHomePage() {
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
   const canvases = useGetCanvases({ enabled: ready && authenticated, limit: 8 });
-  const projects = useGetProjects({ enabled: ready && authenticated, limit: 8 });
-  const templates = useGetTemplates(
-    { page: "1", limit: "8" },
-    { enabled: ready && authenticated },
-  );
+  const gallery = useGetGalleryCanvases({ sort: "top", limit: 8 });
 
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,7 +93,6 @@ export default function AppHomePage() {
       setBusy(false);
     }
   };
-  const recentProjects = projects.data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-12 pt-8">
@@ -247,13 +241,13 @@ export default function AppHomePage() {
 
             <button
               type="button"
-              onClick={() => router.push("/projects")}
+              onClick={() => router.push("/classic")}
               className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
             >
               <div className="flex items-center justify-center size-10 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition">
                 <Sparkles className="size-5" />
               </div>
-              <div className="mt-4 font-semibold">Classic editor</div>
+              <div className="mt-4 font-semibold">Classic</div>
               <div className="mt-1 text-xs text-muted-foreground">Templates + pages.</div>
             </button>
 
@@ -289,82 +283,42 @@ export default function AppHomePage() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">Classic Projects</h2>
-          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/projects")}>
+          <h2 className="text-lg font-bold tracking-tight">Gallery</h2>
+          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/gallery")}>
             View all
           </Button>
         </div>
 
-        {projects.isLoading ? (
+        {gallery.isLoading ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 className="size-6 text-muted-foreground animate-spin" />
           </div>
-        ) : projects.isError ? (
+        ) : gallery.isError ? (
           <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
-            {projects.error?.message || "Failed to load projects."}
+            {gallery.error?.message || "Failed to load gallery."}
           </div>
-        ) : recentProjects.length ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentProjects.slice(0, 8).map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => router.push(`/editor/${project.id}`)}
-                className="group rounded-2xl border bg-card p-5 text-left shadow-soft hover:shadow-md transition"
-              >
-                <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10 border border-border/60" />
-                <div className="mt-4">
-                  <div className="text-sm font-semibold truncate">{project.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {project.width}×{project.height}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
-            No projects yet.
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">Templates</h2>
-          <Button type="button" variant="secondary" className="rounded-full" onClick={() => router.push("/templates")}>
-            Browse
-          </Button>
-        </div>
-
-        {templates.isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="size-6 text-muted-foreground animate-spin" />
-          </div>
-        ) : templates.isError ? (
-          <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
-            {templates.error?.message || "Failed to load templates."}
-          </div>
-        ) : templates.data?.length ? (
+        ) : gallery.data?.pages.flatMap((page) => page.data).length ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {templates.data.map((template) => (
+            {gallery.data?.pages
+              .flatMap((page) => page.data)
+              .slice(0, 8)
+              .map((item) => (
               <TemplateCard
-                key={template.id}
-                title={template.name}
-                imageSrc={template.thumbnailUrl || ""}
-                onClick={() => router.push(`/templates/${template.id}`)}
+                key={item.id}
+                title={item.name}
+                imageSrc={item.coverImageUrl ?? ""}
+                onClick={() => router.push(`/gallery/${item.id}`)}
                 disabled={false}
-                description={`${template.width} x ${template.height} px`}
-                width={template.width}
-                height={template.height}
-                isPro={template.isPro}
-                hasToken={Boolean(template.token?.printrTokenId)}
+                description="View-only board + chat"
+                width={4}
+                height={3}
+                isPro={null}
               />
             ))}
           </div>
         ) : (
           <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
-            No templates yet.
+            No published boards yet.
           </div>
         )}
       </section>

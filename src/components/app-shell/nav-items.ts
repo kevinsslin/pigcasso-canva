@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FolderOpen, Github, Home, LayoutGrid, Settings, UserRound } from "lucide-react";
+import { FolderOpen, Github, Home, LayoutGrid, Layers, Settings, UserRound } from "lucide-react";
 
 export type DashboardNavItem = {
   href: string;
@@ -23,6 +23,7 @@ export const isNavItemActive = (pathname: string, item: DashboardNavItem) => {
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/app", label: "Home", icon: Home, match: matchPrefix("/app"), showInDock: true },
   { href: "/canvases", label: "Boards", icon: LayoutGrid, match: matchPrefix("/canvases"), showInDock: true },
+  { href: "/classic", label: "Classic", icon: Layers, match: matchPrefix("/classic"), showInDock: true },
   { href: "/repositories", label: "Repositories", icon: Github, match: matchPrefix("/repositories"), showInDock: false },
   {
     href: "/projects",
