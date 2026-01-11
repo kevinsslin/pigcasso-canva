@@ -468,6 +468,7 @@ export default function CanvasScreen({ params }: PageProps) {
     if (boardCrashMessage) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableKeyboardTarget(document.activeElement)) return;
       const handledDelete = handleCanvasDeleteShortcut(editor as any, event);
       const handledShortcut = handleCanvasKeyboardShortcuts(editor as any, event, {
         clipboardRef: canvasClipboardRef,
@@ -492,7 +493,12 @@ export default function CanvasScreen({ params }: PageProps) {
       if (event.repeat) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key !== " " && event.code !== "Space") return;
-      if (isEditableKeyboardTarget(event.target)) return;
+      try {
+        if ((editor as any).getEditingShapeId?.()) return;
+      } catch {
+        // ignore
+      }
+      if (isEditableKeyboardTarget(document.activeElement ?? event.target)) return;
       if (activeTool === "hand") return;
       if (heldPanToolRef.current) return;
 

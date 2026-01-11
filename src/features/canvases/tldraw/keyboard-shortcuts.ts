@@ -4,6 +4,7 @@ import { isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shor
 export type CanvasClipboardRef = { current: unknown | null };
 
 export type CanvasShortcutEditor = {
+  getEditingShapeId?: () => string | null | undefined;
   undo?: () => void;
   redo?: () => void;
   selectAll?: () => void;
@@ -42,6 +43,11 @@ export const handleCanvasKeyboardShortcuts = (
   handlers: CanvasShortcutHandlers = {},
 ): boolean => {
   if (event.defaultPrevented) return false;
+  try {
+    if (editor.getEditingShapeId?.()) return false;
+  } catch {
+    // ignore
+  }
   if (isEditableKeyboardTarget(event.target)) return false;
 
   const key = (event.key || "").toLowerCase();
@@ -181,4 +187,3 @@ export const handleCanvasKeyboardShortcuts = (
 
   return false;
 };
-

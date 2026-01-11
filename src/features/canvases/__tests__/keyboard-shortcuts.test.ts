@@ -111,5 +111,19 @@ describe("canvas keyboard shortcuts", () => {
     expect(handleCanvasKeyboardShortcuts(editor as any, makeEvent({ key: "Escape" }), { onToolChange })).toBe(true);
     expect(calls).toEqual(["text", "select", "select"]);
   });
-});
 
+  test("does not trigger shortcuts while editing a shape", () => {
+    let undoCount = 0;
+    const editor = {
+      getEditingShapeId: () => "shape:editing",
+      undo: () => {
+        undoCount += 1;
+      },
+    };
+
+    const undoEvent = makeEvent({ key: "z", metaKey: true });
+    expect(handleCanvasKeyboardShortcuts(editor as any, undoEvent)).toBe(false);
+    expect(undoEvent.prevented).toBe(false);
+    expect(undoCount).toBe(0);
+  });
+});
