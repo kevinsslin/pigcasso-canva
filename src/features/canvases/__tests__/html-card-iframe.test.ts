@@ -12,16 +12,15 @@ describe("HTML card iframe config", () => {
     expect(HTML_CARD_IFRAME_SANDBOX).not.toContain("allow-same-origin");
   });
 
-  test("applies Safari z-index workaround when not interactive", () => {
+  test("disables pointer events when not interactive", () => {
     const style = getHtmlCardIframeStyle(false);
     expect(style.pointerEvents).toBe("none");
-    expect(style.zIndex).toBe("-1");
+    expect(style.background).toBe("#ffffff");
   });
 
-  test("keeps iframe on top when interactive", () => {
+  test("enables pointer events when interactive", () => {
     const style = getHtmlCardIframeStyle(true);
     expect(style.pointerEvents).toBe("auto");
-    expect(style.zIndex).toBe("");
+    expect(style.background).toBe("#ffffff");
   });
 });
-

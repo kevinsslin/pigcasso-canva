@@ -4,7 +4,6 @@ import { BaseBoxShapeUtil, HTMLContainer, RecordProps, T, toDomPrecision, type T
 
 import { createHtmlCardSrcDoc, HTML_CARD_MIN_SIZE, HTML_CARD_SHAPE_TYPE, HTML_CARD_DEFAULT_SIZE } from "@/features/canvases/tldraw/html-card";
 import { getHtmlCardIframeStyle, HTML_CARD_IFRAME_SANDBOX } from "@/features/canvases/tldraw/html-card-iframe";
-import { PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
 
 export type HtmlCardShape = TLBaseShape<
   typeof HTML_CARD_SHAPE_TYPE,
@@ -51,13 +50,10 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
     const isEditing = useIsEditing(shape.id);
     const srcDoc = createHtmlCardSrcDoc(html);
     const isInteractive = isEditing;
-    const previewDataUrlRaw = (shape as any)?.meta?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
-    const previewDataUrl =
-      typeof previewDataUrlRaw === "string" && previewDataUrlRaw.startsWith("data:image/") ? previewDataUrlRaw : "";
 
     return (
-      <HTMLContainer id={shape.id} className="rounded-2xl overflow-hidden bg-white">
-        {isEditing ? (
+      <HTMLContainer id={shape.id} className="relative rounded-2xl overflow-hidden bg-white">
+        {srcDoc ? (
           <iframe
             title="HTML preview"
             sandbox={HTML_CARD_IFRAME_SANDBOX}
@@ -71,19 +67,13 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
             className="w-full h-full bg-white"
             style={getHtmlCardIframeStyle(isInteractive)}
           />
-        ) : previewDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewDataUrl}
-            alt="HTML preview"
-            draggable={false}
-            className="w-full h-full object-cover bg-white"
-          />
         ) : (
           <div className="h-full w-full grid place-items-center bg-white text-xs text-muted-foreground">
-            Rendering HTML…
+            Add HTML to preview
           </div>
         )}
+
+        {!isEditing && srcDoc ? <div className="absolute inset-0 pointer-events-auto" aria-hidden="true" /> : null}
       </HTMLContainer>
     );
   }
