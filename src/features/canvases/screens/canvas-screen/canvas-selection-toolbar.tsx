@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, ChevronDown, Code2, Download, Layers3, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
+import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,7 @@ export const CanvasSelectionToolbar = ({
   onEditWithAi,
   onDownloadSelected,
   onDownloadSelectedHtml,
+  onMintNft,
   onRegenerate,
   onRemoveBackground,
   onMakeTextEditable,
@@ -57,6 +58,7 @@ export const CanvasSelectionToolbar = ({
   onEditWithAi: () => void;
   onDownloadSelected: () => void;
   onDownloadSelectedHtml: () => void;
+  onMintNft: () => void;
   onRegenerate: () => void;
   onRemoveBackground: () => void;
   onMakeTextEditable: () => void;
@@ -161,6 +163,19 @@ export const CanvasSelectionToolbar = ({
             >
               <Layers3 className="mr-2 size-4" />
               Separate layers
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onMintNft}
+              aria-label="Mint NFT"
+            >
+              <Coins className="mr-2 size-4" />
+              NFT
             </Button>
 
             <Button

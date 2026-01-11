@@ -17,6 +17,8 @@ type ExportResponse = {
     txHash: string | null;
     metadataUri: string | null;
     imageUri: string | null;
+    metadataUrl: string;
+    imageUrl: string;
     name: string | null;
     description: string | null;
     createdAt: string;

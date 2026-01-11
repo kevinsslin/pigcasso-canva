@@ -97,6 +97,10 @@ import { CanvasPublishButton } from "@/features/canvases/components/canvas-publi
 import { CanvasChatPanel } from "@/features/canvases/screens/canvas-screen/canvas-chat-panel";
 import { CanvasDebugPanel } from "@/features/canvases/screens/canvas-screen/canvas-debug-panel";
 import { CanvasDownloadsDialog } from "@/features/canvases/screens/canvas-screen/canvas-downloads-dialog";
+import {
+  CanvasExportNftDialog,
+  type CanvasExportNftTarget,
+} from "@/features/canvases/screens/canvas-screen/canvas-export-nft-dialog";
 import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/canvas-html-code-dialog";
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
@@ -318,6 +322,8 @@ export default function CanvasScreen({ params }: PageProps) {
   const [pinnedShapeIds, setPinnedShapeIds] = useState<string[]>([]);
   const [mentionPicker, setMentionPicker] = useState<{ screenX: number; screenY: number } | null>(null);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [exportNftOpen, setExportNftOpen] = useState(false);
+  const [exportNftTarget, setExportNftTarget] = useState<CanvasExportNftTarget | null>(null);
 
   useEffect(() => {
     if (activeTool === "select") return;
@@ -2205,6 +2211,40 @@ export default function CanvasScreen({ params }: PageProps) {
     }
   }, [downloadBlob, selectedImageAsset]);
 
+  const openExportNftForSelection = useCallback(() => {
+    const asset = selectedImageAsset as any;
+    const shapeId = selectionContext?.shapeId ?? null;
+    if (!asset || !shapeId) {
+      toast.error("Select an image to mint.");
+      return;
+    }
+
+    const previewSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
+    const originalSrc = typeof asset?.meta?.originalSrc === "string" ? asset.meta.originalSrc.trim() : "";
+    const rawSrc = typeof asset?.meta?.rawSrc === "string" ? asset.meta.rawSrc.trim() : "";
+    const propsSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
+    const unwrapped = propsSrc ? unwrapCanvasImageProxyUrl(propsSrc) : "";
+
+    const imageUrl = originalSrc || rawSrc || unwrapped || "";
+    if (!/^https:\/\//i.test(imageUrl)) {
+      toast.error("Selected image is missing a usable URL.");
+      return;
+    }
+
+    const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
+    const previewUrl = previewSrc || toCanvasImageUrl(imageUrl);
+
+    setExportNftTarget({
+      canvasId: params.canvasId,
+      canvasName,
+      shapeId,
+      imageUrl,
+      previewUrl,
+      defaultName: rawName || selectionContext?.label || canvasName,
+    });
+    setExportNftOpen(true);
+  }, [canvasName, params.canvasId, selectedImageAsset, selectionContext]);
+
   const viewSelectedHtmlCode = useCallback(() => {
     const shape = selectedHtmlShape as any;
     const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
@@ -2999,6 +3039,7 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      onEditWithAi={openPinnedEditForSelection}
 	                      onDownloadSelected={() => void downloadSelectedImage()}
 	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
+                        onMintNft={() => openExportNftForSelection()}
 	                      onRegenerate={() => void regenerateSelectedImage()}
 	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                       onMakeTextEditable={() => void makeSelectedImageTextEditable()}
@@ -3563,6 +3604,15 @@ export default function CanvasScreen({ params }: PageProps) {
         attachments={allAttachments}
         editor={editor}
         onFocusShape={focusShapeId}
+      />
+
+      <CanvasExportNftDialog
+        open={exportNftOpen}
+        onOpenChange={(next) => {
+          setExportNftOpen(next);
+          if (!next) setExportNftTarget(null);
+        }}
+        target={exportNftTarget}
       />
 
       <CanvasHtmlCodeDialog

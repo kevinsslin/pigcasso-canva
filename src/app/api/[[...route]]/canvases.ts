@@ -3,6 +3,10 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { requireAuth } from "@/server/hono-auth";
+import { buildCanvasNftMetadata } from "@/server/canvas-nft-metadata";
+import { hasIpfsConfigured, pinFileFromUrlToIpfs, pinJsonToIpfs } from "@/server/ipfs";
+import { getIpfsGatewayBaseUrl } from "@/lib/ipfs-gateway";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 import {
   getCanvasDocumentForUserId,
   getOrCreateCanvasDocumentForUserId,
@@ -36,6 +40,16 @@ const updateSchema = z
 const publishSchema = z.object({
   isPublished: z.boolean(),
 });
+
+const exportNftSchema = z.object({
+  imageUrl: z.string().trim().url(),
+  shapeId: z.string().trim().min(1).optional(),
+  name: z.string().trim().max(120).optional(),
+  description: z.string().trim().max(500).optional(),
+});
+
+const cidToGatewayUrl = (cid: string) =>
+  normalizeIpfsUrl(`ipfs://${cid}`, { defaultGatewayBaseUrl: getIpfsGatewayBaseUrl() });
 
 const app = new Hono()
   .get("/", requireAuth, zValidator("query", listSchema), async (c) => {
@@ -99,6 +113,76 @@ const app = new Hono()
       }
 
       return c.json({ data: updated });
+    },
+  )
+  .post(
+    "/:id/nft/export",
+    requireAuth,
+    zValidator("param", z.object({ id: z.string().min(1) })),
+    zValidator("json", exportNftSchema),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { id } = c.req.valid("param");
+      const { imageUrl, shapeId, name, description } = c.req.valid("json");
+
+      if (!hasIpfsConfigured()) {
+        return c.json({ error: "IPFS pinning is currently unavailable." }, 501);
+      }
+
+      const doc = await getCanvasDocumentForUserId({ userId: auth.id, id });
+      if (!doc) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const now = new Date();
+      const stamp = now.toISOString().replace(/[:.]/g, "-");
+      const assetName = name?.trim() || `${doc.name} · ${stamp.slice(0, 10)}`;
+      const assetDescription = description?.trim() || "Created with Pigcasso Canvas.";
+
+      const imagePinned = await pinFileFromUrlToIpfs({
+        url: imageUrl,
+        name: `pigcasso-${id}-${stamp}.png`,
+      });
+
+      const sourcePinned = await pinJsonToIpfs({
+        json: {
+          canvasId: id,
+          canvasName: doc.name,
+          shapeId: shapeId ?? null,
+          imageUrl,
+          exportedAt: now.toISOString(),
+        },
+        name: `pigcasso-${id}-${stamp}-source.json`,
+      });
+
+      const metadata = buildCanvasNftMetadata({
+        name: assetName,
+        description: assetDescription,
+        canvasId: id,
+        canvasName: doc.name,
+        imageCid: imagePinned.cid,
+        sourceCid: sourcePinned.cid,
+        shapeId: shapeId ?? null,
+        chainLabel: "Mantle",
+      });
+
+      const metadataPinned = await pinJsonToIpfs({
+        json: metadata,
+        name: `pigcasso-${id}-${stamp}-metadata.json`,
+      });
+
+      return c.json({
+        data: {
+          name: assetName,
+          description: assetDescription,
+          imageCid: imagePinned.cid,
+          metadataCid: metadataPinned.cid,
+          imageUri: `ipfs://${imagePinned.cid}`,
+          metadataUri: `ipfs://${metadataPinned.cid}`,
+          imageUrl: cidToGatewayUrl(imagePinned.cid),
+          metadataUrl: cidToGatewayUrl(metadataPinned.cid),
+        },
+      });
     },
   )
   .patch(

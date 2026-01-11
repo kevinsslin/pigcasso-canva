@@ -71,6 +71,8 @@ type ExportedAsset = {
   id: string;
   metadataUri: string | null;
   imageUri: string | null;
+  metadataUrl: string | null;
+  imageUrl: string | null;
 };
 
 type MintView = "configure" | "progress";
@@ -360,6 +362,8 @@ export const ExportNftDialog = ({
       id: asset.id,
       metadataUri: asset.metadataUri,
       imageUri: asset.imageUri,
+      metadataUrl: asset.metadataUrl || null,
+      imageUrl: asset.imageUrl || null,
     } satisfies ExportedAsset;
 
     setExportedAsset(next);
@@ -508,7 +512,10 @@ export const ExportNftDialog = ({
 
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
-      const tokenUri = ipfsToHttpUrl(asset.metadataUri) ?? asset.metadataUri;
+      const tokenUri =
+        asset.metadataUrl ||
+        ipfsToHttpUrl(asset.metadataUri) ||
+        asset.metadataUri;
       const hash = await walletClient.writeContract({
         address: collection.address,
         abi: pigcassoCollectionAbi,
@@ -561,13 +568,21 @@ export const ExportNftDialog = ({
     }
   };
 
-  const previewUrl = ipfsToHttpUrl(exportedAsset?.imageUri) ?? uploadedImageUrl ?? localPreviewUrl;
-  const imageUrlForDisplay = exportedAsset?.imageUri
-    ? ipfsToHttpUrl(exportedAsset.imageUri) ?? exportedAsset.imageUri
-    : null;
-  const tokenUriForDisplay = exportedAsset?.metadataUri
-    ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
-    : null;
+  const previewUrl =
+    ipfsToHttpUrl(exportedAsset?.imageUri) ??
+    exportedAsset?.imageUrl ??
+    uploadedImageUrl ??
+    localPreviewUrl;
+  const imageUrlForDisplay = exportedAsset?.imageUrl
+    ? exportedAsset.imageUrl
+    : exportedAsset?.imageUri
+      ? ipfsToHttpUrl(exportedAsset.imageUri) ?? exportedAsset.imageUri
+      : null;
+  const tokenUriForDisplay = exportedAsset?.metadataUrl
+    ? exportedAsset.metadataUrl
+    : exportedAsset?.metadataUri
+      ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
+      : null;
 
   const collectionLabel =
     collectionMode === "existing" && isEvmAddress(selectedCollectionAddress.trim())

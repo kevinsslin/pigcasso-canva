@@ -5,6 +5,8 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftAssets, projectPages, projects } from "@/db/schema";
+import { getIpfsGatewayBaseUrl } from "@/lib/ipfs-gateway";
+import { normalizeIpfsUrl } from "@/lib/ipfs";
 import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
@@ -232,7 +234,18 @@ const app = new Hono()
         .where(and(eq(nftAssets.id, asset.id), eq(nftAssets.userId, auth.id)))
         .returning();
 
-      return c.json({ data: updated ?? asset });
+      const cidToGatewayUrl = (cid: string) =>
+        normalizeIpfsUrl(`ipfs://${cid}`, { defaultGatewayBaseUrl: getIpfsGatewayBaseUrl() });
+
+      const payload = updated ?? asset;
+
+      return c.json({
+        data: {
+          ...payload,
+          imageUrl: cidToGatewayUrl(imagePinned.cid),
+          metadataUrl: cidToGatewayUrl(metadataPinned.cid),
+        },
+      });
     },
   )
   .patch(
