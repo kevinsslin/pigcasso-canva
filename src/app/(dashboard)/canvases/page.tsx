@@ -71,7 +71,7 @@ export default function CanvasesPage() {
                         alt={canvas.name}
                         fill
                         sizes="(max-width: 1024px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        className="object-contain transition-opacity duration-300 group-hover:opacity-95"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10" />

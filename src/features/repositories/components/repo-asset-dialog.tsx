@@ -81,7 +81,7 @@ export const RepoAssetDialog = (props: {
     }
   }, [generateMutation, repo]);
 
-  const onOpenCanvas = useCallback(async () => {
+  const onOpenBoard = useCallback(async () => {
     if (!repo) return;
 
     setBusy(true);
@@ -95,7 +95,7 @@ export const RepoAssetDialog = (props: {
       onOpenChange(false);
       props.onNavigateToCanvas({ canvasId, imageUrl: uploadedUrl });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to open canvas");
+      toast.error(error instanceof Error ? error.message : "Failed to open board");
     } finally {
       setBusy(false);
     }
@@ -260,8 +260,8 @@ export const RepoAssetDialog = (props: {
           <Button type="button" variant="secondary" onClick={onPublishToPrintr} disabled={busy}>
             Publish to Printr
           </Button>
-          <Button type="button" onClick={onOpenCanvas} disabled={busy}>
-            Open in canvas
+          <Button type="button" onClick={onOpenBoard} disabled={busy}>
+            Open in board
           </Button>
         </DialogFooter>
       </DialogContent>

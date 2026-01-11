@@ -56,6 +56,7 @@ import {
   handleCanvasKeyboardShortcuts,
   type CanvasClipboardRef,
 } from "@/features/canvases/tldraw/keyboard-shortcuts";
+import { DEFAULT_CANVAS_COVER_TARGET_PX, getCanvasCoverScale } from "@/features/canvases/lib/canvas-cover";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -271,6 +272,10 @@ export default function CanvasScreen({ params }: PageProps) {
   const hasAutoPromptRef = useRef(false);
   const hydratingRef = useRef(false);
   const lastSavedSnapshotRef = useRef<string | null>(null);
+  const lastSavedCoverSnapshotRef = useRef<string | null>(null);
+  const coverGenerationInFlightRef = useRef(false);
+  const coverGenerationRerunRequestedRef = useRef(false);
+  const pendingCoverSnapshotRef = useRef<string | null>(null);
   const bootstrappedEditorRef = useRef<TldrawEditor | null>(null);
   const hasLoadedChatRef = useRef(false);
   const chatHydratingRef = useRef(false);
@@ -1106,6 +1111,110 @@ export default function CanvasScreen({ params }: PageProps) {
     };
   }, [boardCrashMessage, boardHydrated, editor, ensureHtmlCardPreview]);
 
+  const coverUpdateRef = useRef<ReturnType<typeof debounce> | null>(null);
+  const updateBoardCover = useMemo(
+    () =>
+      debounce(async (snapshotJson: string) => {
+        pendingCoverSnapshotRef.current = snapshotJson;
+
+        if (!editor) return;
+        if (!boardHydrated) return;
+        if (boardCrashMessage) return;
+        if (!canvasQuery.data) return;
+
+        const requestedSnapshot = pendingCoverSnapshotRef.current ?? snapshotJson;
+        if (requestedSnapshot === lastSavedCoverSnapshotRef.current) return;
+
+        if (coverGenerationInFlightRef.current) {
+          coverGenerationRerunRequestedRef.current = true;
+          return;
+        }
+
+        coverGenerationInFlightRef.current = true;
+        coverGenerationRerunRequestedRef.current = false;
+
+        try {
+          const shapeIds = (editor.getCurrentPageShapes?.() ?? [])
+            .map((shape) => shape.id)
+            .filter(Boolean) as any[];
+
+          if (!shapeIds.length) {
+            if (canvasQuery.data?.coverImageUrl) {
+              await updateCanvas.mutateAsync({
+                param: { id: params.canvasId },
+                json: { coverImageUrl: null },
+              });
+            }
+            lastSavedCoverSnapshotRef.current = requestedSnapshot;
+            return;
+          }
+
+          const bounds = (editor.getCurrentPageBounds?.() ?? null) as any;
+          if (!bounds || !Number.isFinite(bounds.w) || !Number.isFinite(bounds.h) || bounds.w <= 0 || bounds.h <= 0) {
+            return;
+          }
+
+          const scale = getCanvasCoverScale(
+            { w: Number(bounds.w), h: Number(bounds.h) },
+            { targetPx: DEFAULT_CANVAS_COVER_TARGET_PX },
+          );
+
+          const dataUrl = await (editor as any).toImageDataUrl(shapeIds, {
+            format: "jpeg",
+            quality: 0.82,
+            scale,
+            background: true,
+            padding: 24,
+            pixelRatio: 1,
+            darkMode: false,
+          });
+
+          if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) return;
+
+          const uploadedUrl = await uploadImageDataUrl(
+            dataUrl,
+            `pigcasso_board_cover_${params.canvasId}_${Date.now()}.jpg`,
+          );
+
+          await updateCanvas.mutateAsync({
+            param: { id: params.canvasId },
+            json: { coverImageUrl: uploadedUrl },
+          });
+
+          lastSavedCoverSnapshotRef.current = requestedSnapshot;
+        } catch {
+          // ignore
+        } finally {
+          coverGenerationInFlightRef.current = false;
+          const pending = pendingCoverSnapshotRef.current;
+          const shouldRerun =
+            coverGenerationRerunRequestedRef.current &&
+            pending &&
+            pending !== lastSavedCoverSnapshotRef.current;
+          coverGenerationRerunRequestedRef.current = false;
+          if (shouldRerun) {
+            coverUpdateRef.current?.(pending);
+          }
+        }
+      }, 4500),
+    [
+      boardCrashMessage,
+      boardHydrated,
+      canvasQuery.data,
+      editor,
+      params.canvasId,
+      updateCanvas,
+    ],
+  );
+
+  coverUpdateRef.current = updateBoardCover;
+
+  useEffect(() => {
+    return () => {
+      updateBoardCover.cancel();
+    };
+  }, [updateBoardCover]);
+
   useEffect(() => {
     if (!editor) return;
 
@@ -1146,6 +1255,7 @@ export default function CanvasScreen({ params }: PageProps) {
 
         if (snapshotJson === lastSavedSnapshotRef.current) return;
         lastSavedSnapshotRef.current = snapshotJson;
+        pendingCoverSnapshotRef.current = snapshotJson;
 
         try {
           localStorage.setItem(localSnapshotKey, snapshotJson);
@@ -1159,6 +1269,8 @@ export default function CanvasScreen({ params }: PageProps) {
             json: { snapshot: snapshotJson },
           });
         }
+
+        updateBoardCover(snapshotJson);
       };
 
       if (typeof window === "undefined") {
@@ -1197,7 +1309,33 @@ export default function CanvasScreen({ params }: PageProps) {
       save.cancel();
       cancelIdle();
     };
-  }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, localSnapshotKey, params.canvasId, updateCanvas]);
+  }, [
+    boardCrashMessage,
+    boardHydrated,
+    canvasQuery.data,
+    editor,
+    localSnapshotKey,
+    params.canvasId,
+    updateBoardCover,
+    updateCanvas,
+  ]);
+
+  const hasScheduledInitialCoverRef = useRef(false);
+  useEffect(() => {
+    if (!editor) return;
+    if (!boardHydrated) return;
+    if (boardCrashMessage) return;
+    if (!canvasQuery.data) return;
+    if (hasScheduledInitialCoverRef.current) return;
+
+    hasScheduledInitialCoverRef.current = true;
+
+    const snapshotJson = lastSavedSnapshotRef.current;
+    if (snapshotJson) {
+      pendingCoverSnapshotRef.current = snapshotJson;
+      updateBoardCover(snapshotJson);
+    }
+  }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, updateBoardCover]);
 
   const saveChat = useMemo(
     () =>
@@ -1264,19 +1402,15 @@ export default function CanvasScreen({ params }: PageProps) {
           } catch {
             // ignore
         }
-      } catch {
-        // ignore
-      } finally {
-        updateCanvas.mutate({
-          param: { id: params.canvasId },
-          json: { coverImageUrl: imageUrl },
-        });
-        removeSearchParamsFromUrl(["image"]);
-      }
-    };
+	      } catch {
+	        // ignore
+	      } finally {
+	        removeSearchParamsFromUrl(["image"]);
+	      }
+	    };
 
     void insert();
-  }, [boardCrashMessage, boardHydrated, editor, params.canvasId, removeSearchParamsFromUrl, searchParams, updateCanvas]);
+	  }, [boardCrashMessage, boardHydrated, editor, removeSearchParamsFromUrl, searchParams]);
 
     type SendMessageOptions = {
       point?: { x: number; y: number };
@@ -1493,14 +1627,9 @@ export default function CanvasScreen({ params }: PageProps) {
               return created;
             });
 
-            updateCanvas.mutate({
-              param: { id: params.canvasId },
-              json: { coverImageUrl: uploadedUrl },
-            });
-
-            const attachment: CanvasChatAttachment = {
-              id: crypto.randomUUID(),
-              type: "image",
+	            const attachment: CanvasChatAttachment = {
+	              id: crypto.randomUUID(),
+	              type: "image",
               label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
               shapeId: inserted.shapeId,
               url: canvasUrl,
@@ -1550,14 +1679,9 @@ export default function CanvasScreen({ params }: PageProps) {
           // ignore
         }
 
-        updateCanvas.mutate({
-          param: { id: params.canvasId },
-          json: { coverImageUrl: uploadedUrl },
-        });
-
-        const editAttachment: CanvasChatAttachment | null = selectedShapeId
-          ? {
-              id: crypto.randomUUID(),
+	        const editAttachment: CanvasChatAttachment | null = selectedShapeId
+	          ? {
+	              id: crypto.randomUUID(),
               type: "image",
               label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
               shapeId: selectedShapeId,
@@ -1618,12 +1742,7 @@ export default function CanvasScreen({ params }: PageProps) {
           // ignore
         }
 
-      updateCanvas.mutate({
-        param: { id: params.canvasId },
-        json: { coverImageUrl: uploadedUrl },
-      });
-
-        const insertedShapeId = inserted.shapeId;
+	        const insertedShapeId = inserted.shapeId;
 
           const insertAttachment: CanvasChatAttachment | null = insertedShapeId
             ? {
@@ -1655,7 +1774,7 @@ export default function CanvasScreen({ params }: PageProps) {
       busyRef.current = false;
       setBusy(false);
     }
-        }, [aiProfile, boardCrashMessage, boardHydrated, chatAssistant, editImage, editor, ensureHtmlCardPreview, generateHtml, generateImage, params.canvasId, updateCanvas]);
+	        }, [aiProfile, boardCrashMessage, boardHydrated, chatAssistant, editImage, editor, ensureHtmlCardPreview, generateHtml, generateImage]);
 
   const pinnedContexts = useMemo(() => {
     if (!editor) return [];
@@ -2085,15 +2204,10 @@ export default function CanvasScreen({ params }: PageProps) {
         // ignore
       }
 
-      updateCanvas.mutate({
-        param: { id: params.canvasId },
-        json: { coverImageUrl: uploadedUrl },
-      });
-
-      return created;
-    },
-    [boardCrashMessage, boardHydrated, editor, params.canvasId, readFileAsDataUrl, updateCanvas],
-  );
+	      return created;
+	    },
+	    [boardCrashMessage, boardHydrated, editor, readFileAsDataUrl],
+	  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2276,14 +2390,9 @@ export default function CanvasScreen({ params }: PageProps) {
         return created;
       });
 
-      updateCanvas.mutate({
-        param: { id: params.canvasId },
-        json: { coverImageUrl: uploadedUrl },
-      });
-
-      const attachment: CanvasChatAttachment = {
-        id: crypto.randomUUID(),
-        type: "image",
+	      const attachment: CanvasChatAttachment = {
+	        id: crypto.randomUUID(),
+	        type: "image",
         label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
         shapeId: inserted.shapeId,
         url: canvasUrl,
@@ -2296,7 +2405,7 @@ export default function CanvasScreen({ params }: PageProps) {
         { id: crypto.randomUUID(), role: "assistant", content: "Added a new variation.", attachments: [attachment] },
       ]);
     });
-  }, [aiProfile, editImage, editor, params.canvasId, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, updateCanvas]);
+	  }, [aiProfile, editImage, editor, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
 
   const removeBackgroundFromSelectedImage = useCallback(async () => {
     const toastId = "pigcasso:canvas:remove-bg";
@@ -2356,14 +2465,9 @@ export default function CanvasScreen({ params }: PageProps) {
         return created;
       });
 
-      updateCanvas.mutate({
-        param: { id: params.canvasId },
-        json: { coverImageUrl: uploadedUrl },
-      });
-
-      const attachment: CanvasChatAttachment = {
-        id: crypto.randomUUID(),
-        type: "image",
+	      const attachment: CanvasChatAttachment = {
+	        id: crypto.randomUUID(),
+	        type: "image",
         label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
         shapeId: inserted.shapeId,
         url: canvasUrl,
@@ -2376,7 +2480,7 @@ export default function CanvasScreen({ params }: PageProps) {
         { id: crypto.randomUUID(), role: "assistant", content: "Added a cut-out version.", attachments: [attachment] },
       ]);
     });
-  }, [editor, params.canvasId, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, updateCanvas]);
+	  }, [editor, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
 
   const makeSelectedImageTextEditable = useCallback(async () => {
     const toastId = "pigcasso:canvas:make-text-editable";
@@ -2478,14 +2582,9 @@ export default function CanvasScreen({ params }: PageProps) {
         }
       });
 
-      updateCanvas.mutate({
-        param: { id: params.canvasId },
-        json: { coverImageUrl: uploadedUrl },
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Make the selected image text editable." },
+	      setMessages((prev) => [
+	        ...prev,
+	        { id: crypto.randomUUID(), role: "user", content: "Make the selected image text editable." },
         {
           id: crypto.randomUUID(),
           role: "assistant",
@@ -2493,7 +2592,7 @@ export default function CanvasScreen({ params }: PageProps) {
         },
       ]);
     });
-  }, [aiProfile, editImage, editor, extractText, params.canvasId, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, updateCanvas]);
+	  }, [aiProfile, editImage, editor, extractText, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
 
   const activeAtMention = useMemo(() => {
     const el = mentionFocusElRef.current;

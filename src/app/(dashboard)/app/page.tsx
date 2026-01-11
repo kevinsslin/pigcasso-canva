@@ -119,7 +119,7 @@ export default function AppHomePage() {
           </span>
         </h1>
         <p className="mt-3 text-muted-foreground max-w-2xl">
-          Start with a prompt. We’ll open a canvas and place the results right where you need them.
+          Start with a prompt. We’ll create a board and place the results right where you need them.
         </p>
 
         <div className="mt-8 w-full max-w-3xl">
@@ -187,7 +187,7 @@ export default function AppHomePage() {
                 className="rounded-full"
                 onClick={() => void onSubmitPrompt()}
                 disabled={busy || !prompt.trim()}
-                aria-label="Open canvas"
+                aria-label="Create board"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
               </Button>
@@ -271,7 +271,7 @@ export default function AppHomePage() {
                       alt={canvas.name}
                       fill
                       sizes="(max-width: 1024px) 100vw, 25vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      className="object-contain transition-opacity duration-300 group-hover:opacity-95"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-cyan-400/10 to-yellow-300/10" />
@@ -279,7 +279,7 @@ export default function AppHomePage() {
                 </div>
                 <div className="mt-4">
                   <div className="text-sm font-semibold truncate">{canvas.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Open canvas</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Open board</div>
                 </div>
               </button>
             ))}
