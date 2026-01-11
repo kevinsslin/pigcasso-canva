@@ -57,6 +57,13 @@ import {
   type CanvasClipboardRef,
 } from "@/features/canvases/tldraw/keyboard-shortcuts";
 import { DEFAULT_CANVAS_COVER_TARGET_PX, getCanvasCoverScale } from "@/features/canvases/lib/canvas-cover";
+import {
+  createAiJobMutex,
+  createAiJobQueue,
+  type AiJobQueue,
+  type AiJobQueueCounts,
+  type AiJobMutex,
+} from "@/features/canvases/lib/ai-job-queue";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
@@ -158,7 +165,8 @@ export default function CanvasScreen({ params }: PageProps) {
   const [messages, setMessages] = useState<CanvasChatMessage[]>([]);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [canvasName, setCanvasName] = useState("Untitled");
-  const [busy, setBusy] = useState(false);
+  const [aiJobCounts, setAiJobCounts] = useState<AiJobQueueCounts>({ active: 0, queued: 0 });
+  const busy = aiJobCounts.active > 0;
   const [aiProfile, setAiProfile] = useState<NanoBananaProfileOption>(() => {
     const fromQuery = parseNanoBananaProfileOption(searchParams?.get("profile"));
     return fromQuery ?? "auto";
@@ -171,7 +179,6 @@ export default function CanvasScreen({ params }: PageProps) {
   const chatCursorIndexRef = useRef<number | null>(null);
   const desktopChatInputElRef = useRef<HTMLTextAreaElement | null>(null);
   const mobileChatInputElRef = useRef<HTMLTextAreaElement | null>(null);
-  const busyRef = useRef(busy);
   const outputCounterRef = useRef(1);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
@@ -180,8 +187,18 @@ export default function CanvasScreen({ params }: PageProps) {
   const canvasClipboardRef = useRef<unknown | null>(null) as CanvasClipboardRef;
   const heldPanToolRef = useRef<CanvasTool | null>(null);
   const htmlPreviewInFlightRef = useRef<Set<string>>(new Set());
+  const aiJobQueueRef = useRef<AiJobQueue | null>(null);
+  const aiCommitMutexRef = useRef<AiJobMutex | null>(null);
 
   const lastSelectionToolbarKeyRef = useRef<string>("");
+
+  if (!aiJobQueueRef.current) {
+    aiJobQueueRef.current = createAiJobQueue({ concurrency: 3, onChange: setAiJobCounts });
+  }
+
+  if (!aiCommitMutexRef.current) {
+    aiCommitMutexRef.current = createAiJobMutex();
+  }
 
   const remountingRef = useRef(false);
   const reloadTimeoutRef = useRef<number | null>(null);
@@ -311,10 +328,6 @@ export default function CanvasScreen({ params }: PageProps) {
   useEffect(() => {
     chatInputRef.current = chatInput;
   }, [chatInput]);
-
-  useEffect(() => {
-    busyRef.current = busy;
-  }, [busy]);
 
   const openPinnedEditPopover = useCallback((anchor: { screenPoint: { x: number; y: number }; pagePoint: { x: number; y: number }; shapeId: string | null }) => {
     if (typeof window === "undefined") return;
@@ -1413,37 +1426,40 @@ export default function CanvasScreen({ params }: PageProps) {
     void insert();
 	  }, [boardCrashMessage, boardHydrated, editor, removeSearchParamsFromUrl, searchParams]);
 
-    type SendMessageOptions = {
-      point?: { x: number; y: number };
-      shapeId?: string | null;
-      shapeIds?: string[];
-    };
+  type SendMessageOptions = {
+    point?: { x: number; y: number };
+    shapeId?: string | null;
+    shapeIds?: string[];
+  };
 
-      const sendMessage = useCallback(async (value?: string, options?: SendMessageOptions) => {
-        const trimmed = (value ?? chatInputRef.current).trim();
-        if (!trimmed) return;
+  const withAiCommit = useCallback(<T,>(fn: () => Promise<T> | T) => {
+    const mutex = aiCommitMutexRef.current;
+    if (!mutex) return Promise.resolve().then(fn);
+    return mutex.runExclusive(fn);
+  }, []);
+
+  const sendMessage = useCallback(
+    async (value?: string, options?: SendMessageOptions) => {
+      const trimmed = (value ?? chatInputRef.current).trim();
+      if (!trimmed) return;
 
       if (!editor || !boardHydrated || boardCrashMessage) {
-      if (boardCrashMessage) {
-        toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
-        return;
-      }
-      toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
-      return;
-    }
-      if (busyRef.current) {
-        toast.message("Pigcasso is still working…", { duration: 2000 });
+        if (boardCrashMessage) {
+          toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
+          return;
+        }
+        toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
         return;
       }
 
-    busyRef.current = true;
-    chatInputRef.current = "";
-    setBusy(true);
-    setChatInput("");
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
+      chatInputRef.current = "";
+      setChatInput("");
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
+
+      const queue = aiJobQueueRef.current;
+      if (!queue) return;
 
       const contextShapeIds = options?.shapeIds ?? [];
-
       const selectedShapeId =
         options?.shapeId !== undefined
           ? options.shapeId
@@ -1456,161 +1472,289 @@ export default function CanvasScreen({ params }: PageProps) {
             })();
 
       const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
+      const profile = aiProfile;
 
-      try {
-        const apiProfile = toNanoBananaApiProfile(aiProfile);
-        const promptContext = (() => {
-          if (!contextShapeIds.length) return null;
-          const lines = contextShapeIds
-            .map((shapeId) => {
-              const ctx = getSelectionContext(editor as any, shapeId);
-              if (!ctx) return null;
-              return `- ${ctx.label} (${ctx.type})`;
-            })
-            .filter(Boolean);
-          if (!lines.length) return null;
-          return `Canvas context:\n${lines.join("\n")}`;
-        })();
-
-        const promptWithContext = promptContext ? `${trimmed}\n\n${promptContext}` : trimmed;
-
-        if (aiProfile === "gemini-pro-3") {
-          const res = await chatAssistant.mutateAsync({ prompt: promptWithContext });
-          setMessages((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "assistant", content: res.data.text },
-          ]);
-          return;
-        }
-
-        const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
-
-        if (looksLikeHtmlPrompt) {
-          const res = await generateHtml.mutateAsync({ prompt: promptWithContext });
-          const html = res.data.html;
-        let htmlCardMode: "created" | "updated" | "failed" = "failed";
-        let htmlCardShapeId: string | null = null;
+      await queue.enqueue(async () => {
         try {
-          const point = options?.point ?? getAiInsertPoint(editor as any);
-          const existingShapeId =
-            selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
-          const result = await withHistorySquash(editor as any, "ai:html", async () => {
-            return upsertHtmlCard(editor as any, {
-              html,
-              point,
-              existingShapeId: existingShapeId ?? undefined,
-            });
-          });
-          htmlCardMode = result.mode;
-          htmlCardShapeId = result.id;
-          try {
-            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-          } catch {
-            // ignore
-          }
-        } catch (error) {
-          htmlCardMode = "failed";
-          const copied = await copyTextToClipboard(html);
-          toast.error(
-            copied
-              ? "Couldn’t add the HTML card. HTML copied to clipboard."
-              : "Couldn’t add the HTML card to the canvas.",
-            { duration: 3500 },
-          );
-        }
+          const apiProfile = toNanoBananaApiProfile(profile);
+          const promptContext = (() => {
+            if (!contextShapeIds.length) return null;
+            const lines = contextShapeIds
+              .map((shapeId) => {
+                const ctx = getSelectionContext(editor as any, shapeId);
+                if (!ctx) return null;
+                return `- ${ctx.label} (${ctx.type})`;
+              })
+              .filter(Boolean);
+            if (!lines.length) return null;
+            return `Canvas context:\n${lines.join("\n")}`;
+          })();
 
-        if (htmlCardShapeId) {
-          void ensureHtmlCardPreview(htmlCardShapeId, html);
-        }
+          const promptWithContext = promptContext ? `${trimmed}\n\n${promptContext}` : trimmed;
 
-        const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
-          ? {
-              id: crypto.randomUUID(),
-              type: "html",
-              label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
-              shapeId: htmlCardShapeId,
-            }
-          : null;
-        if (htmlAttachment) {
-          outputCounterRef.current += 1;
-        }
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content:
-              htmlCardMode === "updated"
-                ? "Updated the HTML card on your canvas."
-                : htmlCardMode === "created"
-                  ? "Added an HTML card to your canvas."
-                  : "Generated HTML, but couldn’t add it to the canvas.",
-            attachments: htmlAttachment ? [htmlAttachment] : undefined,
-          },
-        ]);
-        return;
-      }
-
-        if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
-          const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
-          const srcRaw =
-            (asset?.meta?.originalSrc as string | undefined) ??
-            (asset?.meta?.rawSrc as string | undefined) ??
-            (asset?.props?.src as string | undefined);
-          const src = srcRaw ? unwrapCanvasImageProxyUrl(srcRaw) : null;
-
-          if (!src) {
-            throw new Error("Selected image is missing a source URL.");
+          if (profile === "gemini-pro-3") {
+            const res = await chatAssistant.mutateAsync({ prompt: promptWithContext });
+            setMessages((prev) => [
+              ...prev,
+              { id: crypto.randomUUID(), role: "assistant", content: res.data.text },
+            ]);
+            return;
           }
 
-          const wantsVariation = isImageVariationPrompt(trimmed);
-          if (wantsVariation) {
-            const userNotes = stripImageVariationPrompt(trimmed);
-            const instruction = userNotes
-              ? [
-                  "Create a refined variation of this image. Keep layout and composition consistent.",
-                  "Apply these user notes:",
-                  userNotes,
-                ].join("\n")
-              : "Create a refined variation of this image. Keep layout and composition consistent.";
+          const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
+          if (looksLikeHtmlPrompt) {
+            const res = await generateHtml.mutateAsync({ prompt: promptWithContext });
+            const html = res.data.html;
 
-            const res = await editImage.mutateAsync({
-              image: src,
-              instruction,
-              profile: apiProfile,
-            });
+            let htmlCardMode: "created" | "updated" | "failed" = "failed";
+            let htmlCardShapeId: string | null = null;
 
-            const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
-            const canvasUrl = toCanvasImageUrl(uploadedUrl);
+            try {
+              const point = options?.point ?? getAiInsertPoint(editor as any);
+              const existingShapeId =
+                selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
 
-            const point = (() => {
-              if (options?.point) return options.point;
+              const result = await withAiCommit(() =>
+                withHistorySquash(editor as any, "ai:html", async () => {
+                  return upsertHtmlCard(editor as any, {
+                    html,
+                    point,
+                    existingShapeId: existingShapeId ?? undefined,
+                  });
+                }),
+              );
+
+              htmlCardMode = result.mode;
+              htmlCardShapeId = result.id;
+
               try {
-                const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-                if (bounds && typeof bounds === "object") {
-                  return {
-                    x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-                    y: bounds.y + bounds.h * 0.5,
-                  };
-                }
+                editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
               } catch {
                 // ignore
               }
-              return getAiInsertPoint(editor as any);
-            })();
+            } catch {
+              htmlCardMode = "failed";
+              const copied = await copyTextToClipboard(html);
+              toast.error(
+                copied
+                  ? "Couldn’t add the HTML card. HTML copied to clipboard."
+                  : "Couldn’t add the HTML card to the canvas.",
+                { duration: 3500 },
+              );
+            }
 
-            const inserted = await withHistorySquash(editor as any, "ai:variation", async () => {
+            if (htmlCardShapeId) {
+              void ensureHtmlCardPreview(htmlCardShapeId, html);
+            }
+
+            const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
+              ? {
+                  id: crypto.randomUUID(),
+                  type: "html",
+                  label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
+                  shapeId: htmlCardShapeId,
+                }
+              : null;
+
+            if (htmlAttachment) {
+              outputCounterRef.current += 1;
+            }
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content:
+                  htmlCardMode === "updated"
+                    ? "Updated the HTML card on your canvas."
+                    : htmlCardMode === "created"
+                      ? "Added an HTML card to your canvas."
+                      : "Generated HTML, but couldn’t add it to the canvas.",
+                attachments: htmlAttachment ? [htmlAttachment] : undefined,
+              },
+            ]);
+            return;
+          }
+
+          if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
+            const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
+            const srcRaw =
+              (asset?.meta?.originalSrc as string | undefined) ??
+              (asset?.meta?.rawSrc as string | undefined) ??
+              (asset?.props?.src as string | undefined);
+            const src = srcRaw ? unwrapCanvasImageProxyUrl(srcRaw) : null;
+
+            if (!src) {
+              throw new Error("Selected image is missing a source URL.");
+            }
+
+            const wantsVariation = isImageVariationPrompt(trimmed);
+            if (wantsVariation) {
+              const userNotes = stripImageVariationPrompt(trimmed);
+              const instruction = userNotes
+                ? [
+                    "Create a refined variation of this image. Keep layout and composition consistent.",
+                    "Apply these user notes:",
+                    userNotes,
+                  ].join("\n")
+                : "Create a refined variation of this image. Keep layout and composition consistent.";
+
+              const res = await editImage.mutateAsync({
+                image: src,
+                instruction,
+                profile: apiProfile,
+              });
+
+              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
+              const canvasUrl = toCanvasImageUrl(uploadedUrl);
+
+              const point = (() => {
+                if (options?.point) return options.point;
+                try {
+                  const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
+                  if (bounds && typeof bounds === "object") {
+                    return {
+                      x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
+                      y: bounds.y + bounds.h * 0.5,
+                    };
+                  }
+                } catch {
+                  // ignore
+                }
+                return getAiInsertPoint(editor as any);
+              })();
+
+              const inserted = await withAiCommit(() =>
+                withHistorySquash(editor as any, "ai:variation", async () => {
+                  const created = await insertImageToCanvas(editor as any, {
+                    src: canvasUrl,
+                    point,
+                    name: `pigcasso_variation_${Date.now()}.png`,
+                    size: {
+                      w: Number(asset?.props?.w) || 1024,
+                      h: Number(asset?.props?.h) || 1024,
+                    },
+                  });
+
+                  try {
+                    const createdAsset = editor.getAsset?.(created.assetId as any) as any;
+                    if (createdAsset) {
+                      editor.updateAssets?.([
+                        {
+                          ...createdAsset,
+                          meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
+                        },
+                      ]);
+                    }
+                  } catch {
+                    // ignore
+                  }
+
+                  return created;
+                }),
+              );
+
+              const attachment: CanvasChatAttachment = {
+                id: crypto.randomUUID(),
+                type: "image",
+                label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+                shapeId: inserted.shapeId,
+                url: canvasUrl,
+              };
+              outputCounterRef.current += 1;
+
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  role: "assistant",
+                  content: "Added a new variation (kept the original intact).",
+                  attachments: [attachment],
+                },
+              ]);
+              return;
+            }
+
+            const res = await editImage.mutateAsync({
+              image: src,
+              instruction: trimmed,
+              profile: apiProfile,
+            });
+
+            const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+            const canvasUrl = toCanvasImageUrl(uploadedUrl);
+
+            try {
+              await withAiCommit(() =>
+                withHistorySquash(editor as any, "ai:edit-image", async () => {
+                  editor.updateAssets?.([
+                    {
+                      ...asset,
+                      props: {
+                        ...asset.props,
+                        src: canvasUrl,
+                        fileSize: Math.max(1, Math.floor(Number(asset?.props?.fileSize ?? 1) || 1)),
+                      },
+                      meta: { ...(asset.meta ?? {}), originalSrc: uploadedUrl },
+                    },
+                  ]);
+                  if (selectedShapeId) {
+                    editor.updateShape?.({
+                      id: selectedShapeId as any,
+                      type: "image",
+                      props: { url: canvasUrl },
+                    });
+                  }
+                }),
+              );
+            } catch {
+              // ignore
+            }
+
+            const editAttachment: CanvasChatAttachment | null = selectedShapeId
+              ? {
+                  id: crypto.randomUUID(),
+                  type: "image",
+                  label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+                  shapeId: selectedShapeId,
+                  url: canvasUrl,
+                }
+              : null;
+            if (editAttachment) {
+              outputCounterRef.current += 1;
+            }
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "Updated the selected image.",
+                attachments: editAttachment ? [editAttachment] : undefined,
+              },
+            ]);
+            return;
+          }
+
+          const generated = await generateImage.mutateAsync({
+            prompt: promptWithContext,
+            profile: apiProfile,
+            canvas: { width: 1024, height: 1024 },
+          });
+
+          const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
+          const canvasUrl = toCanvasImageUrl(uploadedUrl);
+
+          const point = options?.point ?? getAiInsertPoint(editor as any);
+          const inserted = await withAiCommit(() =>
+            withHistorySquash(editor as any, "ai:insert-image", async () => {
               const created = await insertImageToCanvas(editor as any, {
                 src: canvasUrl,
                 point,
-                name: `pigcasso_variation_${Date.now()}.png`,
-                size: {
-                  w: Number(asset?.props?.w) || 1024,
-                  h: Number(asset?.props?.h) || 1024,
-                },
+                name: `pigcasso_${Date.now()}.png`,
+                size: { w: 1024, h: 1024 },
               });
-
               try {
                 const createdAsset = editor.getAsset?.(created.assetId as any) as any;
                 if (createdAsset) {
@@ -1624,158 +1768,63 @@ export default function CanvasScreen({ params }: PageProps) {
               } catch {
                 // ignore
               }
-
               return created;
-            });
+            }),
+          );
 
-	            const attachment: CanvasChatAttachment = {
-	              id: crypto.randomUUID(),
-	              type: "image",
-              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-              shapeId: inserted.shapeId,
-              url: canvasUrl,
-            };
-            outputCounterRef.current += 1;
-
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: "Added a new variation (kept the original intact).",
-                attachments: [attachment],
-              },
-            ]);
-
-            return;
-          }
-
-          const res = await editImage.mutateAsync({
-            image: src,
-            instruction: trimmed,
-            profile: apiProfile,
-          });
-
-        const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
-        const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-        try {
-          await withHistorySquash(editor as any, "ai:edit-image", async () => {
-            editor.updateAssets?.([
-              {
-                ...asset,
-                props: { ...asset.props, src: canvasUrl },
-                meta: { ...(asset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
-            if (selectedShapeId) {
-              editor.updateShape?.({
-                id: selectedShapeId as any,
-                type: "image",
-                props: { url: canvasUrl },
-              });
-            }
-          });
-        } catch {
-          // ignore
-        }
-
-	        const editAttachment: CanvasChatAttachment | null = selectedShapeId
-	          ? {
-	              id: crypto.randomUUID(),
-              type: "image",
-              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-              shapeId: selectedShapeId,
-              url: canvasUrl,
-            }
-          : null;
-        if (editAttachment) {
-          outputCounterRef.current += 1;
-        }
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: "Updated the selected image.",
-            attachments: editAttachment ? [editAttachment] : undefined,
-          },
-        ]);
-        return;
-      }
-
-          const generated = await generateImage.mutateAsync({
-            prompt: promptWithContext,
-            profile: apiProfile,
-            canvas: { width: 1024, height: 1024 },
-          });
-
-        const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
-          const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-        const point = options?.point ?? getAiInsertPoint(editor as any);
-        const inserted = await withHistorySquash(editor as any, "ai:insert-image", async () => {
-          const created = await insertImageToCanvas(editor as any, {
-            src: canvasUrl,
-            point,
-            name: `pigcasso_${Date.now()}.png`,
-            size: { w: 1024, h: 1024 },
-          });
           try {
-            const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-            if (createdAsset) {
-              editor.updateAssets?.([
-                {
-                  ...createdAsset,
-                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                },
-              ]);
-            }
+            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
           } catch {
             // ignore
           }
-          return created;
-        });
-        try {
-          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-        } catch {
-          // ignore
-        }
 
-	        const insertedShapeId = inserted.shapeId;
-
+          const insertedShapeId = inserted.shapeId;
           const insertAttachment: CanvasChatAttachment | null = insertedShapeId
             ? {
                 id: crypto.randomUUID(),
                 type: "image",
-              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-              shapeId: insertedShapeId,
-              url: canvasUrl,
-            }
-          : null;
-      if (insertAttachment) {
-        outputCounterRef.current += 1;
-      }
+                label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+                shapeId: insertedShapeId,
+                url: canvasUrl,
+              }
+            : null;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Added a new image to your canvas.",
-          attachments: insertAttachment ? [insertAttachment] : undefined,
-        },
-      ]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Something went wrong.";
-      toast.error(message, { duration: 3500 });
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: message }]);
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-	        }, [aiProfile, boardCrashMessage, boardHydrated, chatAssistant, editImage, editor, ensureHtmlCardPreview, generateHtml, generateImage]);
+          if (insertAttachment) {
+            outputCounterRef.current += 1;
+          }
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: "Added a new image to your canvas.",
+              attachments: insertAttachment ? [insertAttachment] : undefined,
+            },
+          ]);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Something went wrong.";
+          toast.error(message, { duration: 3500 });
+          setMessages((prev) => [
+            ...prev,
+            { id: crypto.randomUUID(), role: "assistant", content: message },
+          ]);
+        }
+      });
+    },
+    [
+      aiProfile,
+      boardCrashMessage,
+      boardHydrated,
+      chatAssistant,
+      editImage,
+      editor,
+      ensureHtmlCardPreview,
+      generateHtml,
+      generateImage,
+      withAiCommit,
+    ],
+  );
 
   const pinnedContexts = useMemo(() => {
     if (!editor) return [];
@@ -1973,6 +2022,57 @@ export default function CanvasScreen({ params }: PageProps) {
     [focusChatInput, selectionContext],
   );
 
+  const openPinnedEditForSelection = useCallback(() => {
+    if (activeTool !== "select") {
+      setActiveTool("select");
+      try {
+        editor?.setCurrentTool(toTldrawToolId("select") as any);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!editor || !boardHydrated || boardCrashMessage) {
+      toast.message("Canvas is still loading. Try again in a moment.", { duration: 2200 });
+      return;
+    }
+
+    const selectedId = selectionContext?.shapeId ?? null;
+    if (selectedId) {
+      setPinnedShapeIds((current) => (current.includes(selectedId) ? current : [...current, selectedId]));
+      try {
+        const bounds = editor.getShapePageBounds?.(selectedId as any) as any;
+        const pageToScreen = (editor as any).pageToScreen as
+          | ((pt: { x: number; y: number }) => { x: number; y: number })
+          | undefined;
+        if (bounds && typeof pageToScreen === "function") {
+          const pagePoint = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+          const screenPoint = pageToScreen(pagePoint);
+          openPinnedEditPopover({ screenPoint, pagePoint, shapeId: selectedId });
+          setClickEditArmed(false);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const pagePoint = getAiInsertPoint(editor as any);
+      const pageToScreen = (editor as any).pageToScreen as
+        | ((pt: { x: number; y: number }) => { x: number; y: number })
+        | undefined;
+      const screenPoint =
+        typeof pageToScreen === "function"
+          ? pageToScreen(pagePoint)
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      openPinnedEditPopover({ screenPoint, pagePoint, shapeId: null });
+      setClickEditArmed(false);
+    } catch {
+      // ignore
+    }
+  }, [activeTool, boardCrashMessage, boardHydrated, editor, openPinnedEditPopover, selectionContext]);
+
   const ensureCanvasReadyForAiAction = useCallback(() => {
     if (!editor || !boardHydrated || boardCrashMessage) {
       if (boardCrashMessage) {
@@ -1982,23 +2082,20 @@ export default function CanvasScreen({ params }: PageProps) {
       toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
       return false;
     }
-    if (busyRef.current) {
-      toast.message("Pigcasso is still working…", { duration: 2000 });
-      return false;
-    }
     return true;
   }, [boardCrashMessage, boardHydrated, editor]);
 
   const runAiAction = useCallback(
-    async (toastId: string, label: string, fn: () => Promise<void>) => {
+    async (toastIdPrefix: string, label: string, fn: () => Promise<void>) => {
       if (!ensureCanvasReadyForAiAction()) return;
 
-      busyRef.current = true;
-      setBusy(true);
+      const toastId = `${toastIdPrefix}:${crypto.randomUUID()}`;
       toast.loading(label, { id: toastId, duration: Infinity });
 
       try {
-        await fn();
+        const queue = aiJobQueueRef.current;
+        if (!queue) return;
+        await queue.enqueue(async () => fn());
         toast.success("Done.", { id: toastId, duration: 2000 });
       } catch (error) {
         const status = getApiErrorStatus(error);
@@ -2008,9 +2105,6 @@ export default function CanvasScreen({ params }: PageProps) {
         } else {
           toast.error(message || "Something went wrong.", { id: toastId, duration: 3500 });
         }
-      } finally {
-        busyRef.current = false;
-        setBusy(false);
       }
     },
     [ensureCanvasReadyForAiAction],
@@ -2363,33 +2457,35 @@ export default function CanvasScreen({ params }: PageProps) {
         return getAiInsertPoint(editor as any);
       })();
 
-      const inserted = await withHistorySquash(editor as any, "ai:variation", async () => {
-        const created = await insertImageToCanvas(editor as any, {
-          src: canvasUrl,
-          point,
-          name: `pigcasso_variation_${Date.now()}.png`,
-          size: {
-            w: Number(targetAsset?.props?.w) || 1024,
-            h: Number(targetAsset?.props?.h) || 1024,
-          },
-        });
+      const inserted = await withAiCommit(() =>
+        withHistorySquash(editor as any, "ai:variation", async () => {
+          const created = await insertImageToCanvas(editor as any, {
+            src: canvasUrl,
+            point,
+            name: `pigcasso_variation_${Date.now()}.png`,
+            size: {
+              w: Number(targetAsset?.props?.w) || 1024,
+              h: Number(targetAsset?.props?.h) || 1024,
+            },
+          });
 
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
+          try {
+            const createdAsset = editor.getAsset?.(created.assetId as any) as any;
+            if (createdAsset) {
+              editor.updateAssets?.([
+                {
+                  ...createdAsset,
+                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
+                },
+              ]);
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
-        }
 
-        return created;
-      });
+          return created;
+        }),
+      );
 
 	      const attachment: CanvasChatAttachment = {
 	        id: crypto.randomUUID(),
@@ -2406,7 +2502,7 @@ export default function CanvasScreen({ params }: PageProps) {
         { id: crypto.randomUUID(), role: "assistant", content: "Added a new variation.", attachments: [attachment] },
       ]);
     });
-	  }, [aiProfile, editImage, editor, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
+		  }, [aiProfile, editImage, editor, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const removeBackgroundFromSelectedImage = useCallback(async () => {
     const toastId = "pigcasso:canvas:remove-bg";
@@ -2438,33 +2534,35 @@ export default function CanvasScreen({ params }: PageProps) {
         return getAiInsertPoint(editor as any);
       })();
 
-      const inserted = await withHistorySquash(editor as any, "ai:remove-bg", async () => {
-        const created = await insertImageToCanvas(editor as any, {
-          src: canvasUrl,
-          point,
-          name: `pigcasso_remove_bg_${Date.now()}.png`,
-          size: {
-            w: Number(targetAsset?.props?.w) || 1024,
-            h: Number(targetAsset?.props?.h) || 1024,
-          },
-        });
+      const inserted = await withAiCommit(() =>
+        withHistorySquash(editor as any, "ai:remove-bg", async () => {
+          const created = await insertImageToCanvas(editor as any, {
+            src: canvasUrl,
+            point,
+            name: `pigcasso_remove_bg_${Date.now()}.png`,
+            size: {
+              w: Number(targetAsset?.props?.w) || 1024,
+              h: Number(targetAsset?.props?.h) || 1024,
+            },
+          });
 
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
+          try {
+            const createdAsset = editor.getAsset?.(created.assetId as any) as any;
+            if (createdAsset) {
+              editor.updateAssets?.([
+                {
+                  ...createdAsset,
+                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
+                },
+              ]);
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
-        }
 
-        return created;
-      });
+          return created;
+        }),
+      );
 
 	      const attachment: CanvasChatAttachment = {
 	        id: crypto.randomUUID(),
@@ -2481,7 +2579,7 @@ export default function CanvasScreen({ params }: PageProps) {
         { id: crypto.randomUUID(), role: "assistant", content: "Added a cut-out version.", attachments: [attachment] },
       ]);
     });
-	  }, [editor, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
+		  }, [editor, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const makeSelectedImageTextEditable = useCallback(async () => {
     const toastId = "pigcasso:canvas:make-text-editable";
@@ -2526,62 +2624,64 @@ export default function CanvasScreen({ params }: PageProps) {
 
       const createdTextShapeIds: string[] = [];
 
-      await withHistorySquash(editor as any, "ai:editable-text", async () => {
-        editor.updateAssets?.([
-          {
-            ...targetAsset,
-            props: {
-              ...(targetAsset.props ?? {}),
-              src: canvasUrl,
-              fileSize: Math.max(1, Math.floor(Number((targetAsset as any)?.props?.fileSize ?? 1) || 1)),
+      await withAiCommit(() =>
+        withHistorySquash(editor as any, "ai:editable-text", async () => {
+          editor.updateAssets?.([
+            {
+              ...targetAsset,
+              props: {
+                ...(targetAsset.props ?? {}),
+                src: canvasUrl,
+                fileSize: Math.max(1, Math.floor(Number((targetAsset as any)?.props?.fileSize ?? 1) || 1)),
+              },
+              meta: { ...(targetAsset.meta ?? {}), originalSrc: uploadedUrl },
             },
-            meta: { ...(targetAsset.meta ?? {}), originalSrc: uploadedUrl },
-          },
-        ]);
+          ]);
 
-        blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
-          const box = block.box;
-          if (!box) return;
+          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
+            const box = block.box;
+            if (!box) return;
 
-          const w = Math.max(40, Math.round(box.w * bounds.w));
-          const h = Math.max(12, Math.round(box.h * bounds.h));
-          const x = bounds.x + box.x * bounds.w;
-          const y = bounds.y + box.y * bounds.h;
+            const w = Math.max(40, Math.round(box.w * bounds.w));
+            const h = Math.max(12, Math.round(box.h * bounds.h));
+            const x = bounds.x + box.x * bounds.w;
+            const y = bounds.y + box.y * bounds.h;
 
-          const id = createShapeId();
-          createdTextShapeIds.push(id);
+            const id = createShapeId();
+            createdTextShapeIds.push(id);
 
-          const size = block.size ?? pickTextSizeFromHeight(h);
-          const font = block.font ?? "sans";
-          const color = block.color ?? "black";
-          const textAlign = block.align ?? "start";
+            const size = block.size ?? pickTextSizeFromHeight(h);
+            const font = block.font ?? "sans";
+            const color = block.color ?? "black";
+            const textAlign = block.align ?? "start";
 
-          editor.createShape?.({
-            id,
-            type: "text",
-            x,
-            y,
-            props: {
-              color,
-              size,
-              font,
-              textAlign,
-              w,
-              richText: toRichTextValue(block.text),
-              scale: 1,
-              autoSize: false,
-            },
-          } as any);
-        });
+            editor.createShape?.({
+              id,
+              type: "text",
+              x,
+              y,
+              props: {
+                color,
+                size,
+                font,
+                textAlign,
+                w,
+                richText: toRichTextValue(block.text),
+                scale: 1,
+                autoSize: false,
+              },
+            } as any);
+          });
 
-        if (createdTextShapeIds.length) {
-          try {
-            editor.groupShapes?.([targetShape.id, ...createdTextShapeIds] as any);
-          } catch {
-            // ignore
+          if (createdTextShapeIds.length) {
+            try {
+              editor.groupShapes?.([targetShape.id, ...createdTextShapeIds] as any);
+            } catch {
+              // ignore
+            }
           }
-        }
-      });
+        }),
+      );
 
 	      setMessages((prev) => [
 	        ...prev,
@@ -2593,7 +2693,7 @@ export default function CanvasScreen({ params }: PageProps) {
         },
       ]);
     });
-	  }, [aiProfile, editImage, editor, extractText, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape]);
+		  }, [aiProfile, editImage, editor, extractText, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const activeAtMention = useMemo(() => {
     const el = mentionFocusElRef.current;
@@ -2769,14 +2869,14 @@ export default function CanvasScreen({ params }: PageProps) {
                 ? null
                 : createPortal(
                     <CanvasSelectionToolbar
-                      anchor={resolvedSelectionToolbarAnchor}
-                      disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-                      onAddToChat={() => addSelectionToChat()}
-                      onEditWithAi={() => addSelectionToChat({ prefill: "Edit this: " })}
-                      onDownloadSelected={() => void downloadSelectedImage()}
-                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
-                      onRegenerate={() => void regenerateSelectedImage()}
-                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
+	                      anchor={resolvedSelectionToolbarAnchor}
+	                      disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                      onAddToChat={() => addSelectionToChat()}
+	                      onEditWithAi={openPinnedEditForSelection}
+	                      onDownloadSelected={() => void downloadSelectedImage()}
+	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
+	                      onRegenerate={() => void regenerateSelectedImage()}
+	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                       onMakeTextEditable={() => void makeSelectedImageTextEditable()}
                       onViewHtmlCode={() => viewSelectedHtmlCode()}
                       textStyle={selectedTextShape ? selectedTextStyle : null}
@@ -3030,13 +3130,13 @@ export default function CanvasScreen({ params }: PageProps) {
 
                 <div className="mt-2 flex items-end gap-2">
                   <Textarea
-                    value={tabInstruction}
-                    onChange={(e) => setTabInstruction(e.target.value)}
-                    placeholder="Describe the change…"
-                    className="min-h-[80px] max-h-[160px] resize-none bg-background"
-                    autoFocus
-                    disabled={busy || !editor || !boardHydrated || Boolean(boardCrashMessage)}
-                    onKeyDown={(event) => {
+	                    value={tabInstruction}
+	                    onChange={(e) => setTabInstruction(e.target.value)}
+	                    placeholder="Describe the change…"
+	                    className="min-h-[80px] max-h-[160px] resize-none bg-background"
+	                    autoFocus
+	                    disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+	                    onKeyDown={(event) => {
                       if (event.key === "Escape") {
                         event.preventDefault();
                         setTabAnchor(null);
@@ -3056,17 +3156,16 @@ export default function CanvasScreen({ params }: PageProps) {
                     }}
                   />
 
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="rounded-full"
-                    disabled={
-                      !tabInstruction.trim() ||
-                      busy ||
-                      !editor ||
-                      !boardHydrated ||
-                      Boolean(boardCrashMessage)
-                    }
+	                  <Button
+	                    type="button"
+	                    size="icon"
+	                    className="rounded-full"
+	                    disabled={
+	                      !tabInstruction.trim() ||
+	                      !editor ||
+	                      !boardHydrated ||
+	                      Boolean(boardCrashMessage)
+	                    }
                     aria-label="Send pin edit"
                     onClick={() => {
                       if (!tabInstruction.trim()) return;

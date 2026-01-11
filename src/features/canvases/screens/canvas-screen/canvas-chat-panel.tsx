@@ -321,7 +321,7 @@ export const CanvasChatPanel = ({
               variant="ghost"
               size="icon"
               className="rounded-full"
-              disabled={disabled || busy}
+              disabled={disabled}
               aria-label="Upload files"
               onClick={openFilePicker}
             >
@@ -372,7 +372,7 @@ export const CanvasChatPanel = ({
                     : "Type a prompt… (try: “landing page for…”)"
                 }
                 className="min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                disabled={disabled || busy}
+                disabled={disabled}
                 onKeyDown={(event) => {
                   if (event.key === "Escape" && mentionPickerOpen) {
                     event.preventDefault();
@@ -397,7 +397,7 @@ export const CanvasChatPanel = ({
               size="icon"
               className="rounded-full"
               onClick={onSend}
-              disabled={!chatInput.trim() || busy || disabled}
+              disabled={!chatInput.trim() || disabled}
               aria-label="Send"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
@@ -615,7 +615,7 @@ export const CanvasChatPanel = ({
                 variant="ghost"
                 size="icon"
                 className="rounded-full"
-                disabled={disabled || busy}
+                disabled={disabled}
                 aria-label="Upload files"
                 onClick={openFilePicker}
               >
@@ -660,7 +660,7 @@ export const CanvasChatPanel = ({
                   }
                   placeholder={boardCrashMessage ? "Board unavailable…" : disabled ? "Loading canvas…" : "Type a prompt…"}
                   className="min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  disabled={disabled || busy}
+                  disabled={disabled}
                   onKeyDown={(event) => {
                     if (event.key === "Escape" && mentionPickerOpen) {
                       event.preventDefault();
@@ -685,7 +685,7 @@ export const CanvasChatPanel = ({
                 size="icon"
                 className="rounded-full"
                 onClick={onSend}
-                disabled={!chatInput.trim() || busy || disabled}
+                disabled={!chatInput.trim() || disabled}
                 aria-label="Send"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
