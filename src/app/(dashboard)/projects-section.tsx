@@ -30,32 +30,28 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/hooks/use-confirm";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 export const ProjectsSection = () => {
-  const [ConfirmDialog, confirm] = useConfirm(
-    "Are you sure?",
-    "You are about to delete this project.",
-  );
   const duplicateMutation = useDuplicateProject();
   const removeMutation = useDeleteProject();
   const router = useRouter();
   const [opening, setOpening] = React.useState<{ id: string; name: string } | null>(null);
   const [filter, setFilter] = React.useState("");
+  const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; name: string } | null>(null);
+  const [deleteInput, setDeleteInput] = React.useState("");
 
   const onCopy = (id: string) => {
     duplicateMutation.mutate({ id });
   };
 
-  const onDelete = async (id: string) => {
-    const ok = await confirm();
-
-    if (ok) {
-      removeMutation.mutate({ id });
-    }
+  const onDelete = (project: { id: string; name: string }) => {
+    setDeleteTarget(project);
+    setDeleteInput("");
   };
 
   const onOpen = (project: { id: string; name: string }) => {
@@ -132,7 +128,79 @@ export const ProjectsSection = () => {
 
   return (
     <div className="space-y-4"> 
-      <ConfirmDialog />
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDeleteTarget(null);
+          setDeleteInput("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete project?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name ?? "this project"}
+              </span>
+              . Type{" "}
+              <span className="font-mono text-foreground">DELETE</span> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="delete-confirm-input">Confirmation</Label>
+            <Input
+              id="delete-confirm-input"
+              value={deleteInput}
+              onChange={(event) => setDeleteInput(event.target.value)}
+              placeholder="Type DELETE"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteInput("");
+              }}
+              disabled={removeMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                removeMutation.isPending ||
+                deleteInput.trim().toLowerCase() !== "delete" ||
+                !deleteTarget
+              }
+              onClick={() => {
+                if (!deleteTarget) return;
+                removeMutation.mutate(
+                  { id: deleteTarget.id },
+                  {
+                    onSuccess: () => {
+                      setDeleteTarget(null);
+                      setDeleteInput("");
+                    },
+                  },
+                );
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <LoadingOverlay
         open={Boolean(opening)}
         title="Opening project…"
@@ -213,7 +281,7 @@ export const ProjectsSection = () => {
                             <DropdownMenuItem
                               className="h-10 cursor-pointer"
                               disabled={removeMutation.isPending}
-                              onClick={() => onDelete(project.id)}
+                              onClick={() => onDelete(project)}
                             >
                               <Trash className="size-4 mr-2" />
                               Delete
