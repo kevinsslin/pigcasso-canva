@@ -853,12 +853,14 @@ export default function CanvasScreen({ params }: PageProps) {
           if (!screenPoint || typeof screenPoint.x !== "number" || typeof screenPoint.y !== "number") return null;
 
           const toolbarWidth = kind === "text" ? 440 : 340;
-          const toolbarHeight = 52;
+          const toolbarHeight = kind === "text" ? 68 : 52;
           const padding = 12;
-          const offset = 12;
+          const offset = 10;
 
           const rawX = screenPoint.x - toolbarWidth / 2;
-          const rawY = screenPoint.y - offset - toolbarHeight;
+          // Place the actions directly on top of the selected shape (inside its top edge),
+          // so users can click without looking away from the canvas.
+          const rawY = screenPoint.y + offset;
 
           const maxX = window.innerWidth - toolbarWidth - padding;
           const maxY = window.innerHeight - toolbarHeight - padding;
