@@ -1137,7 +1137,7 @@ export default function CanvasScreen({ params }: PageProps) {
         const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
         if (!html.trim()) continue;
         const previewRaw = shape?.meta?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
-        if (typeof previewRaw === "string" && previewRaw.startsWith("data:image/")) continue;
+        if (typeof previewRaw === "string" && previewRaw.startsWith("data:image/png")) continue;
         if (previewRaw === "rendering") continue;
         await ensureHtmlCardPreview(String(shape.id), html);
       }

@@ -4,11 +4,14 @@ export const PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY = "pigcassoHtmlPreviewDataU
 
 const HTML2CANVAS_CDN_URL = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
 
-const injectPreviewScript = (srcDoc: string, requestId: string) => {
+const injectPreviewScript = (srcDoc: string, params: { requestId: string; width: number; height: number }) => {
+  const { requestId, width, height } = params;
   const script = [
     "<script>",
     "(function(){",
     `const REQUEST_ID=${JSON.stringify(requestId)};`,
+    `const TARGET_WIDTH=${JSON.stringify(width)};`,
+    `const TARGET_HEIGHT=${JSON.stringify(height)};`,
     "function send(payload){",
     "  try{ parent.postMessage(Object.assign({__pigcasso:true,type:'pigcasso:html-preview',requestId:REQUEST_ID},payload),'*'); }catch(e){}",
     "}",
@@ -22,12 +25,24 @@ const injectPreviewScript = (srcDoc: string, requestId: string) => {
     "    })();",
     "  });",
     "}",
+    "function waitForFonts(timeoutMs){",
+    "  try{",
+    "    if(!document.fonts || !document.fonts.ready){ return Promise.resolve(); }",
+    "    return Promise.race([document.fonts.ready, new Promise((resolve)=>setTimeout(resolve, timeoutMs))]);",
+    "  }catch(e){ return Promise.resolve(); }",
+    "}",
     "window.addEventListener('load', async function(){",
     "  try{",
+    "    document.documentElement.style.background='#ffffff';",
+    "    document.body.style.background='#ffffff';",
+    "    document.body.style.margin='0';",
+    "    document.body.style.width=TARGET_WIDTH+'px';",
+    "    document.body.style.height=TARGET_HEIGHT+'px';",
     "    await waitForHtml2Canvas(5000);",
-    "    await new Promise(r=>setTimeout(r,250));",
-    "    const canvas = await window.html2canvas(document.documentElement,{backgroundColor:'#ffffff',scale:1,logging:false,useCORS:true});",
-    "    const dataUrl = canvas.toDataURL('image/jpeg',0.85);",
+    "    await waitForFonts(1500);",
+    "    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));",
+    "    const canvas = await window.html2canvas(document.body,{backgroundColor:'#ffffff',scale:1,logging:false,useCORS:true,scrollX:0,scrollY:0,windowWidth:TARGET_WIDTH,windowHeight:TARGET_HEIGHT,width:TARGET_WIDTH,height:TARGET_HEIGHT});",
+    "    const dataUrl = canvas.toDataURL('image/png');",
     "    send({dataUrl});",
     "  }catch(err){",
     "    send({error: (err && err.message) ? err.message : String(err)});",
@@ -51,9 +66,9 @@ const injectPreviewScript = (srcDoc: string, requestId: string) => {
   return `${srcDoc}${injection}`;
 };
 
-export const createHtmlPreviewSrcDoc = (html: string, requestId: string) => {
+export const createHtmlPreviewSrcDoc = (html: string, params: { requestId: string; width: number; height: number }) => {
   const base = createHtmlCardSrcDoc(html);
-  return injectPreviewScript(base, requestId);
+  return injectPreviewScript(base, params);
 };
 
 export const generateHtmlPreviewDataUrl = async (options: {
@@ -70,7 +85,7 @@ export const generateHtmlPreviewDataUrl = async (options: {
   const height = Math.max(160, Math.min(1400, Math.floor(options.height ?? 600)));
   const timeoutMs = Math.max(1000, Math.min(20000, Math.floor(options.timeoutMs ?? 12000)));
 
-  const srcDoc = createHtmlPreviewSrcDoc(options.html, requestId);
+  const srcDoc = createHtmlPreviewSrcDoc(options.html, { requestId, width, height });
 
   return new Promise<string | null>((resolve) => {
     const iframe = document.createElement("iframe");
@@ -130,4 +145,3 @@ export const generateHtmlPreviewDataUrl = async (options: {
     }
   });
 };
-

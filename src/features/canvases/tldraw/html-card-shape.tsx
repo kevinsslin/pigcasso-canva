@@ -53,7 +53,7 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
     const isInteractive = isEditing;
     const previewRaw = (shape.meta as any)?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
     const previewDataUrl =
-      typeof previewRaw === "string" && previewRaw.startsWith("data:image/") ? previewRaw : null;
+      typeof previewRaw === "string" && previewRaw.startsWith("data:image/png") ? previewRaw : null;
     const previewStatus = typeof previewRaw === "string" ? previewRaw : null;
 
     return (
@@ -66,10 +66,6 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
             className="w-full h-full object-cover bg-white"
             draggable={false}
           />
-        ) : !isEditing && srcDoc ? (
-          <div className="h-full w-full grid place-items-center bg-white text-xs text-muted-foreground">
-            {previewStatus === "failed" ? "Preview unavailable" : "Rendering preview…"}
-          </div>
         ) : srcDoc ? (
           <iframe
             title="HTML preview"
@@ -89,6 +85,22 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
             Add HTML to preview
           </div>
         )}
+
+        {!isEditing &&
+        srcDoc &&
+        (previewStatus === "rendering" ||
+          previewStatus === "failed" ||
+          (typeof previewStatus === "string" &&
+            previewStatus.startsWith("data:image/") &&
+            !previewStatus.startsWith("data:image/png"))) ? (
+          <div className="absolute bottom-2 right-2 rounded-full border bg-white/90 px-2 py-1 text-[10px] font-semibold text-muted-foreground shadow-sm">
+            {previewStatus === "failed"
+              ? "Static preview unavailable"
+              : previewStatus === "rendering"
+                ? "Rendering static preview…"
+                : "Updating static preview…"}
+          </div>
+        ) : null}
 
         {!isEditing && srcDoc ? <div className="absolute inset-0 pointer-events-auto" aria-hidden="true" /> : null}
       </HTMLContainer>
