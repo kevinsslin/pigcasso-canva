@@ -501,6 +501,16 @@ export const parseExtractTextBlocksResponse = (text: string) => {
     return Math.min(1, Math.max(0, normalized));
   };
 
+  const normalizeAngle = (value: unknown) => {
+    const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+    if (!Number.isFinite(num)) return undefined;
+
+    const normalized = ((((num % 360) + 360) % 360) + 180) % 360 - 180;
+    if (!Number.isFinite(normalized)) return undefined;
+
+    return Number(normalized.toFixed(2));
+  };
+
   const allowedFont = z.enum(["draw", "sans", "serif", "mono"]);
   const allowedSize = z.enum(["s", "m", "l", "xl"]);
   const allowedColor = z.enum(["black", "white", "grey", "red", "orange", "yellow", "green", "blue", "violet"]);
@@ -523,6 +533,7 @@ export const parseExtractTextBlocksResponse = (text: string) => {
       const h = normalizeCoord(box.h);
       if (x === null || y === null || w === null || h === null) return null;
 
+      const angle = normalizeAngle((block as any)?.angle);
       const font = allowedFont.safeParse((block as any)?.font).success ? (block as any).font : undefined;
       const size = allowedSize.safeParse((block as any)?.size).success ? (block as any).size : undefined;
       const color = allowedColor.safeParse((block as any)?.color).success ? (block as any).color : undefined;
@@ -531,6 +542,7 @@ export const parseExtractTextBlocksResponse = (text: string) => {
       return {
         text: textValue,
         box: { x, y, w, h },
+        angle,
         font,
         size,
         color,
@@ -548,6 +560,43 @@ export const extractTextBlocks = async (params: { image: string }) => {
   // Use a vision-capable model for OCR. Gemini assistant model may be text-only depending on config.
   const model = GEMINI_IMAGE_MODEL || GEMINI_ASSISTANT_MODEL;
 
+  const responseJsonSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["blocks"],
+    properties: {
+      blocks: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["text", "box"],
+          properties: {
+            text: { type: "string" },
+            box: {
+              type: "object",
+              additionalProperties: false,
+              required: ["x", "y", "w", "h"],
+              properties: {
+                x: { type: "number" },
+                y: { type: "number" },
+                w: { type: "number" },
+                h: { type: "number" },
+              },
+            },
+            angle: { type: "number" },
+            font: { type: "string", enum: ["draw", "sans", "serif", "mono"] },
+            size: { type: "string", enum: ["s", "m", "l", "xl"] },
+            color: {
+              type: "string",
+              enum: ["black", "white", "grey", "red", "orange", "yellow", "green", "blue", "violet"],
+            },
+            align: { type: "string", enum: ["start", "middle", "end"] },
+          },
+        },
+      },
+    },
+  } as const;
+
   const system = `
 You are a vision OCR + layout analyzer.
 Return ONLY valid JSON. No markdown. No code fences.
@@ -557,6 +606,7 @@ Schema:
     {
       "text": "string",
       "box": { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },
+      "angle": -180-180,
       "font": "draw|sans|serif|mono",
       "size": "s|m|l|xl",
       "color": "black|white|grey|red|orange|yellow|green|blue|violet",
@@ -568,6 +618,7 @@ Rules:
 - Only include text that is visibly present in the image.
 - Keep the exact wording and line breaks.
 - Coordinates are normalized to the full image (top-left origin).
+- "angle" is the block rotation in degrees (clockwise), 0 means horizontal.
 - Group words into sensible blocks (usually lines/phrases), not per-character.
 - Keep blocks in reading order top-to-bottom.
 - Max 40 blocks.
@@ -585,6 +636,8 @@ Rules:
       ],
       config: {
         responseModalities: ["TEXT"],
+        responseMimeType: "application/json",
+        responseJsonSchema,
         systemInstruction: system,
         maxOutputTokens: 1800,
         temperature: 0,

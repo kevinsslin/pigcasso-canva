@@ -4,6 +4,7 @@ import { BaseBoxShapeUtil, HTMLContainer, RecordProps, T, toDomPrecision, type T
 
 import { createHtmlCardSrcDoc, HTML_CARD_MIN_SIZE, HTML_CARD_SHAPE_TYPE, HTML_CARD_DEFAULT_SIZE } from "@/features/canvases/tldraw/html-card";
 import { getHtmlCardIframeStyle, HTML_CARD_IFRAME_SANDBOX } from "@/features/canvases/tldraw/html-card-iframe";
+import { PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
 
 export type HtmlCardShape = TLBaseShape<
   typeof HTML_CARD_SHAPE_TYPE,
@@ -50,10 +51,26 @@ export class HtmlCardShapeUtil extends BaseBoxShapeUtil<HtmlCardShape> {
     const isEditing = useIsEditing(shape.id);
     const srcDoc = createHtmlCardSrcDoc(html);
     const isInteractive = isEditing;
+    const previewRaw = (shape.meta as any)?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
+    const previewDataUrl =
+      typeof previewRaw === "string" && previewRaw.startsWith("data:image/") ? previewRaw : null;
+    const previewStatus = typeof previewRaw === "string" ? previewRaw : null;
 
     return (
       <HTMLContainer id={shape.id} className="relative rounded-2xl overflow-hidden bg-white">
-        {srcDoc ? (
+        {!isEditing && previewDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt=""
+            src={previewDataUrl}
+            className="w-full h-full object-cover bg-white"
+            draggable={false}
+          />
+        ) : !isEditing && srcDoc ? (
+          <div className="h-full w-full grid place-items-center bg-white text-xs text-muted-foreground">
+            {previewStatus === "failed" ? "Preview unavailable" : "Rendering preview…"}
+          </div>
+        ) : srcDoc ? (
           <iframe
             title="HTML preview"
             sandbox={HTML_CARD_IFRAME_SANDBOX}

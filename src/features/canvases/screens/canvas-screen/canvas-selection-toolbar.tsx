@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, ChevronDown, Code2, Download, Edit3, MoreHorizontal, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
+import { AtSign, ChevronDown, Code2, Download, Layers3, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +72,25 @@ export const CanvasSelectionToolbar = ({
   const isHtml = anchor.kind === "html";
   const isText = anchor.kind === "text";
 
+  const resolvedFontLabel = (() => {
+    if (!isText || !textStyle) return null;
+    if (textStyle.fontFamily) {
+      return TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.label ?? "Custom";
+    }
+    return TEXT_FONT_OPTIONS.find((opt) => opt.id === textStyle.font)?.label ?? "Font";
+  })();
+
+  const resolvedFontValue = (() => {
+    if (!isText || !textStyle) return "__none__";
+    if (textStyle.fontFamily) {
+      const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily);
+      if (preset?.id === "serif") return "base:serif";
+      if (preset?.id === "mono") return "base:mono";
+      return preset ? `preset:${preset.id}` : "__custom__";
+    }
+    return `base:${textStyle.font}`;
+  })();
+
   return (
     <div
       className="fixed z-[12000] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft px-2 py-2"
@@ -133,6 +152,19 @@ export const CanvasSelectionToolbar = ({
 
             <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onMakeTextEditable}
+              aria-label="Separate layers"
+            >
+              <Layers3 className="mr-2 size-4" />
+              Separate layers
+            </Button>
+
+            <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full"
@@ -142,29 +174,6 @@ export const CanvasSelectionToolbar = ({
             >
               <Download className="size-4" />
             </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full"
-                  disabled={disabled}
-                  aria-label="More actions"
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-56">
-                <DropdownMenuLabel>Image</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onMakeTextEditable}>
-                  <Edit3 className="mr-2 size-4 text-muted-foreground" />
-                  Extract editable text (beta)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </>
         ) : null}
 
@@ -211,14 +220,7 @@ export const CanvasSelectionToolbar = ({
                   disabled={disabled}
                 >
                   <span className="text-xs font-semibold">
-                    {(() => {
-                      if (textStyle.fontFamily) {
-                        return (
-                          TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.label ?? "Custom"
-                        );
-                      }
-                      return TEXT_FONT_OPTIONS.find((opt) => opt.id === textStyle.font)?.label ?? "Font";
-                    })()}
+                    {resolvedFontLabel}
                   </span>
                   <ChevronDown className="ml-2 size-4 text-muted-foreground" />
                 </Button>
@@ -227,42 +229,41 @@ export const CanvasSelectionToolbar = ({
                 <DropdownMenuLabel>Font</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
-                  value={textStyle.fontFamily ? "__custom__" : textStyle.font}
-                  onValueChange={(value) => onUpdateTextStyle({ font: value })}
-                >
-                  {TEXT_FONT_OPTIONS.map((opt) => (
-                    <DropdownMenuRadioItem key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Font family</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup
-                  value={TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.id ?? "__none__"}
+                  value={resolvedFontValue}
                   onValueChange={(value) => {
-                    const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.id === value);
-                    if (!preset) return;
-                    const font = preset.id === "serif" ? "serif" : preset.id === "mono" ? "mono" : "sans";
-                    onUpdateTextStyle({ font, fontFamily: preset.value });
+                    if (value === "__custom__") return;
+                    if (value.startsWith("preset:")) {
+                      const presetId = value.slice("preset:".length);
+                      const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.id === presetId);
+                      if (!preset) return;
+                      const font = preset.id === "serif" ? "serif" : preset.id === "mono" ? "mono" : "sans";
+                      onUpdateTextStyle({ font, fontFamily: preset.value });
+                      return;
+                    }
+
+                    if (value.startsWith("base:")) {
+                      const font = value.slice("base:".length);
+                      onUpdateTextStyle({ font, fontFamily: null });
+                    }
                   }}
                 >
-                  {TEXT_FONT_FAMILY_PRESETS.map((opt) => (
-                    <DropdownMenuRadioItem key={opt.id} value={opt.id}>
+                  {TEXT_FONT_FAMILY_PRESETS.filter((opt) => opt.id !== "serif" && opt.id !== "mono").map((opt) => (
+                    <DropdownMenuRadioItem key={opt.id} value={`preset:${opt.id}`}>
                       {opt.label}
                     </DropdownMenuRadioItem>
                   ))}
+
+                  {textStyle.fontFamily && !TEXT_FONT_FAMILY_PRESETS.some((opt) => opt.value === textStyle.fontFamily) ? (
+                    <DropdownMenuRadioItem value="__custom__">Custom</DropdownMenuRadioItem>
+                  ) : null}
+
+                  {TEXT_FONT_OPTIONS.map((opt) => (
+                    <DropdownMenuRadioItem key={opt.id} value={`base:${opt.id}`}>
+                      Default {opt.label}
+                    </DropdownMenuRadioItem>
+                  ))}
                 </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    onUpdateTextStyle({ fontFamily: null });
-                  }}
-                >
-                  Reset to default
-                </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
                 <div className="p-2 space-y-1">
                   <div className="text-[11px] font-semibold text-muted-foreground">Custom font-family</div>
@@ -284,6 +285,17 @@ export const CanvasSelectionToolbar = ({
                     onPointerDown={(event) => event.stopPropagation()}
                   />
                 </div>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onUpdateTextStyle({ fontFamily: null });
+                  }}
+                >
+                  Reset to default
+                </DropdownMenuItem>
+
               </DropdownMenuContent>
             </DropdownMenu>
 

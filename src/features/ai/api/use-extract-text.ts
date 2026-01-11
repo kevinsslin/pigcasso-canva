@@ -7,6 +7,7 @@ import { readApiResponse } from "@/lib/api-response";
 export type ExtractTextBlock = {
   text: string;
   box: { x: number; y: number; w: number; h: number };
+  angle?: number;
   font?: "draw" | "sans" | "serif" | "mono";
   size?: "s" | "m" | "l" | "xl";
   color?: "black" | "white" | "grey" | "red" | "orange" | "yellow" | "green" | "blue" | "violet";
@@ -34,4 +35,3 @@ export const useExtractText = () => {
 
   return mutation;
 };
-

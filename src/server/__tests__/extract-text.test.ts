@@ -10,6 +10,7 @@ describe("extract text blocks parser", () => {
           {
             text: "Hello",
             box: { x: 0.1, y: 0.2, w: 0.3, h: 0.1 },
+            angle: 12,
             font: "sans",
             size: "m",
             color: "black",
@@ -20,6 +21,7 @@ describe("extract text blocks parser", () => {
     );
     expect(parsed.blocks).toHaveLength(1);
     expect(parsed.blocks[0]?.text).toBe("Hello");
+    expect(parsed.blocks[0]?.angle).toBe(12);
   });
 
   test("parses fenced JSON", () => {
@@ -44,6 +46,15 @@ describe("extract text blocks parser", () => {
     const parsed = parseExtractTextBlocksResponse(JSON.stringify(payload));
     expect(parsed.blocks).toHaveLength(40);
     expect(parsed.blocks[0]?.box).toEqual({ x: 0.1, y: 0.2, w: 0.3, h: 0.05 });
+  });
+
+  test("normalizes angles into -180..180", () => {
+    const parsed = parseExtractTextBlocksResponse(
+      JSON.stringify({
+        blocks: [{ text: "Tilt", box: { x: 0, y: 0, w: 1, h: 1 }, angle: 270 }],
+      }),
+    );
+    expect(parsed.blocks[0]?.angle).toBe(-90);
   });
 
   test("drops invalid blocks instead of failing", () => {

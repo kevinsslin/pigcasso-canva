@@ -78,7 +78,6 @@ import {
   clampCanvasTextScale,
   getCanvasTextSizePx,
   pickCanvasTextSizeAndScaleFromPx,
-  pickTextSizeFromHeight,
   PIGCASSO_TEXT_FONT_FAMILY_META_KEY,
   toRichTextValue,
   type CanvasTextSize,
@@ -156,6 +155,7 @@ export default function CanvasScreen({ params }: PageProps) {
   const [selectionContext, setSelectionContext] = useState<SelectionContext | null>(null);
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [selectionToolbarAnchor, setSelectionToolbarAnchor] = useState<CanvasSelectionToolbarAnchor | null>(null);
+  const [selectedTextStyleKey, setSelectedTextStyleKey] = useState("");
   const [htmlCodeDialogOpen, setHtmlCodeDialogOpen] = useState(false);
   const [htmlCodeDialogHtml, setHtmlCodeDialogHtml] = useState("");
   const [htmlCodeDialogFilename, setHtmlCodeDialogFilename] = useState("HTML");
@@ -191,6 +191,7 @@ export default function CanvasScreen({ params }: PageProps) {
   const aiCommitMutexRef = useRef<AiJobMutex | null>(null);
 
   const lastSelectionToolbarKeyRef = useRef<string>("");
+  const lastSelectedTextStyleKeyRef = useRef<string>("");
 
   if (!aiJobQueueRef.current) {
     aiJobQueueRef.current = createAiJobQueue({ concurrency: 3, onChange: setAiJobCounts });
@@ -890,6 +891,29 @@ export default function CanvasScreen({ params }: PageProps) {
         if (selectedKey !== lastSelectedShapeIdsKeyRef.current) {
           lastSelectedShapeIdsKeyRef.current = selectedKey;
           setSelectedShapeIds(selectedIds);
+        }
+
+        const nextTextStyleKey = (() => {
+          if (selectedIds.length !== 1) return "";
+          const shapeId = selectedIds[0];
+          if (!shapeId) return "";
+          const shape = editor.getShape?.(shapeId as any) as any;
+          if (!shape || typeof shape !== "object" || shape.type !== "text") return "";
+
+          const props = (shape.props ?? {}) as Record<string, unknown>;
+          const font = typeof props.font === "string" ? props.font : "";
+          const size = typeof props.size === "string" ? props.size : "";
+          const color = typeof props.color === "string" ? props.color : "";
+          const scaleRaw = props.scale;
+          const scale = typeof scaleRaw === "number" ? String(scaleRaw) : typeof scaleRaw === "string" ? scaleRaw : "";
+          const metaFontFamily = (shape.meta as any)?.[PIGCASSO_TEXT_FONT_FAMILY_META_KEY];
+          const fontFamily = typeof metaFontFamily === "string" ? metaFontFamily.trim() : "";
+          return `${shapeId}:${font}:${size}:${color}:${scale}:${fontFamily}`;
+        })();
+
+        if (nextTextStyleKey !== lastSelectedTextStyleKeyRef.current) {
+          lastSelectedTextStyleKeyRef.current = nextTextStyleKey;
+          setSelectedTextStyleKey(nextTextStyleKey);
         }
 
         const selected = selectedIds[0] ?? null;
@@ -1848,6 +1872,7 @@ export default function CanvasScreen({ params }: PageProps) {
   }, [editor, pinnedShapeIds]);
 
   const selectedTextShape = useMemo(() => {
+    void selectedTextStyleKey;
     if (!editor) return null;
     if (selectedShapeIds.length !== 1) return null;
     try {
@@ -1857,7 +1882,7 @@ export default function CanvasScreen({ params }: PageProps) {
     } catch {
       return null;
     }
-  }, [editor, selectedShapeIds]);
+  }, [editor, selectedShapeIds, selectedTextStyleKey]);
 
   const selectedImageShape = useMemo(() => {
     if (!editor) return null;
@@ -1906,6 +1931,7 @@ export default function CanvasScreen({ params }: PageProps) {
   }, [selectedImageAsset]);
 
   const selectedTextStyle = useMemo(() => {
+    void selectedTextStyleKey;
     const props = (selectedTextShape as any)?.props ?? {};
     const font = typeof props.font === "string" ? props.font : "draw";
     const rawSize = typeof props.size === "string" ? props.size : "m";
@@ -1916,7 +1942,7 @@ export default function CanvasScreen({ params }: PageProps) {
     const metaFontFamily = (selectedTextShape as any)?.meta?.[PIGCASSO_TEXT_FONT_FAMILY_META_KEY];
     const fontFamily = typeof metaFontFamily === "string" && metaFontFamily.trim() ? metaFontFamily.trim() : null;
     return { font, size, color, sizePx, fontFamily };
-  }, [selectedTextShape]);
+  }, [selectedTextShape, selectedTextStyleKey]);
 
   const resolvedSelectionToolbarAnchor = useMemo(() => {
     if (!selectionToolbarAnchor) return null;
@@ -1935,7 +1961,10 @@ export default function CanvasScreen({ params }: PageProps) {
       if (!editor) return;
       if (!selectedTextShape) return;
       try {
-        const currentMeta = ((selectedTextShape as any)?.meta ?? {}) as Record<string, unknown>;
+        const currentShape = editor.getShape?.(selectedTextShape.id as any) as any;
+        if (!currentShape || typeof currentShape !== "object") return;
+
+        const currentMeta = ((currentShape as any)?.meta ?? {}) as Record<string, unknown>;
         const nextMeta = { ...currentMeta };
         let metaTouched = false;
 
@@ -2595,160 +2624,200 @@ export default function CanvasScreen({ params }: PageProps) {
 		  }, [editor, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const makeSelectedImageTextEditable = useCallback(async () => {
-    const toastId = "pigcasso:canvas:make-text-editable";
+    const toastId = "pigcasso:canvas:separate-layers";
     const targetShape = selectedImageShape;
     const targetAsset = selectedImageAsset;
     const imageSrc = selectedImageAiSrc;
 
     if (!editor || !targetShape || !targetAsset || !imageSrc) {
-      toast.error("Select an image to make its text editable.");
+      toast.error("Select an image to separate its layers.");
       return;
     }
 
-    await runAiAction(toastId, "Analyzing text…", async () => {
-      toast.loading("Analyzing text…", { id: toastId, duration: Infinity });
-      const extraction = await extractText.mutateAsync({ image: imageSrc });
-      const blocks = (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
-      if (!blocks.length) {
-        throw new Error("No text detected in the selected image.");
-      }
-
-      toast.loading("Removing baked-in text…", { id: toastId, duration: Infinity });
-      const apiProfile = toNanoBananaApiProfile(aiProfile);
-      const cleaned = await editImage.mutateAsync({
-        image: imageSrc,
-        instruction: "Remove all text and lettering from the image. Keep everything else as consistent as possible.",
-        profile: apiProfile,
-      });
-
-      const uploadedUrl = await uploadImageDataUrl(cleaned.data, `pigcasso_textless_${Date.now()}.png`);
-      const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-	      const bounds = (() => {
-	        try {
-	          return editor.getShapePageBounds?.(targetShape.id as any) as any;
-	        } catch {
-	          return null;
-	        }
-	      })();
+    await runAiAction(toastId, "Separating layers…", async () => {
+      const bounds = (() => {
+        try {
+          return editor.getShapePageBounds?.(targetShape.id as any) as any;
+        } catch {
+          return null;
+        }
+      })();
       if (!bounds || typeof bounds !== "object") {
         throw new Error("Could not read image bounds.");
       }
 
-	      const point = {
-	        x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-	        y: bounds.y + bounds.h * 0.5,
-	      };
+      const point = {
+        x: bounds.x + bounds.w + Math.max(96, bounds.w * 0.25),
+        y: bounds.y + bounds.h * 0.5,
+      };
 
-	      const created = await withAiCommit(() =>
-	        withHistorySquash(editor as any, "ai:editable-text", async () => {
-	          const inserted = await insertImageToCanvas(editor as any, {
-	            src: canvasUrl,
-	            point,
-	            name: `pigcasso_textless_${Date.now()}.png`,
-	            size: {
-	              w: Number(targetAsset?.props?.w) || 1024,
-	              h: Number(targetAsset?.props?.h) || 1024,
-	            },
-	          });
+      const apiProfile = toNanoBananaApiProfile(aiProfile);
 
-	          try {
-	            const createdAsset = editor.getAsset?.(inserted.assetId as any) as any;
-	            if (createdAsset) {
-	              editor.updateAssets?.([
-	                {
-	                  ...createdAsset,
-	                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-	                },
-	              ]);
-	            }
-	          } catch {
-	            // ignore
-	          }
+      toast.loading("Extracting text…", { id: toastId, duration: Infinity });
+      const blocks = await (async () => {
+        try {
+          const extraction = await extractText.mutateAsync({ image: imageSrc });
+          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
+        } catch {
+          const extraction = await extractText.mutateAsync({ image: imageSrc });
+          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
+        }
+      })();
 
-	          const insertedBounds = (() => {
-	            try {
-	              return editor.getShapePageBounds?.(inserted.shapeId as any) as any;
-	            } catch {
-	              return null;
-	            }
-	          })();
+      toast.loading("Cutting out subject…", { id: toastId, duration: Infinity });
+      const cutout = await removeBg.mutateAsync({ image: imageSrc });
+      const cutoutUploadedUrl = await uploadImageDataUrl(cutout.data, `pigcasso_subject_${Date.now()}.png`);
+      const cutoutCanvasUrl = toCanvasImageUrl(cutoutUploadedUrl);
 
-	          const textBounds =
-	            insertedBounds && typeof insertedBounds === "object"
-	              ? insertedBounds
-	              : { x: point.x - bounds.w / 2, y: point.y - bounds.h / 2, w: bounds.w, h: bounds.h };
+      toast.loading("Generating background…", { id: toastId, duration: Infinity });
+      const background = await editImage.mutateAsync({
+        image: imageSrc,
+        instruction:
+          "Remove the main foreground subject(s) and remove all text/lettering from the image. Reconstruct a clean background that matches the original style and lighting.",
+        profile: apiProfile,
+      });
+      const backgroundUploadedUrl = await uploadImageDataUrl(background.data, `pigcasso_background_${Date.now()}.png`);
+      const backgroundCanvasUrl = toCanvasImageUrl(backgroundUploadedUrl);
 
-	          const createdTextShapeIds: string[] = [];
+      const created = await withAiCommit(() =>
+        withHistorySquash(editor as any, "ai:separate-layers", async () => {
+          const backgroundInserted = await insertImageToCanvas(editor as any, {
+            src: backgroundCanvasUrl,
+            point,
+            name: `pigcasso_background_${Date.now()}.png`,
+            size: {
+              w: Number(targetAsset?.props?.w) || 1024,
+              h: Number(targetAsset?.props?.h) || 1024,
+            },
+          });
 
-	          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
-	            const box = block.box;
-	            if (!box) return;
+          const cutoutInserted = await insertImageToCanvas(editor as any, {
+            src: cutoutCanvasUrl,
+            point,
+            name: `pigcasso_subject_${Date.now()}.png`,
+            size: {
+              w: Number(targetAsset?.props?.w) || 1024,
+              h: Number(targetAsset?.props?.h) || 1024,
+            },
+          });
 
-	            const w = Math.max(40, Math.round(box.w * textBounds.w));
-	            const h = Math.max(12, Math.round(box.h * textBounds.h));
-	            const x = textBounds.x + box.x * textBounds.w;
-	            const y = textBounds.y + box.y * textBounds.h;
+          try {
+            const bgAsset = editor.getAsset?.(backgroundInserted.assetId as any) as any;
+            if (bgAsset) {
+              editor.updateAssets?.([
+                {
+                  ...bgAsset,
+                  meta: { ...(bgAsset.meta ?? {}), originalSrc: backgroundUploadedUrl },
+                },
+              ]);
+            }
+          } catch {
+            // ignore
+          }
 
-	            const id = createShapeId();
-	            createdTextShapeIds.push(id);
+          try {
+            const subjectAsset = editor.getAsset?.(cutoutInserted.assetId as any) as any;
+            if (subjectAsset) {
+              editor.updateAssets?.([
+                {
+                  ...subjectAsset,
+                  meta: { ...(subjectAsset.meta ?? {}), originalSrc: cutoutUploadedUrl },
+                },
+              ]);
+            }
+          } catch {
+            // ignore
+          }
 
-	            const size = block.size ?? pickTextSizeFromHeight(h);
-	            const font = block.font ?? "sans";
-	            const color = block.color ?? "black";
-	            const textAlign = block.align ?? "start";
+          const insertedBounds = (() => {
+            try {
+              return editor.getShapePageBounds?.(backgroundInserted.shapeId as any) as any;
+            } catch {
+              return null;
+            }
+          })();
 
-	            editor.createShape?.({
-	              id,
-	              type: "text",
-	              x,
-	              y,
-	              props: {
-	                color,
-	                size,
-	                font,
-	                textAlign,
-	                w,
-	                richText: toRichTextValue(block.text),
-	                scale: 1,
-	                autoSize: false,
-	              },
-	            } as any);
-	          });
+          const textBounds =
+            insertedBounds && typeof insertedBounds === "object"
+              ? insertedBounds
+              : { x: point.x - bounds.w / 2, y: point.y - bounds.h / 2, w: bounds.w, h: bounds.h };
 
-	          if (createdTextShapeIds.length) {
-	            try {
-	              editor.groupShapes?.([inserted.shapeId, ...createdTextShapeIds] as any);
-	            } catch {
-	              // ignore
-	            }
-	          }
+          const createdTextShapeIds: string[] = [];
 
-	          return { insertedShapeId: inserted.shapeId, url: canvasUrl };
-	        }),
-	      );
+          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
+            const box = block.box;
+            if (!box) return;
 
-	      const attachment: CanvasChatAttachment = {
-	        id: crypto.randomUUID(),
-	        type: "image",
-	        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-	        shapeId: created.insertedShapeId,
-	        url: created.url,
-	      };
-	      outputCounterRef.current += 1;
+            const w = Math.max(40, Math.round(box.w * textBounds.w));
+            const h = Math.max(12, Math.round(box.h * textBounds.h));
+            const x = textBounds.x + box.x * textBounds.w;
+            const y = textBounds.y + box.y * textBounds.h;
 
-	      setMessages((prev) => [
-	        ...prev,
-	        { id: crypto.randomUUID(), role: "user", content: "Make the selected image text editable." },
-	        {
-	          id: crypto.randomUUID(),
-	          role: "assistant",
-	          content: "Added a textless image and editable text layers next to the original.",
-	          attachments: [attachment],
-	        },
-	      ]);
-	    });
-		  }, [aiProfile, editImage, editor, extractText, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
+            const id = createShapeId();
+            createdTextShapeIds.push(id);
+
+            const { size, scale } = pickCanvasTextSizeAndScaleFromPx(h);
+            const font = block.font ?? "sans";
+            const color = block.color ?? "black";
+            const textAlign = block.align ?? "start";
+            const angleDegrees = typeof block.angle === "number" ? block.angle : 0;
+            const rotation = (angleDegrees * Math.PI) / 180;
+
+            editor.createShape?.({
+              id,
+              type: "text",
+              x,
+              y,
+              rotation,
+              props: {
+                color,
+                size,
+                font,
+                textAlign,
+                w,
+                richText: toRichTextValue(block.text),
+                scale,
+                autoSize: false,
+              },
+            } as any);
+          });
+
+          try {
+            const ids = [backgroundInserted.shapeId, cutoutInserted.shapeId, ...createdTextShapeIds].filter(Boolean);
+            if (ids.length > 1) {
+              editor.groupShapes?.(ids as any);
+            }
+          } catch {
+            // ignore
+          }
+
+          return { insertedShapeId: backgroundInserted.shapeId, url: backgroundCanvasUrl };
+        }),
+      );
+
+      const attachment: CanvasChatAttachment = {
+        id: crypto.randomUUID(),
+        type: "image",
+        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+        shapeId: created.insertedShapeId,
+        url: created.url,
+      };
+      outputCounterRef.current += 1;
+
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: blocks.length
+            ? "Added background, subject, and editable text layers next to the original."
+            : "Added background and subject layers next to the original.",
+          attachments: [attachment],
+        },
+      ]);
+    });
+  }, [aiProfile, editImage, editor, extractText, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const activeAtMention = useMemo(() => {
     const el = mentionFocusElRef.current;

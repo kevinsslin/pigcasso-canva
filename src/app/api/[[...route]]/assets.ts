@@ -5,13 +5,11 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { nftAssets, projectPages, projects } from "@/db/schema";
-import { getIpfsGatewayBase } from "@/lib/ipfs-gateway";
 import { MANTLE_CHAIN_ID } from "@/lib/web3-constants";
 import { requireAuth } from "@/server/hono-auth";
 import { HttpError } from "@/server/http-error";
 import { hasIpfsConfigured, pinFileFromUrlToIpfs, pinJsonToIpfs } from "@/server/ipfs";
-
-const cidToGatewayUrl = (cid: string) => `${getIpfsGatewayBase()}${cid}`;
+import { buildNftAssetMetadata } from "@/server/nft-metadata";
 
 const app = new Hono()
   .get(
@@ -206,24 +204,17 @@ const app = new Hono()
         name: `pigcasso-${asset.id}-source.json`,
       });
 
-      const metadata = {
+      const metadata = buildNftAssetMetadata({
         name: assetName,
         description: assetDescription,
-        image: cidToGatewayUrl(imagePinned.cid),
-        image_url: cidToGatewayUrl(imagePinned.cid),
-        attributes: [
-          { trait_type: "Project", value: project.name },
-          { trait_type: "Page", value: String(page.index + 1) },
-          { trait_type: "Chain", value: "Mantle" },
-        ],
-        properties: {
-          image_ipfs: `ipfs://${imagePinned.cid}`,
-          source: `ipfs://${sourcePinned.cid}`,
-          source_url: cidToGatewayUrl(sourcePinned.cid),
-          projectId,
-          projectPageId,
-        },
-      };
+        projectName: project.name,
+        pageIndex: page.index,
+        chainLabel: "Mantle",
+        imageCid: imagePinned.cid,
+        sourceCid: sourcePinned.cid,
+        projectId,
+        projectPageId,
+      });
 
       const metadataPinned = await pinJsonToIpfs({
         json: metadata,
