@@ -92,6 +92,7 @@ import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
 import { CanvasSelectionToolbar, type CanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/canvas-selection-toolbar";
+import { computeCanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -903,26 +904,13 @@ export default function CanvasScreen({ params }: PageProps) {
           const pageToScreen = (editor as any).pageToScreen as ((pt: { x: number; y: number }) => { x: number; y: number }) | undefined;
           if (typeof pageToScreen !== "function") return null;
 
-          const screenPoint = pageToScreen({ x: bounds.x + bounds.w / 2, y: bounds.y });
-          if (!screenPoint || typeof screenPoint.x !== "number" || typeof screenPoint.y !== "number") return null;
-
-          const toolbarWidth = kind === "text" ? 440 : kind === "html" ? 300 : 340;
-          const toolbarHeight = kind === "text" ? 68 : 52;
-          const padding = 12;
-          const offset = 10;
-
-          const rawX = screenPoint.x - toolbarWidth / 2;
-          // Place the actions directly on top of the selected shape (inside its top edge),
-          // so users can click without looking away from the canvas.
-          const rawY = screenPoint.y + offset;
-
-          const maxX = window.innerWidth - toolbarWidth - padding;
-          const maxY = window.innerHeight - toolbarHeight - padding;
-
-          const screenX = Math.max(padding, Math.min(rawX, maxX));
-          const screenY = Math.max(padding, Math.min(rawY, maxY));
-
-          return { kind, screenX, screenY, shapeId } satisfies CanvasSelectionToolbarAnchor;
+          return computeCanvasSelectionToolbarAnchor({
+            kind,
+            shapeId,
+            bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
+            pageToScreen,
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+          });
         })();
 
         const key = nextToolbarAnchor
@@ -948,21 +936,19 @@ export default function CanvasScreen({ params }: PageProps) {
     };
 
     sync();
-    try {
-      editor.on("change" as any, onChange as any);
-    } catch {
-      // ignore
-    }
+    const unsubscribe = (() => {
+      try {
+        return editor.store.listen(onChange);
+      } catch {
+        return null;
+      }
+    })();
 
     return () => {
       if (typeof window !== "undefined" && raf) {
         window.cancelAnimationFrame(raf);
       }
-      try {
-        editor.off("change" as any, onChange as any);
-      } catch {
-        // ignore
-      }
+      unsubscribe?.();
     };
   }, [editor]);
 

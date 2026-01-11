@@ -59,6 +59,8 @@ describe("CanvasSelectionToolbar", () => {
       "button[aria-label=\"Download selected image\"]",
     ) as HTMLButtonElement | null;
     expect(downloadButton).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Regenerate selected image\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Remove background\"]")).not.toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -95,6 +97,8 @@ describe("CanvasSelectionToolbar", () => {
 
     expect(container?.querySelector("button[aria-label=\"Download selected image\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Edit selected image\"]")).toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Regenerate selected image\"]")).toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Remove background\"]")).toBeNull();
 
     await act(async () => {
       root.unmount();

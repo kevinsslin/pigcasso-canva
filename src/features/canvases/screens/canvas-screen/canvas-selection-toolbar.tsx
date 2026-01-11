@@ -107,6 +107,32 @@ export const CanvasSelectionToolbar = ({
 
             <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onRegenerate}
+              aria-label="Regenerate selected image"
+            >
+              <RefreshCcw className="mr-2 size-4" />
+              Regenerate
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onRemoveBackground}
+              aria-label="Remove background"
+            >
+              <Wand2 className="mr-2 size-4" />
+              Remove BG
+            </Button>
+
+            <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full"
@@ -132,15 +158,6 @@ export const CanvasSelectionToolbar = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-56">
                 <DropdownMenuLabel>Image</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onRegenerate}>
-                  <RefreshCcw className="mr-2 size-4 text-muted-foreground" />
-                  Regenerate variation
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onRemoveBackground}>
-                  <Wand2 className="mr-2 size-4 text-muted-foreground" />
-                  Remove background
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={onMakeTextEditable}>
                   <Edit3 className="mr-2 size-4 text-muted-foreground" />
