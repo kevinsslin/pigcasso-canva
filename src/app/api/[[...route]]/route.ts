@@ -9,6 +9,7 @@ import assets from "./assets";
 import canvases from "./canvases";
 import collections from "./collections";
 import github from "./github";
+import gallery from "./gallery";
 import images from "./images";
 import leaderboards from "./leaderboards";
 import me from "./me";
@@ -38,6 +39,7 @@ const routes = app
   .route("/assistant", assistant)
   .route("/assets", assets)
   .route("/canvases", canvases)
+  .route("/gallery", gallery)
   .route("/collections", collections)
   .route("/github", github)
   .route("/images", images)

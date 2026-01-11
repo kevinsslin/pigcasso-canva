@@ -11,6 +11,11 @@ export type CanvasDocument = {
   snapshot: string | null;
   chatJson: string | null;
   coverImageUrl: string | null;
+  publishedSnapshot?: string | null;
+  publishedChatJson?: string | null;
+  publishedCoverImageUrl?: string | null;
+  isPublished: boolean;
+  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

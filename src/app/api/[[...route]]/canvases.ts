@@ -7,6 +7,8 @@ import {
   getCanvasDocumentForUserId,
   getOrCreateCanvasDocumentForUserId,
   listCanvasDocumentsForUserId,
+  publishCanvasDocumentForUserId,
+  unpublishCanvasDocumentForUserId,
   updateCanvasDocumentForUserId,
 } from "@/server/canvas-documents";
 
@@ -30,6 +32,10 @@ const updateSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: "No changes provided",
   });
+
+const publishSchema = z.object({
+  isPublished: z.boolean(),
+});
 
 const app = new Hono()
   .get("/", requireAuth, zValidator("query", listSchema), async (c) => {
@@ -87,6 +93,27 @@ const app = new Hono()
         id,
         values,
       });
+
+      if (!updated) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      return c.json({ data: updated });
+    },
+  )
+  .patch(
+    "/:id/publish",
+    requireAuth,
+    zValidator("param", z.object({ id: z.string().min(1) })),
+    zValidator("json", publishSchema),
+    async (c) => {
+      const auth = c.get("authUser");
+      const { id } = c.req.valid("param");
+      const { isPublished } = c.req.valid("json");
+
+      const updated = isPublished
+        ? await publishCanvasDocumentForUserId({ userId: auth.id, id })
+        : await unpublishCanvasDocumentForUserId({ userId: auth.id, id });
 
       if (!updated) {
         return c.json({ error: "Not found" }, 404);

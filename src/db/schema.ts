@@ -70,11 +70,57 @@ export const canvasDocuments = pgTable(
     snapshot: text("snapshot"),
     chatJson: text("chatJson"),
     coverImageUrl: text("coverImageUrl"),
+    publishedSnapshot: text("publishedSnapshot"),
+    publishedChatJson: text("publishedChatJson"),
+    publishedCoverImageUrl: text("publishedCoverImageUrl"),
+    isPublished: boolean("isPublished").notNull().default(false),
+    publishedAt: timestamp("publishedAt", { mode: "date" }),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => ({
     userUpdatedIdx: index("canvas_document_user_updated_idx").on(table.userId, table.updatedAt),
+    publishedIdx: index("canvas_document_published_idx").on(table.isPublished, table.publishedAt),
+  }),
+);
+
+export const canvasLikes = pgTable(
+  "canvas_like",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    canvasId: text("canvasId")
+      .notNull()
+      .references(() => canvasDocuments.id, { onDelete: "cascade" }),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    canvasUserUnique: uniqueIndex("canvas_like_canvas_user_unique").on(table.canvasId, table.userId),
+    canvasIdx: index("canvas_like_canvas_idx").on(table.canvasId),
+  }),
+);
+
+export const canvasBookmarks = pgTable(
+  "canvas_bookmark",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    canvasId: text("canvasId")
+      .notNull()
+      .references(() => canvasDocuments.id, { onDelete: "cascade" }),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    canvasUserUnique: uniqueIndex("canvas_bookmark_canvas_user_unique").on(table.canvasId, table.userId),
+    canvasIdx: index("canvas_bookmark_canvas_idx").on(table.canvasId),
   }),
 );
 
@@ -113,6 +159,8 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     references: [spaceDocuments.userId],
   }),
   canvasDocuments: many(canvasDocuments),
+  canvasLikes: many(canvasLikes),
+  canvasBookmarks: many(canvasBookmarks),
   githubConnections: many(githubConnections),
   projects: many(projects),
   projectHubs: many(projectHubs),
@@ -131,6 +179,28 @@ export const canvasDocumentsRelations = relations(canvasDocuments, ({ one }) => 
   user: one(users, {
     fields: [canvasDocuments.userId],
     references: [users.id],
+  }),
+}));
+
+export const canvasLikesRelations = relations(canvasLikes, ({ one }) => ({
+  user: one(users, {
+    fields: [canvasLikes.userId],
+    references: [users.id],
+  }),
+  canvas: one(canvasDocuments, {
+    fields: [canvasLikes.canvasId],
+    references: [canvasDocuments.id],
+  }),
+}));
+
+export const canvasBookmarksRelations = relations(canvasBookmarks, ({ one }) => ({
+  user: one(users, {
+    fields: [canvasBookmarks.userId],
+    references: [users.id],
+  }),
+  canvas: one(canvasDocuments, {
+    fields: [canvasBookmarks.canvasId],
+    references: [canvasDocuments.id],
   }),
 }));
 

@@ -92,6 +92,13 @@
       "when": 1768122220528,
       "tag": "0012_canvas_chat_history",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1768135582792,
+      "tag": "0013_canvas_publish_gallery",
+      "breakpoints": true
     }
   ]
 }

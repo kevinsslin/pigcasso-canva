@@ -59,6 +59,12 @@ export default function LandingPage() {
             >
               Features
             </a>
+            <Link
+              className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
+              href="/gallery"
+            >
+              Gallery
+            </Link>
             <a
               className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
               href="#how"

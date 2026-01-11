@@ -83,6 +83,11 @@ export const getOrCreateCanvasDocumentForUserId = async (params: {
         snapshot: null,
         chatJson: null,
         coverImageUrl: null,
+        publishedSnapshot: null,
+        publishedChatJson: null,
+        publishedCoverImageUrl: null,
+        isPublished: false,
+        publishedAt: null,
         createdAt: now,
         updatedAt: now,
       })
@@ -127,5 +132,47 @@ export const updateCanvasDocumentForUserId = async (params: {
     return row ?? null;
   } catch (error) {
     throw normalizeDbError(error, { fallbackMessage: "Failed to update canvas." });
+  }
+};
+
+export const publishCanvasDocumentForUserId = async (params: { userId: string; id: string }) => {
+  try {
+    const doc = await getCanvasDocumentForUserId({ userId: params.userId, id: params.id });
+    if (!doc) return null;
+
+    const [row] = await db
+      .update(canvasDocuments)
+      .set({
+        publishedSnapshot: doc.snapshot ?? null,
+        publishedChatJson: doc.chatJson ?? null,
+        publishedCoverImageUrl: doc.coverImageUrl ?? null,
+        isPublished: true,
+        publishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(canvasDocuments.id, params.id), eq(canvasDocuments.userId, params.userId)))
+      .returning();
+
+    return row ?? null;
+  } catch (error) {
+    throw normalizeDbError(error, { fallbackMessage: "Failed to publish canvas." });
+  }
+};
+
+export const unpublishCanvasDocumentForUserId = async (params: { userId: string; id: string }) => {
+  try {
+    const [row] = await db
+      .update(canvasDocuments)
+      .set({
+        isPublished: false,
+        publishedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(canvasDocuments.id, params.id), eq(canvasDocuments.userId, params.userId)))
+      .returning();
+
+    return row ?? null;
+  } catch (error) {
+    throw normalizeDbError(error, { fallbackMessage: "Failed to unpublish canvas." });
   }
 };

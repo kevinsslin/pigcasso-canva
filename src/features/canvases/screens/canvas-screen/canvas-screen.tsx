@@ -87,6 +87,7 @@ import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/ca
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
 import { generateHtmlPreviewDataUrl, PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
+import { CanvasPublishButton } from "@/features/canvases/components/canvas-publish-button";
 import { CanvasChatPanel } from "@/features/canvases/screens/canvas-screen/canvas-chat-panel";
 import { CanvasDebugPanel } from "@/features/canvases/screens/canvas-screen/canvas-debug-panel";
 import { CanvasDownloadsDialog } from "@/features/canvases/screens/canvas-screen/canvas-downloads-dialog";
@@ -2832,6 +2833,13 @@ export default function CanvasScreen({ params }: PageProps) {
                 </Button>
 
                 <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" compact />
+
+                <CanvasPublishButton
+                  canvasId={params.canvasId}
+                  isPublished={Boolean(canvasQuery.data?.isPublished)}
+                  disabled={!canvasQuery.data || !boardHydrated || Boolean(boardCrashMessage)}
+                  className="hidden md:inline-flex rounded-full"
+                />
 
                 <Button
                   type="button"
