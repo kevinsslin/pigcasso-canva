@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { computeCanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
+import {
+  computeCanvasSelectionToolbarAnchor,
+  computeCanvasSelectionToolbarAnchorFromScreenRect,
+} from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
 
 describe("computeCanvasSelectionToolbarAnchor", () => {
   test("places the toolbar above the selected object", () => {
@@ -49,3 +52,18 @@ describe("computeCanvasSelectionToolbarAnchor", () => {
   });
 });
 
+describe("computeCanvasSelectionToolbarAnchorFromScreenRect", () => {
+  test("places the toolbar above the selected object", () => {
+    const anchor = computeCanvasSelectionToolbarAnchorFromScreenRect({
+      kind: "image",
+      shapeId: "shape:image",
+      rect: { left: 400, top: 200, width: 200, height: 200 },
+      viewport: { width: 1200, height: 900 },
+      offset: 10,
+      padding: 12,
+    });
+
+    expect(anchor.screenX).toBe(290);
+    expect(anchor.screenY).toBe(138);
+  });
+});

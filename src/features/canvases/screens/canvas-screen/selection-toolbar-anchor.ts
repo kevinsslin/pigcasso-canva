@@ -44,3 +44,30 @@ export const computeCanvasSelectionToolbarAnchor = (params: {
   return { kind, shapeId, screenX, screenY };
 };
 
+export const computeCanvasSelectionToolbarAnchorFromScreenRect = (params: {
+  kind: CanvasSelectionToolbarAnchor["kind"];
+  shapeId: string;
+  rect: { left: number; top: number; width: number; height: number };
+  viewport: { width: number; height: number };
+  padding?: number;
+  offset?: number;
+}): CanvasSelectionToolbarAnchor => {
+  const { kind, shapeId, rect, viewport } = params;
+  const { width: toolbarWidth, height: toolbarHeight } = getToolbarSize(kind);
+  const padding = Math.max(0, Math.floor(params.padding ?? 12));
+  const offset = Math.max(0, Math.floor(params.offset ?? 10));
+
+  const centerX = rect.left + rect.width / 2;
+  const topY = rect.top;
+
+  const rawX = centerX - toolbarWidth / 2;
+  const rawY = topY - toolbarHeight - offset;
+
+  const maxX = viewport.width - toolbarWidth - padding;
+  const maxY = viewport.height - toolbarHeight - padding;
+
+  const screenX = Math.max(padding, Math.min(rawX, maxX));
+  const screenY = Math.max(padding, Math.min(rawY, maxY));
+
+  return { kind, shapeId, screenX, screenY };
+};

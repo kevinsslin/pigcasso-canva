@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   ArrowUp,
   Bot,
@@ -92,7 +93,10 @@ import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
 import { CanvasSelectionToolbar, type CanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/canvas-selection-toolbar";
-import { computeCanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
+import {
+  computeCanvasSelectionToolbarAnchor,
+  computeCanvasSelectionToolbarAnchorFromScreenRect,
+} from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -898,18 +902,40 @@ export default function CanvasScreen({ params }: PageProps) {
                   : null;
           if (!kind) return null;
 
+          const viewport = { width: window.innerWidth, height: window.innerHeight };
+
+          const domEl = document.querySelector(`[data-shape-id=\"${shapeId}\"]`) as HTMLElement | null;
+          if (domEl) {
+            const rect = domEl.getBoundingClientRect();
+            if (rect && rect.width > 0 && rect.height > 0) {
+              return computeCanvasSelectionToolbarAnchorFromScreenRect({
+                kind,
+                shapeId,
+                rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+                viewport,
+              });
+            }
+          }
+
           const bounds = editor.getShapePageBounds?.(shapeId as any) as any;
-          if (!bounds || typeof bounds !== "object") return null;
+          const pageToScreen = (editor as any).pageToScreen as
+            | ((pt: { x: number; y: number }) => { x: number; y: number })
+            | undefined;
+          if (bounds && typeof bounds === "object" && typeof pageToScreen === "function") {
+            return computeCanvasSelectionToolbarAnchor({
+              kind,
+              shapeId,
+              bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
+              pageToScreen,
+              viewport,
+            });
+          }
 
-          const pageToScreen = (editor as any).pageToScreen as ((pt: { x: number; y: number }) => { x: number; y: number }) | undefined;
-          if (typeof pageToScreen !== "function") return null;
-
-          return computeCanvasSelectionToolbarAnchor({
+          return computeCanvasSelectionToolbarAnchorFromScreenRect({
             kind,
             shapeId,
-            bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
-            pageToScreen,
-            viewport: { width: window.innerWidth, height: window.innerHeight },
+            rect: { left: viewport.width / 2, top: 96, width: 0, height: 0 },
+            viewport,
           });
         })();
 
@@ -2639,20 +2665,25 @@ export default function CanvasScreen({ params }: PageProps) {
                 </span>
               </div>
 
-              <CanvasSelectionToolbar
-                anchor={resolvedSelectionToolbarAnchor}
-                disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-                onAddToChat={() => addSelectionToChat()}
-                onEditWithAi={() => addSelectionToChat({ prefill: "Edit this: " })}
-                onDownloadSelected={() => void downloadSelectedImage()}
-                onDownloadSelectedHtml={() => downloadSelectedHtml()}
-                onRegenerate={() => void regenerateSelectedImage()}
-                onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
-                onMakeTextEditable={() => void makeSelectedImageTextEditable()}
-                onViewHtmlCode={() => viewSelectedHtmlCode()}
-                textStyle={selectedTextShape ? selectedTextStyle : null}
-                onUpdateTextStyle={updateSelectedTextStyle}
-              />
+              {typeof document === "undefined"
+                ? null
+                : createPortal(
+                    <CanvasSelectionToolbar
+                      anchor={resolvedSelectionToolbarAnchor}
+                      disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                      onAddToChat={() => addSelectionToChat()}
+                      onEditWithAi={() => addSelectionToChat({ prefill: "Edit this: " })}
+                      onDownloadSelected={() => void downloadSelectedImage()}
+                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
+                      onRegenerate={() => void regenerateSelectedImage()}
+                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
+                      onMakeTextEditable={() => void makeSelectedImageTextEditable()}
+                      onViewHtmlCode={() => viewSelectedHtmlCode()}
+                      textStyle={selectedTextShape ? selectedTextStyle : null}
+                      onUpdateTextStyle={updateSelectedTextStyle}
+                    />,
+                    document.body,
+                  )}
 
               <div className="absolute right-4 top-4 z-40 flex items-center gap-1">
                 <Button

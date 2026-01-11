@@ -74,7 +74,7 @@ export const CanvasSelectionToolbar = ({
 
   return (
     <div
-      className="fixed z-[55] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft px-2 py-2"
+      className="fixed z-[12000] max-w-[calc(100vw-24px)] rounded-2xl border bg-card/90 backdrop-blur shadow-soft px-2 py-2"
       style={{ left: anchor.screenX, top: anchor.screenY }}
     >
       <div className="flex flex-wrap items-center gap-1">
