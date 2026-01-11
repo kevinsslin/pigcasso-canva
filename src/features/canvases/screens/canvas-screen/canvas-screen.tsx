@@ -1606,24 +1606,23 @@ export default function CanvasScreen({ params }: PageProps) {
                 profile: apiProfile,
               });
 
-              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
-              const canvasUrl = toCanvasImageUrl(uploadedUrl);
+	              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
+	              const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-              const point = (() => {
-                if (options?.point) return options.point;
-                try {
-                  const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-                  if (bounds && typeof bounds === "object") {
-                    return {
-                      x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-                      y: bounds.y + bounds.h * 0.5,
-                    };
-                  }
-                } catch {
-                  // ignore
-                }
-                return getAiInsertPoint(editor as any);
-              })();
+	              const point = (() => {
+	                try {
+	                  const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
+	                  if (bounds && typeof bounds === "object") {
+	                    return {
+	                      x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
+	                      y: bounds.y + bounds.h * 0.5,
+	                    };
+	                  }
+	                } catch {
+	                  // ignore
+	                }
+	                return options?.point ?? getAiInsertPoint(editor as any);
+	              })();
 
               const inserted = await withAiCommit(() =>
                 withHistorySquash(editor as any, "ai:variation", async () => {
@@ -1682,60 +1681,74 @@ export default function CanvasScreen({ params }: PageProps) {
               profile: apiProfile,
             });
 
-            const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
-            const canvasUrl = toCanvasImageUrl(uploadedUrl);
+	            const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+	            const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-            try {
-              await withAiCommit(() =>
-                withHistorySquash(editor as any, "ai:edit-image", async () => {
-                  editor.updateAssets?.([
-                    {
-                      ...asset,
-                      props: {
-                        ...asset.props,
-                        src: canvasUrl,
-                        fileSize: Math.max(1, Math.floor(Number(asset?.props?.fileSize ?? 1) || 1)),
-                      },
-                      meta: { ...(asset.meta ?? {}), originalSrc: uploadedUrl },
-                    },
-                  ]);
-                  if (selectedShapeId) {
-                    editor.updateShape?.({
-                      id: selectedShapeId as any,
-                      type: "image",
-                      props: { url: canvasUrl },
-                    });
-                  }
-                }),
-              );
-            } catch {
-              // ignore
-            }
+	            const point = (() => {
+	              try {
+	                const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
+	                if (bounds && typeof bounds === "object") {
+	                  return {
+	                    x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
+	                    y: bounds.y + bounds.h * 0.5,
+	                  };
+	                }
+	              } catch {
+	                // ignore
+	              }
+	              return options?.point ?? getAiInsertPoint(editor as any);
+	            })();
 
-            const editAttachment: CanvasChatAttachment | null = selectedShapeId
-              ? {
-                  id: crypto.randomUUID(),
-                  type: "image",
-                  label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-                  shapeId: selectedShapeId,
-                  url: canvasUrl,
-                }
-              : null;
-            if (editAttachment) {
-              outputCounterRef.current += 1;
-            }
+	            const inserted = await withAiCommit(() =>
+	              withHistorySquash(editor as any, "ai:edit-image", async () => {
+	                const created = await insertImageToCanvas(editor as any, {
+	                  src: canvasUrl,
+	                  point,
+	                  name: `pigcasso_edit_${Date.now()}.png`,
+	                  size: {
+	                    w: Number(asset?.props?.w) || 1024,
+	                    h: Number(asset?.props?.h) || 1024,
+	                  },
+	                });
 
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: "Updated the selected image.",
-                attachments: editAttachment ? [editAttachment] : undefined,
-              },
-            ]);
-            return;
-          }
+	                try {
+	                  const createdAsset = editor.getAsset?.(created.assetId as any) as any;
+	                  if (createdAsset) {
+	                    editor.updateAssets?.([
+	                      {
+	                        ...createdAsset,
+	                        meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
+	                      },
+	                    ]);
+	                  }
+	                } catch {
+	                  // ignore
+	                }
+
+	                return created;
+	              }),
+	            );
+
+	            const editAttachment: CanvasChatAttachment = {
+	              id: crypto.randomUUID(),
+	              type: "image",
+	              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+	              shapeId: inserted.shapeId,
+	              url: canvasUrl,
+	            };
+	            outputCounterRef.current += 1;
+
+	            setMessages((prev) => [
+	              ...prev,
+	              {
+	                id: crypto.randomUUID(),
+	                role: "assistant",
+	                content: "Added an edited version next to the original.",
+	                attachments: [editAttachment],
+	              },
+	            ]);
+	            return;
+	          }
 
           const generated = await generateImage.mutateAsync({
             prompt: promptWithContext,
@@ -2611,88 +2624,130 @@ export default function CanvasScreen({ params }: PageProps) {
       const uploadedUrl = await uploadImageDataUrl(cleaned.data, `pigcasso_textless_${Date.now()}.png`);
       const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-      const bounds = (() => {
-        try {
-          return editor.getShapePageBounds?.(targetShape.id as any) as any;
-        } catch {
-          return null;
-        }
-      })();
+	      const bounds = (() => {
+	        try {
+	          return editor.getShapePageBounds?.(targetShape.id as any) as any;
+	        } catch {
+	          return null;
+	        }
+	      })();
       if (!bounds || typeof bounds !== "object") {
         throw new Error("Could not read image bounds.");
       }
 
-      const createdTextShapeIds: string[] = [];
+	      const point = {
+	        x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
+	        y: bounds.y + bounds.h * 0.5,
+	      };
 
-      await withAiCommit(() =>
-        withHistorySquash(editor as any, "ai:editable-text", async () => {
-          editor.updateAssets?.([
-            {
-              ...targetAsset,
-              props: {
-                ...(targetAsset.props ?? {}),
-                src: canvasUrl,
-                fileSize: Math.max(1, Math.floor(Number((targetAsset as any)?.props?.fileSize ?? 1) || 1)),
-              },
-              meta: { ...(targetAsset.meta ?? {}), originalSrc: uploadedUrl },
-            },
-          ]);
+	      const created = await withAiCommit(() =>
+	        withHistorySquash(editor as any, "ai:editable-text", async () => {
+	          const inserted = await insertImageToCanvas(editor as any, {
+	            src: canvasUrl,
+	            point,
+	            name: `pigcasso_textless_${Date.now()}.png`,
+	            size: {
+	              w: Number(targetAsset?.props?.w) || 1024,
+	              h: Number(targetAsset?.props?.h) || 1024,
+	            },
+	          });
 
-          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
-            const box = block.box;
-            if (!box) return;
+	          try {
+	            const createdAsset = editor.getAsset?.(inserted.assetId as any) as any;
+	            if (createdAsset) {
+	              editor.updateAssets?.([
+	                {
+	                  ...createdAsset,
+	                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
+	                },
+	              ]);
+	            }
+	          } catch {
+	            // ignore
+	          }
 
-            const w = Math.max(40, Math.round(box.w * bounds.w));
-            const h = Math.max(12, Math.round(box.h * bounds.h));
-            const x = bounds.x + box.x * bounds.w;
-            const y = bounds.y + box.y * bounds.h;
+	          const insertedBounds = (() => {
+	            try {
+	              return editor.getShapePageBounds?.(inserted.shapeId as any) as any;
+	            } catch {
+	              return null;
+	            }
+	          })();
 
-            const id = createShapeId();
-            createdTextShapeIds.push(id);
+	          const textBounds =
+	            insertedBounds && typeof insertedBounds === "object"
+	              ? insertedBounds
+	              : { x: point.x - bounds.w / 2, y: point.y - bounds.h / 2, w: bounds.w, h: bounds.h };
 
-            const size = block.size ?? pickTextSizeFromHeight(h);
-            const font = block.font ?? "sans";
-            const color = block.color ?? "black";
-            const textAlign = block.align ?? "start";
+	          const createdTextShapeIds: string[] = [];
 
-            editor.createShape?.({
-              id,
-              type: "text",
-              x,
-              y,
-              props: {
-                color,
-                size,
-                font,
-                textAlign,
-                w,
-                richText: toRichTextValue(block.text),
-                scale: 1,
-                autoSize: false,
-              },
-            } as any);
-          });
+	          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
+	            const box = block.box;
+	            if (!box) return;
 
-          if (createdTextShapeIds.length) {
-            try {
-              editor.groupShapes?.([targetShape.id, ...createdTextShapeIds] as any);
-            } catch {
-              // ignore
-            }
-          }
-        }),
-      );
+	            const w = Math.max(40, Math.round(box.w * textBounds.w));
+	            const h = Math.max(12, Math.round(box.h * textBounds.h));
+	            const x = textBounds.x + box.x * textBounds.w;
+	            const y = textBounds.y + box.y * textBounds.h;
+
+	            const id = createShapeId();
+	            createdTextShapeIds.push(id);
+
+	            const size = block.size ?? pickTextSizeFromHeight(h);
+	            const font = block.font ?? "sans";
+	            const color = block.color ?? "black";
+	            const textAlign = block.align ?? "start";
+
+	            editor.createShape?.({
+	              id,
+	              type: "text",
+	              x,
+	              y,
+	              props: {
+	                color,
+	                size,
+	                font,
+	                textAlign,
+	                w,
+	                richText: toRichTextValue(block.text),
+	                scale: 1,
+	                autoSize: false,
+	              },
+	            } as any);
+	          });
+
+	          if (createdTextShapeIds.length) {
+	            try {
+	              editor.groupShapes?.([inserted.shapeId, ...createdTextShapeIds] as any);
+	            } catch {
+	              // ignore
+	            }
+	          }
+
+	          return { insertedShapeId: inserted.shapeId, url: canvasUrl };
+	        }),
+	      );
+
+	      const attachment: CanvasChatAttachment = {
+	        id: crypto.randomUUID(),
+	        type: "image",
+	        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+	        shapeId: created.insertedShapeId,
+	        url: created.url,
+	      };
+	      outputCounterRef.current += 1;
 
 	      setMessages((prev) => [
 	        ...prev,
 	        { id: crypto.randomUUID(), role: "user", content: "Make the selected image text editable." },
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Removed baked-in text and added editable text layers.",
-        },
-      ]);
-    });
+	        {
+	          id: crypto.randomUUID(),
+	          role: "assistant",
+	          content: "Added a textless image and editable text layers next to the original.",
+	          attachments: [attachment],
+	        },
+	      ]);
+	    });
 		  }, [aiProfile, editImage, editor, extractText, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
 
   const activeAtMention = useMemo(() => {

@@ -31,6 +31,8 @@ describe("isImageVariationPrompt", () => {
     expect(isImageVariationPrompt("regenerate")).toBe(true);
     expect(isImageVariationPrompt("/regen")).toBe(true);
     expect(isImageVariationPrompt("make a variation")).toBe(true);
+    expect(isImageVariationPrompt("variant")).toBe(true);
+    expect(isImageVariationPrompt("create a variant of this")).toBe(true);
     expect(isImageVariationPrompt("new version please")).toBe(true);
   });
 
@@ -50,6 +52,7 @@ describe("stripImageVariationPrompt", () => {
   test("removes leading variation commands", () => {
     expect(stripImageVariationPrompt("/regen make the background blue")).toBe("make the background blue");
     expect(stripImageVariationPrompt("regenerate: add a border")).toBe("add a border");
+    expect(stripImageVariationPrompt("variant: add a border")).toBe("add a border");
     expect(stripImageVariationPrompt("重新生成：背景換成藍色")).toBe("背景換成藍色");
   });
 });
