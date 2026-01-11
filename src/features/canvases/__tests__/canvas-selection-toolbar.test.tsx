@@ -42,7 +42,6 @@ describe("CanvasSelectionToolbar", () => {
           anchor={{ kind: "image", screenX: 20, screenY: 20, shapeId: "shape:image" }}
           disabled={false}
           onAddToChat={() => {}}
-          onEditWithAi={() => {}}
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
@@ -85,7 +84,6 @@ describe("CanvasSelectionToolbar", () => {
           anchor={{ kind: "text", screenX: 20, screenY: 20, shapeId: "shape:text" }}
           disabled={false}
           onAddToChat={() => {}}
-          onEditWithAi={() => {}}
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
@@ -126,7 +124,6 @@ describe("CanvasSelectionToolbar", () => {
           anchor={{ kind: "html", screenX: 20, screenY: 20, shapeId: "shape:html" }}
           disabled={false}
           onAddToChat={() => {}}
-          onEditWithAi={() => {}}
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}

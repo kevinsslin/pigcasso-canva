@@ -959,19 +959,6 @@ export default function CanvasScreen({ params }: PageProps) {
 
           const viewport = { width: window.innerWidth, height: window.innerHeight };
 
-          const domEl = document.querySelector(`[data-shape-id=\"${shapeId}\"]`) as HTMLElement | null;
-          if (domEl) {
-            const rect = domEl.getBoundingClientRect();
-            if (rect && rect.width > 0 && rect.height > 0) {
-              return computeCanvasSelectionToolbarAnchorFromScreenRect({
-                kind,
-                shapeId,
-                rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-                viewport,
-              });
-            }
-          }
-
           const bounds = editor.getShapePageBounds?.(shapeId as any) as any;
           const pageToScreen = (editor as any).pageToScreen as
             | ((pt: { x: number; y: number }) => { x: number; y: number })
@@ -1007,6 +994,19 @@ export default function CanvasScreen({ params }: PageProps) {
               pageToScreen: pageToScreenWithOffset,
               viewport,
             });
+          }
+
+          const domEl = document.querySelector(`[data-shape-id=\"${shapeId}\"]`) as HTMLElement | null;
+          if (domEl) {
+            const rect = domEl.getBoundingClientRect();
+            if (rect && rect.width > 0 && rect.height > 0) {
+              return computeCanvasSelectionToolbarAnchorFromScreenRect({
+                kind,
+                shapeId,
+                rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+                viewport,
+              });
+            }
           }
 
           return computeCanvasSelectionToolbarAnchorFromScreenRect({
@@ -2087,57 +2087,6 @@ export default function CanvasScreen({ params }: PageProps) {
     [focusChatInput, selectionContext],
   );
 
-  const openPinnedEditForSelection = useCallback(() => {
-    if (activeTool !== "select") {
-      setActiveTool("select");
-      try {
-        editor?.setCurrentTool(toTldrawToolId("select") as any);
-      } catch {
-        // ignore
-      }
-    }
-
-    if (!editor || !boardHydrated || boardCrashMessage) {
-      toast.message("Canvas is still loading. Try again in a moment.", { duration: 2200 });
-      return;
-    }
-
-    const selectedId = selectionContext?.shapeId ?? null;
-    if (selectedId) {
-      setPinnedShapeIds((current) => (current.includes(selectedId) ? current : [...current, selectedId]));
-      try {
-        const bounds = editor.getShapePageBounds?.(selectedId as any) as any;
-        const pageToScreen = (editor as any).pageToScreen as
-          | ((pt: { x: number; y: number }) => { x: number; y: number })
-          | undefined;
-        if (bounds && typeof pageToScreen === "function") {
-          const pagePoint = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
-          const screenPoint = pageToScreen(pagePoint);
-          openPinnedEditPopover({ screenPoint, pagePoint, shapeId: selectedId });
-          setClickEditArmed(false);
-          return;
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    try {
-      const pagePoint = getAiInsertPoint(editor as any);
-      const pageToScreen = (editor as any).pageToScreen as
-        | ((pt: { x: number; y: number }) => { x: number; y: number })
-        | undefined;
-      const screenPoint =
-        typeof pageToScreen === "function"
-          ? pageToScreen(pagePoint)
-          : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      openPinnedEditPopover({ screenPoint, pagePoint, shapeId: null });
-      setClickEditArmed(false);
-    } catch {
-      // ignore
-    }
-  }, [activeTool, boardCrashMessage, boardHydrated, editor, openPinnedEditPopover, selectionContext]);
-
   const ensureCanvasReadyForAiAction = useCallback(() => {
     if (!editor || !boardHydrated || boardCrashMessage) {
       if (boardCrashMessage) {
@@ -2825,6 +2774,63 @@ export default function CanvasScreen({ params }: PageProps) {
 
           const createdTextShapeIds: string[] = [];
 
+          const fitShapeBoundsToTarget = (shapeId: string, target: { x: number; y: number; w: number; h: number }) => {
+            const getShape = () => {
+              try {
+                return editor.getShape?.(shapeId as any) as any;
+              } catch {
+                return null;
+              }
+            };
+
+            const getBounds = () => {
+              try {
+                return editor.getShapePageBounds?.(shapeId as any) as any;
+              } catch {
+                return null;
+              }
+            };
+
+            const firstBounds = getBounds();
+            if (!firstBounds || typeof firstBounds !== "object" || !firstBounds.w || !firstBounds.h) return;
+
+            const currentShape = getShape();
+            const currentScaleRaw = currentShape?.props?.scale;
+            const currentScale =
+              typeof currentScaleRaw === "number" && Number.isFinite(currentScaleRaw) && currentScaleRaw > 0
+                ? currentScaleRaw
+                : 1;
+
+            const scaleX = target.w / firstBounds.w;
+            const scaleY = target.h / firstBounds.h;
+            const scaleFactor = Math.min(scaleX, scaleY);
+
+            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+              const nextScale = clampCanvasTextScale(currentScale * scaleFactor);
+              editor.updateShape?.({
+                id: shapeId as any,
+                type: "text",
+                props: { scale: nextScale },
+              } as any);
+            }
+
+            const nextBounds = getBounds();
+            if (!nextBounds || typeof nextBounds !== "object") return;
+            const nextShape = getShape();
+            if (!nextShape || typeof nextShape !== "object") return;
+
+            const dx = target.x - nextBounds.x;
+            const dy = target.y - nextBounds.y;
+            if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+
+            editor.updateShape?.({
+              id: shapeId as any,
+              type: "text",
+              x: Number(nextShape.x ?? 0) + dx,
+              y: Number(nextShape.y ?? 0) + dy,
+            } as any);
+          };
+
           blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
             const box = block.box;
             if (!box) return;
@@ -2861,6 +2867,8 @@ export default function CanvasScreen({ params }: PageProps) {
                 autoSize: false,
               },
             } as any);
+
+            fitShapeBoundsToTarget(id, { x, y, w, h });
           });
 
           try {
@@ -3077,7 +3085,6 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      anchor={resolvedSelectionToolbarAnchor}
 	                      disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
 	                      onAddToChat={() => addSelectionToChat()}
-	                      onEditWithAi={openPinnedEditForSelection}
 	                      onDownloadSelected={() => void downloadSelectedImage()}
 	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
                         onMintNft={() => openExportNftForSelection()}

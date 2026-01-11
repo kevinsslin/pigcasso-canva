@@ -1,8 +1,10 @@
 "use client";
 
-import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Sparkles, Wand2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +49,6 @@ export const CanvasSelectionToolbar = ({
   anchor,
   disabled,
   onAddToChat,
-  onEditWithAi,
   onDownloadSelected,
   onDownloadSelectedHtml,
   onMintNft,
@@ -62,7 +63,6 @@ export const CanvasSelectionToolbar = ({
   anchor: CanvasSelectionToolbarAnchor | null;
   disabled: boolean;
   onAddToChat: () => void;
-  onEditWithAi: () => void;
   onDownloadSelected: () => void;
   onDownloadSelectedHtml: () => void;
   onMintNft: () => void;
@@ -76,23 +76,25 @@ export const CanvasSelectionToolbar = ({
     partial: Partial<{ font: string; size: string; color: string; sizePx: number; fontFamily: string | null }>,
   ) => void;
 }) => {
-  if (!anchor) return null;
+  const [customFontDialogOpen, setCustomFontDialogOpen] = useState(false);
+  const [customFontFamilyDraft, setCustomFontFamilyDraft] = useState("");
 
-  const isImage = anchor.kind === "image";
-  const isHtml = anchor.kind === "html";
-  const isText = anchor.kind === "text";
-  const isGroup = anchor.kind === "group";
+  useEffect(() => {
+    if (!customFontDialogOpen) return;
+    if (anchor?.kind !== "text" || !textStyle) return;
+    setCustomFontFamilyDraft(textStyle.fontFamily ?? "");
+  }, [anchor?.kind, customFontDialogOpen, textStyle]);
 
-  const resolvedFontLabel = (() => {
-    if (!isText || !textStyle) return null;
+  const resolvedFontLabel = useMemo(() => {
+    if (anchor?.kind !== "text" || !textStyle) return null;
     if (textStyle.fontFamily) {
       return TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.label ?? "Custom";
     }
     return TEXT_FONT_OPTIONS.find((opt) => opt.id === textStyle.font)?.label ?? "Font";
-  })();
+  }, [anchor?.kind, textStyle]);
 
-  const resolvedFontValue = (() => {
-    if (!isText || !textStyle) return "__none__";
+  const resolvedFontValue = useMemo(() => {
+    if (anchor?.kind !== "text" || !textStyle) return "__none__";
     if (textStyle.fontFamily) {
       const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily);
       if (preset?.id === "serif") return "base:serif";
@@ -100,7 +102,14 @@ export const CanvasSelectionToolbar = ({
       return preset ? `preset:${preset.id}` : "__custom__";
     }
     return `base:${textStyle.font}`;
-  })();
+  }, [anchor?.kind, textStyle]);
+
+  if (!anchor) return null;
+
+  const isImage = anchor.kind === "image";
+  const isHtml = anchor.kind === "html";
+  const isText = anchor.kind === "text";
+  const isGroup = anchor.kind === "group";
 
   return (
     <div
@@ -289,42 +298,30 @@ export const CanvasSelectionToolbar = ({
                       Default {opt.label}
                     </DropdownMenuRadioItem>
                   ))}
-                </DropdownMenuRadioGroup>
+              </DropdownMenuRadioGroup>
 
-                <DropdownMenuSeparator />
-                <div className="p-2 space-y-1">
-                  <div className="text-[11px] font-semibold text-muted-foreground">Custom font-family</div>
-                  <Input
-                    key={`${anchor.shapeId}:${textStyle.fontFamily ?? ""}`}
-                    placeholder='e.g. "Inter", system-ui'
-                    defaultValue={textStyle.fontFamily ?? ""}
-                    disabled={disabled}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter") return;
-                      event.preventDefault();
-                      const value = (event.currentTarget as HTMLInputElement).value;
-                      onUpdateTextStyle({ font: "sans", fontFamily: value });
-                    }}
-                    onBlur={(event) => {
-                      const value = event.currentTarget.value;
-                      onUpdateTextStyle({ font: "sans", fontFamily: value });
-                    }}
-                    onPointerDown={(event) => event.stopPropagation()}
-                  />
-                </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setCustomFontDialogOpen(true);
+                }}
+              >
+                {resolvedFontValue === "__custom__" ? "Edit custom font…" : "Custom font…"}
+              </DropdownMenuItem>
 
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(event) => {
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
                     event.preventDefault();
                     onUpdateTextStyle({ fontFamily: null });
                   }}
-                >
-                  Reset to default
-                </DropdownMenuItem>
+              >
+                Reset to default
+              </DropdownMenuItem>
 
-              </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -418,6 +415,57 @@ export const CanvasSelectionToolbar = ({
           </>
         ) : null}
       </div>
+
+      {isText && textStyle ? (
+        <Dialog open={customFontDialogOpen} onOpenChange={setCustomFontDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Custom font</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground">
+                Set a CSS font-family string.
+              </div>
+              <Input
+                value={customFontFamilyDraft}
+                placeholder='e.g. "Inter", system-ui'
+                disabled={disabled}
+                onChange={(event) => setCustomFontFamilyDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  const value = customFontFamilyDraft.trim();
+                  onUpdateTextStyle(value ? { font: "sans", fontFamily: value } : { fontFamily: null });
+                  setCustomFontDialogOpen(false);
+                }}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-full"
+                disabled={disabled}
+                onClick={() => setCustomFontDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="rounded-full"
+                disabled={disabled}
+                onClick={() => {
+                  const value = customFontFamilyDraft.trim();
+                  onUpdateTextStyle(value ? { font: "sans", fontFamily: value } : { fontFamily: null });
+                  setCustomFontDialogOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 };
