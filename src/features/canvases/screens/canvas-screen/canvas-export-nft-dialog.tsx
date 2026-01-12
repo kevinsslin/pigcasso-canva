@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createPublicClient, createWalletClient, custom, erc721Abi, parseEventLogs, zeroAddress } from "viem";
@@ -23,6 +23,32 @@ import { cn } from "@/lib/utils";
 const getFactoryAddress = () => process.env.NEXT_PUBLIC_NFT_FACTORY_ADDRESS?.trim() ?? "";
 
 const isEvmAddress = (value: string) => /^0x[0-9a-fA-F]{40}$/.test(value);
+
+const isUserRejectedWalletAction = (error: unknown) => {
+  let current: any = error;
+  for (let depth = 0; depth < 6 && current; depth += 1) {
+    const code = (current as any)?.code;
+    if (code === 4001 || code === "ACTION_REJECTED") return true;
+
+    const messageRaw =
+      (typeof (current as any)?.shortMessage === "string" && (current as any).shortMessage) ||
+      (typeof (current as any)?.message === "string" && (current as any).message) ||
+      "";
+    const message = messageRaw.toLowerCase();
+    if (
+      message.includes("user rejected") ||
+      message.includes("rejected the request") ||
+      message.includes("user denied") ||
+      message.includes("denied transaction") ||
+      message.includes("denied signature")
+    ) {
+      return true;
+    }
+
+    current = (current as any)?.cause;
+  }
+  return false;
+};
 
 type MintStepKey = "ipfs" | "collection" | "mint";
 type MintStepStatus = "pending" | "active" | "done" | "error";
@@ -121,6 +147,17 @@ export const CanvasExportNftDialog = ({
     return connectedEthereumWallets[0] ?? null;
   }, [connectedEthereumWallets, embeddedWalletAddress, externalWalletAddress]);
 
+  const getAutoCollectionDefaults = useCallback(() => {
+    const userName = me.data?.data.user.name?.trim();
+    const name = userName ? `${userName}'s Pigcasso Collection` : "My Pigcasso Collection";
+    return {
+      name,
+      symbol: "PIG",
+      maxSupply: BigInt(10_000),
+      contractUri: "",
+    };
+  }, [me.data?.data.user.name]);
+
   useEffect(() => {
     if (!open) {
       setTokenName("");
@@ -153,7 +190,7 @@ export const CanvasExportNftDialog = ({
     setNewCollectionMaxSupply(defaults.maxSupply.toString());
     setNewCollectionContractUri(defaults.contractUri);
     setCollectionMode("existing");
-  }, [open, target?.canvasName, target?.defaultName]);
+  }, [getAutoCollectionDefaults, open, target?.canvasName, target?.defaultName]);
 
   useEffect(() => {
     if (!open) return;
@@ -208,17 +245,6 @@ export const CanvasExportNftDialog = ({
     });
 
     return { walletClient, publicClient };
-  };
-
-  const getAutoCollectionDefaults = () => {
-    const userName = me.data?.data.user.name?.trim();
-    const name = userName ? `${userName}'s Pigcasso Collection` : "My Pigcasso Collection";
-    return {
-      name,
-      symbol: "PIG",
-      maxSupply: BigInt(10_000),
-      contractUri: "",
-    };
   };
 
   const deployCollectionOnChain = async ({
@@ -409,6 +435,12 @@ export const CanvasExportNftDialog = ({
       setMintStep("mint", { status: "done", detail: tokenId ? `Minted token #${tokenId}.` : "NFT minted." });
       toast.success("NFT minted.", { duration: 3500 });
     } catch (error) {
+      if (isUserRejectedWalletAction(error)) {
+        setMintError(null);
+        setMintStep(currentStep, { status: "pending", detail: "Canceled by user." });
+        toast.message("User rejected the transaction.", { duration: 2500 });
+        return;
+      }
       const message = error instanceof Error ? error.message : "Failed to mint";
       setMintError(message);
       setMintStep(currentStep, { status: "error", detail: message });

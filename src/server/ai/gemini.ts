@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
-import { HttpError } from "@/server/http-error";
+import { HttpError, getErrorStatus } from "@/server/http-error";
 import { normalizeGeminiError } from "@/server/ai-errors";
 import { pickGeminiAspectRatio, type CanvasSize } from "@/server/gemini-image-config";
 import { assertSafeRemoteUrl } from "@/server/safe-remote-url";
@@ -34,6 +34,11 @@ const GEMINI_ASSISTANT_MODEL =
 const GEMINI_IMAGE_MODEL =
   normalizeModelName(process.env.GEMINI_IMAGE_MODEL ?? "") ||
   "gemini-2.5-flash-image-preview";
+
+// Used for structured vision outputs (OCR, layout extraction). Must support JSON-mode.
+const GEMINI_OCR_MODEL =
+  normalizeModelName(process.env.GEMINI_OCR_MODEL ?? "") ||
+  "gemini-2.0-flash";
 
 const GEMINI_IMAGE_MODEL_NANO_BANANA =
   normalizeModelName(process.env.GEMINI_IMAGE_MODEL_NANO_BANANA ?? "") || "";
@@ -733,10 +738,22 @@ export const parseExtractTextBlocksResponse = (text: string) => {
   return { blocks };
 };
 
+const extractErrorMessage = (error: unknown) => {
+  if (!error) return "";
+  if (error instanceof Error && typeof error.message === "string") return error.message;
+  if (typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
+  return "";
+};
+
+const isJsonModeNotEnabledError = (error: unknown) => {
+  const status = getErrorStatus(error);
+  if (status !== 400) return false;
+  const message = extractErrorMessage(error).toLowerCase();
+  return message.includes("json mode is not enabled");
+};
+
 export const extractTextBlocks = async (params: { image: string }) => {
   const ai = getGeminiClient();
-  // Use a vision-capable model for OCR. Gemini assistant model may be text-only depending on config.
-  const model = GEMINI_IMAGE_MODEL || GEMINI_ASSISTANT_MODEL;
 
   const responseJsonSchema = {
     type: "object",
@@ -804,35 +821,74 @@ Rules:
 
   const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
 
-  let response: unknown;
-  try {
-    response = await ai.models.generateContent({
+  const candidates = Array.from(
+    new Set([GEMINI_OCR_MODEL, GEMINI_IMAGE_MODEL, GEMINI_ASSISTANT_MODEL].map(normalizeModelName).filter(Boolean)),
+  );
+
+  let lastError: unknown = null;
+  let lastModel = candidates[0] ?? GEMINI_OCR_MODEL;
+
+  const run = async (model: string, useJsonMode: boolean) => {
+    const config = {
+      responseModalities: ["TEXT"],
+      systemInstruction: system,
+      maxOutputTokens: 1800,
+      temperature: 0,
+      ...(useJsonMode
+        ? { responseMimeType: "application/json" as const, responseJsonSchema }
+        : null),
+    };
+
+    return ai.models.generateContent({
       model,
       contents: [
         { text: "Extract all text blocks from this image." },
         { inlineData: { mimeType: inline.mimeType, data: inline.base64 } },
       ],
-      config: {
-        responseModalities: ["TEXT"],
-        responseMimeType: "application/json",
-        responseJsonSchema,
-        systemInstruction: system,
-        maxOutputTokens: 1800,
-        temperature: 0,
-      },
+      config,
     });
-  } catch (error) {
-    throw normalizeGeminiError(error, {
-      model,
-      operation: "extractTextBlocks",
-    });
+  };
+
+  for (const model of candidates) {
+    lastModel = model;
+
+    try {
+      const response = await run(model, true);
+      const text =
+        typeof (response as { text?: unknown })?.text === "string"
+          ? ((response as { text?: string }).text ?? "").trim()
+          : "";
+      const parsed = parseExtractTextBlocksResponse(text);
+      return { ...parsed, provider: "gemini" as const };
+    } catch (error) {
+      lastError = error;
+
+      if (isJsonModeNotEnabledError(error)) {
+        try {
+          const response = await run(model, false);
+          const text =
+            typeof (response as { text?: unknown })?.text === "string"
+              ? ((response as { text?: string }).text ?? "").trim()
+              : "";
+          const parsed = parseExtractTextBlocksResponse(text);
+          return { ...parsed, provider: "gemini" as const };
+        } catch (fallbackError) {
+          lastError = fallbackError;
+          continue;
+        }
+      }
+
+      continue;
+    }
   }
 
-  const text =
-    typeof (response as { text?: unknown })?.text === "string"
-      ? ((response as { text?: string }).text ?? "").trim()
-      : "";
+  if (lastError instanceof HttpError) {
+    throw lastError;
+  }
+  throw normalizeGeminiError(lastError, {
+    model: lastModel,
+    operation: "extractTextBlocks",
+  });
 
-  const parsed = parseExtractTextBlocksResponse(text);
-  return { ...parsed, provider: "gemini" as const };
+  // Unreachable
 };

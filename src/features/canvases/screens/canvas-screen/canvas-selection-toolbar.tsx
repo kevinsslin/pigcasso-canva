@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,13 @@ export const CanvasSelectionToolbar = ({
   const [customFontDialogOpen, setCustomFontDialogOpen] = useState(false);
   const [customFontFamilyDraft, setCustomFontFamilyDraft] = useState("");
 
+  const formatFontFamilyLabel = useCallback((raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "Custom";
+    const first = trimmed.split(",")[0]?.trim() ?? trimmed;
+    return first.replace(/^["']|["']$/g, "") || "Custom";
+  }, []);
+
   useEffect(() => {
     if (!customFontDialogOpen) return;
     if (anchor?.kind !== "text" || !textStyle) return;
@@ -92,10 +99,13 @@ export const CanvasSelectionToolbar = ({
   const resolvedFontLabel = useMemo(() => {
     if (anchor?.kind !== "text" || !textStyle) return null;
     if (textStyle.fontFamily) {
-      return TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.label ?? "Custom";
+      return (
+        TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily)?.label ??
+        formatFontFamilyLabel(textStyle.fontFamily)
+      );
     }
     return TEXT_FONT_OPTIONS.find((opt) => opt.id === textStyle.font)?.label ?? "Font";
-  }, [anchor?.kind, textStyle]);
+  }, [anchor?.kind, formatFontFamilyLabel, textStyle]);
 
   const resolvedFontValue = useMemo(() => {
     if (anchor?.kind !== "text" || !textStyle) return "__none__";
@@ -285,10 +295,17 @@ export const CanvasSelectionToolbar = ({
               <DropdownMenuContent align="center" className="w-72">
                 <DropdownMenuLabel>Font</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                  Recommended
+                </div>
                 <DropdownMenuRadioGroup
                   value={resolvedFontValue}
                   onValueChange={(value) => {
-                    if (value === "__custom__") return;
+                    if (value === "__custom__") {
+                      setCustomFontDialogOpen(true);
+                      return;
+                    }
+
                     if (value.startsWith("preset:")) {
                       const presetId = value.slice("preset:".length);
                       const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.id === presetId);
@@ -297,11 +314,6 @@ export const CanvasSelectionToolbar = ({
                       onUpdateTextStyle({ font, fontFamily: preset.value });
                       return;
                     }
-
-                    if (value.startsWith("base:")) {
-                      const font = value.slice("base:".length);
-                      onUpdateTextStyle({ font, fontFamily: null });
-                    }
                   }}
                 >
                   {TEXT_FONT_FAMILY_PRESETS.filter((opt) => opt.id !== "serif" && opt.id !== "mono").map((opt) => (
@@ -309,36 +321,47 @@ export const CanvasSelectionToolbar = ({
                       {opt.label}
                     </DropdownMenuRadioItem>
                   ))}
-
                   {textStyle.fontFamily && !TEXT_FONT_FAMILY_PRESETS.some((opt) => opt.value === textStyle.fontFamily) ? (
-                    <DropdownMenuRadioItem value="__custom__">Custom</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="__custom__"
+                      onSelect={() => setCustomFontDialogOpen(true)}
+                    >
+                      Custom: {formatFontFamilyLabel(textStyle.fontFamily)}
+                    </DropdownMenuRadioItem>
                   ) : null}
+                </DropdownMenuRadioGroup>
 
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                  Built-in
+                </div>
+                <DropdownMenuRadioGroup
+                  value={resolvedFontValue}
+                  onValueChange={(value) => {
+                    if (!value.startsWith("base:")) return;
+                    const font = value.slice("base:".length);
+                    onUpdateTextStyle({ font, fontFamily: null });
+                  }}
+                >
                   {TEXT_FONT_OPTIONS.map((opt) => (
                     <DropdownMenuRadioItem key={opt.id} value={`base:${opt.id}`}>
-                      Default {opt.label}
+                      {opt.label}
                     </DropdownMenuRadioItem>
                   ))}
-              </DropdownMenuRadioGroup>
+                </DropdownMenuRadioGroup>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setCustomFontDialogOpen(true);
-                }}
+                onSelect={() => setCustomFontDialogOpen(true)}
               >
                 {resolvedFontValue === "__custom__" ? "Edit custom font…" : "Custom font…"}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={(event) => {
-                    event.preventDefault();
-                    onUpdateTextStyle({ fontFamily: null });
-                  }}
+                onSelect={() => onUpdateTextStyle({ font: "draw", fontFamily: null })}
               >
-                Reset to default
+                Reset font
               </DropdownMenuItem>
 
             </DropdownMenuContent>

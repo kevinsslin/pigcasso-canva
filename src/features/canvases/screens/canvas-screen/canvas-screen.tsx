@@ -20,7 +20,6 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import debounce from "lodash.debounce";
 import { createShapeId } from "@tldraw/tlschema";
 import { loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
 import { toast } from "sonner";
@@ -30,7 +29,6 @@ import { UserButton } from "@/features/auth/components/user-button";
 import {
   NANO_BANANA_PROFILE_STORAGE_KEY,
   parseNanoBananaProfileOption,
-  toNanoBananaApiProfile,
   type NanoBananaProfileOption,
 } from "@/features/ai/lib/nano-banana-profile";
 import { useChatAssistant } from "@/features/ai/api/use-chat-assistant";
@@ -38,18 +36,18 @@ import { useAnalyzeCanvasPrompt } from "@/features/ai/api/use-analyze-canvas-pro
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useEditImage } from "@/features/ai/api/use-edit-image";
 import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
-import { useExtractText, type ExtractTextBlock } from "@/features/ai/api/use-extract-text";
+import { useExtractText } from "@/features/ai/api/use-extract-text";
 import { useRemoveBg } from "@/features/ai/api/use-remove-bg";
 import { useGetCanvas } from "@/features/canvases/api/use-get-canvas";
 import { useUpsertCanvas } from "@/features/canvases/api/use-upsert-canvas";
 import { useUpdateCanvas } from "@/features/canvases/api/use-update-canvas";
-import { parseCanvasChatMessages, serializeCanvasChatMessages } from "@/features/canvases/lib/chat-history";
-import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
+import { createHtmlCardSrcDoc, HTML_CARD_SHAPE_TYPE } from "@/features/canvases/tldraw/html-card";
 import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { findFirstImageShapeIdInGroup } from "@/features/canvases/tldraw/find-image-in-group";
+import { exportCurrentCanvasPageToPngDataUrl } from "@/features/canvases/tldraw/export-canvas-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { PigcassoTextShapeUtil } from "@/features/canvases/tldraw/pigcasso-text-shape-util";
 import { sanitizeTldrawStoreSnapshot } from "@/features/canvases/tldraw/sanitize-snapshot";
@@ -58,7 +56,6 @@ import {
   handleCanvasKeyboardShortcuts,
   type CanvasClipboardRef,
 } from "@/features/canvases/tldraw/keyboard-shortcuts";
-import { DEFAULT_CANVAS_COVER_TARGET_PX, getCanvasCoverScale } from "@/features/canvases/lib/canvas-cover";
 import {
   createAiJobMutex,
   createAiJobQueue,
@@ -73,7 +70,7 @@ import { uploadImageDataUrl } from "@/lib/upload-data-url";
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
 import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
 import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
-import { CANVAS_TOOL_BUTTONS, fromTldrawToolId, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
+import { CANVAS_TOOL_BUTTONS, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { getCanvasChatSuggestions } from "@/features/canvases/lib/chat-suggestions";
 import { toCanvasImageUrl, unwrapCanvasImageProxyUrl } from "@/features/canvases/lib/image-proxy";
 import {
@@ -84,15 +81,9 @@ import {
   toRichTextValue,
   type CanvasTextSize,
 } from "@/features/canvases/lib/text-style";
-import {
-  applyAtMentionReplacement,
-  applyAtMentionReplacementAtCursor,
-  getActiveAtMentionAtCursor,
-} from "@/features/canvases/lib/at-mentions";
+import { applyAtMentionReplacement } from "@/features/canvases/lib/at-mentions";
 import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
-import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
-import { generateHtmlPreviewDataUrl, PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
 import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
 import { CanvasPublishButton } from "@/features/canvases/components/canvas-publish-button";
 import { CanvasChatPanel } from "@/features/canvases/screens/canvas-screen/canvas-chat-panel";
@@ -106,10 +97,15 @@ import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
 import { CanvasSelectionToolbar, type CanvasSelectionToolbarAnchor } from "@/features/canvases/screens/canvas-screen/canvas-selection-toolbar";
-import {
-  computeCanvasSelectionToolbarAnchor,
-  computeCanvasSelectionToolbarAnchorFromScreenRect,
-} from "@/features/canvases/screens/canvas-screen/selection-toolbar-anchor";
+import { useAiUiJob } from "@/features/canvases/screens/canvas-screen/hooks/use-ai-ui-job";
+import { useCanvasChatStorage } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-chat-storage";
+import { useCanvasEditorSync } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-editor-sync";
+import { useCanvasHtmlPreviews } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-html-previews";
+import { useCanvasMentions } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-mentions";
+import { useCanvasSelectedImageActions } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-selected-image-actions";
+import { useCanvasSendMessage } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-send-message";
+import { useCanvasSnapshotPersistence } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-snapshot-persistence";
+import { useCanvasUploads } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-uploads";
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,8 +135,6 @@ const getExtensionForMime = (mime: string | null) => {
   if (type.includes("svg")) return "svg";
   return null;
 };
-
-const MAX_INSERTED_TEXT_CHARS = 20_000;
 
 export default function CanvasScreen({ params }: PageProps) {
   const router = useRouter();
@@ -176,47 +170,11 @@ export default function CanvasScreen({ params }: PageProps) {
     const fromQuery = parseNanoBananaProfileOption(searchParams?.get("profile"));
     return fromQuery ?? "auto";
   });
-
-  type AiUiJobState = { jobId: string; label: string; startedAt: number };
-  const [aiUiJob, setAiUiJob] = useState<AiUiJobState | null>(null);
-  const aiUiJobsRef = useRef<Map<string, AiUiJobState>>(new Map());
-
-  const refreshAiUiJob = useCallback(() => {
-    const jobs = Array.from(aiUiJobsRef.current.values());
-    jobs.sort((a, b) => b.startedAt - a.startedAt);
-    setAiUiJob(jobs[0] ?? null);
-  }, []);
-
-  const startAiUiJob = useCallback(
-    (label: string) => {
-      const jobId = crypto.randomUUID();
-      aiUiJobsRef.current.set(jobId, { jobId, label, startedAt: Date.now() });
-      refreshAiUiJob();
-      return jobId;
-    },
-    [refreshAiUiJob],
-  );
-
-  const updateAiUiJobLabel = useCallback(
-    (jobId: string, label: string) => {
-      const existing = aiUiJobsRef.current.get(jobId);
-      if (!existing) return;
-      aiUiJobsRef.current.set(jobId, { ...existing, label });
-      refreshAiUiJob();
-    },
-    [refreshAiUiJob],
-  );
-
-  const finishAiUiJob = useCallback(
-    (jobId: string) => {
-      aiUiJobsRef.current.delete(jobId);
-      refreshAiUiJob();
-    },
-    [refreshAiUiJob],
-  );
+  const { aiUiJob, startAiUiJob, updateAiUiJobLabel, finishAiUiJob } = useAiUiJob();
   const [boardHydrated, setBoardHydrated] = useState(false);
   const [boardCrashMessage, setBoardCrashMessage] = useState<string | null>(null);
   const [tldrawMountKey, setTldrawMountKey] = useState(0);
+  const { handleUploadFiles } = useCanvasUploads({ editor, boardHydrated, boardCrashMessage });
 
   const chatInputRef = useRef(chatInput);
   const chatCursorIndexRef = useRef<number | null>(null);
@@ -225,11 +183,8 @@ export default function CanvasScreen({ params }: PageProps) {
   const outputCounterRef = useRef(1);
   const desktopChatEndRef = useRef<HTMLDivElement | null>(null);
   const mobileChatEndRef = useRef<HTMLDivElement | null>(null);
-  const mentionFocusElRef = useRef<HTMLTextAreaElement | null>(null);
-  const mentionCursorIndexRef = useRef<number | null>(null);
   const canvasClipboardRef = useRef<unknown | null>(null) as CanvasClipboardRef;
   const heldPanToolRef = useRef<CanvasTool | null>(null);
-  const htmlPreviewInFlightRef = useRef<Set<string>>(new Set());
   const aiJobQueueRef = useRef<AiJobQueue | null>(null);
   const aiCommitMutexRef = useRef<AiJobMutex | null>(null);
 
@@ -256,7 +211,6 @@ export default function CanvasScreen({ params }: PageProps) {
   const lastUnmountAtRef = useRef<number | null>(null);
 
   const localSnapshotKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:snapshot`, [params.canvasId]);
-  const localChatKey = useMemo(() => `pigcasso:canvas:${params.canvasId}:chat`, [params.canvasId]);
   const tldrawUser = useTldrawUser({
     userPreferences: useMemo(() => ({ id: "pigcasso", colorScheme: "light" as const }), []),
   });
@@ -289,6 +243,17 @@ export default function CanvasScreen({ params }: PageProps) {
   const upsertCanvas = useUpsertCanvas({ toast: false });
   const updateCanvas = useUpdateCanvas({ toast: false, invalidate: false, invalidateList: false });
   const renameCanvas = useUpdateCanvas({ toast: false, invalidate: false });
+
+  useCanvasChatStorage({
+    canvasId: params.canvasId,
+    ready,
+    authenticated,
+    boardCrashMessage,
+    messages,
+    setMessages,
+    canvasQuery,
+    updateCanvas,
+  });
 
   const handleRenameBoard = useCallback(
     async (nextName: string) => {
@@ -339,10 +304,6 @@ export default function CanvasScreen({ params }: PageProps) {
   const coverGenerationInFlightRef = useRef(false);
   const coverGenerationRerunRequestedRef = useRef(false);
   const pendingCoverSnapshotRef = useRef<string | null>(null);
-  const hasLoadedChatRef = useRef(false);
-  const chatHydratingRef = useRef(false);
-  const lastSavedChatRef = useRef<string | null>(null);
-  const hasEnsuredHtmlPreviewsRef = useRef(false);
   const hasProxiedImageAssetsRef = useRef(false);
   const hasUserEditedRef = useRef(false);
   const hasShownRemoteSyncSkippedToastRef = useRef(false);
@@ -359,7 +320,25 @@ export default function CanvasScreen({ params }: PageProps) {
   } | null>(null);
   const [tabInstruction, setTabInstruction] = useState("");
   const [pinnedShapeIds, setPinnedShapeIds] = useState<string[]>([]);
-  const [mentionPicker, setMentionPicker] = useState<{ screenX: number; screenY: number } | null>(null);
+  const {
+    mentionPicker,
+    openMentionPicker,
+    closeMentionPicker,
+    activeAtMention,
+    filteredMentionShapes,
+    pickMention,
+    onDesktopMentionButtonClick,
+    onMobileMentionButtonClick,
+  } = useCanvasMentions({
+    editor,
+    chatInput,
+    chatInputRef,
+    chatCursorIndexRef,
+    setChatInput,
+    setPinnedShapeIds,
+    desktopChatInputElRef,
+    mobileChatInputElRef,
+  });
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [exportNftOpen, setExportNftOpen] = useState(false);
   const [exportNftTarget, setExportNftTarget] = useState<CanvasExportNftTarget | null>(null);
@@ -835,42 +814,6 @@ export default function CanvasScreen({ params }: PageProps) {
   }, [boardHydrated, canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!ready || !authenticated) return;
-    if (!canvasQuery.isSuccess && !canvasQuery.isError) return;
-    if (hasLoadedChatRef.current) return;
-
-    hasLoadedChatRef.current = true;
-    chatHydratingRef.current = true;
-
-    const remoteMessages = canvasQuery.isSuccess ? parseCanvasChatMessages(canvasQuery.data?.chatJson ?? null) : [];
-
-    let localMessages: CanvasChatMessage[] = [];
-    try {
-      localMessages = parseCanvasChatMessages(localStorage.getItem(localChatKey));
-    } catch {
-      localMessages = [];
-    }
-
-    const chosen = remoteMessages.length ? remoteMessages : localMessages;
-    setMessages(chosen);
-
-    const serialized = serializeCanvasChatMessages(chosen);
-    lastSavedChatRef.current = serialized;
-    try {
-      if (serialized) {
-        localStorage.setItem(localChatKey, serialized);
-      } else {
-        localStorage.removeItem(localChatKey);
-      }
-    } catch {
-      // ignore
-    }
-
-    chatHydratingRef.current = false;
-  }, [authenticated, canvasQuery.data?.chatJson, canvasQuery.isError, canvasQuery.isSuccess, localChatKey, ready]);
-
-  useEffect(() => {
     if (!editor) return;
     if (!boardHydrated) return;
     if (boardCrashMessage) return;
@@ -905,615 +848,77 @@ export default function CanvasScreen({ params }: PageProps) {
     };
   }, [boardCrashMessage, boardHydrated, editor]);
 
-  useEffect(() => {
-    if (!editor) return;
-
-    let raf = 0;
-
-    const sync = () => {
-      try {
-        const currentToolId = editor.getCurrentToolId();
-        if (currentToolId) {
-          const mapped = fromTldrawToolId(currentToolId);
-          if (mapped && lastKnownToolIdRef.current !== mapped) {
-            lastKnownToolIdRef.current = mapped;
-            setActiveTool(mapped);
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      try {
-        const next = Math.round(editor.getZoomLevel() * 100);
-        if (Number.isFinite(next) && lastZoomPercentRef.current !== next) {
-          lastZoomPercentRef.current = next;
-          setZoomPercent(next);
-        }
-      } catch {
-        // ignore
-      }
-
-      try {
-        const selectedIds = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
-        const selectedKey = selectedIds.join(",");
-
-        if (selectedKey !== lastSelectedShapeIdsKeyRef.current) {
-          lastSelectedShapeIdsKeyRef.current = selectedKey;
-          setSelectedShapeIds(selectedIds);
-        }
-
-        const nextTextStyleKey = (() => {
-          if (selectedIds.length !== 1) return "";
-          const shapeId = selectedIds[0];
-          if (!shapeId) return "";
-          const shape = editor.getShape?.(shapeId as any) as any;
-          if (!shape || typeof shape !== "object" || shape.type !== "text") return "";
-
-          const props = (shape.props ?? {}) as Record<string, unknown>;
-          const font = typeof props.font === "string" ? props.font : "";
-          const size = typeof props.size === "string" ? props.size : "";
-          const color = typeof props.color === "string" ? props.color : "";
-          const scaleRaw = props.scale;
-          const scale = typeof scaleRaw === "number" ? String(scaleRaw) : typeof scaleRaw === "string" ? scaleRaw : "";
-          const metaFontFamily = (shape.meta as any)?.[PIGCASSO_TEXT_FONT_FAMILY_META_KEY];
-          const fontFamily = typeof metaFontFamily === "string" ? metaFontFamily.trim() : "";
-          return `${shapeId}:${font}:${size}:${color}:${scale}:${fontFamily}`;
-        })();
-
-        if (nextTextStyleKey !== lastSelectedTextStyleKeyRef.current) {
-          lastSelectedTextStyleKeyRef.current = nextTextStyleKey;
-          setSelectedTextStyleKey(nextTextStyleKey);
-        }
-
-        const selected = selectedIds[0] ?? null;
-        if (selected !== lastSelectionShapeIdRef.current) {
-          lastSelectionShapeIdRef.current = selected;
-          setSelectionContext(getSelectionContext(editor, selected));
-        }
-      } catch {
-        // ignore
-      }
-
-      try {
-        if (typeof window === "undefined") return;
-
-        const nextToolbarAnchor = (() => {
-          const selectedIds = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
-          if (selectedIds.length !== 1) return null;
-          const shapeId = selectedIds[0];
-          if (!shapeId) return null;
-
-          const shape = editor.getShape?.(shapeId as any) as any;
-          const kind =
-            shape?.type === "image"
-              ? ("image" as const)
-              : shape?.type === "text"
-                ? ("text" as const)
-                : shape?.type === HTML_CARD_SHAPE_TYPE
-                  ? ("html" as const)
-                  : shape?.type === "group"
-                    ? ("group" as const)
-                  : null;
-          if (!kind) return null;
-
-          const viewport = { width: window.innerWidth, height: window.innerHeight };
-
-          const domEl = document.querySelector(`[data-shape-id=\"${shapeId}\"]`) as HTMLElement | null;
-          if (domEl) {
-            const rect = domEl.getBoundingClientRect();
-            if (rect && rect.width > 0 && rect.height > 0) {
-              return computeCanvasSelectionToolbarAnchorFromScreenRect({
-                kind,
-                shapeId,
-                rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-                viewport,
-              });
-            }
-          }
-
-          const bounds = (() => {
-            try {
-              return editor.getShapePageBounds?.(shapeId as any) as any;
-            } catch {
-              return null;
-            }
-          })();
-
-          const pageToScreen = (() => {
-            try {
-              const fn = (editor as any).pageToScreen as
-                | ((pt: { x: number; y: number }) => { x: number; y: number })
-                | undefined;
-              return typeof fn === "function" ? fn : undefined;
-            } catch {
-              return undefined;
-            }
-          })();
-
-          if (bounds && typeof bounds === "object" && pageToScreen) {
-            const pageToScreenWithOffset = (pt: { x: number; y: number }) => {
-              const screen = pageToScreen(pt);
-              const x = Number((screen as any)?.x);
-              const y = Number((screen as any)?.y);
-              if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: viewport.width / 2, y: viewport.height / 2 };
-
-              const tlContainer = document.querySelector(".tl-container") as HTMLElement | null;
-              const rect = tlContainer?.getBoundingClientRect?.() ?? null;
-              if (!rect) return { x, y };
-
-              const isContainerRelative = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
-              const isWindowRelative = x >= rect.left && y >= rect.top && x <= rect.right && y <= rect.bottom;
-
-              if (isContainerRelative && !isWindowRelative) {
-                return { x: x + rect.left, y: y + rect.top };
-              }
-              return { x, y };
-            };
-
-            try {
-              const anchor = computeCanvasSelectionToolbarAnchor({
-                kind,
-                shapeId,
-                bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
-                pageToScreen: pageToScreenWithOffset,
-                viewport,
-              });
-              if (Number.isFinite(anchor.screenX) && Number.isFinite(anchor.screenY)) return anchor;
-            } catch {
-              // ignore
-            }
-          }
-
-          return computeCanvasSelectionToolbarAnchorFromScreenRect({
-            kind,
-            shapeId,
-            rect: { left: viewport.width / 2, top: 96, width: 0, height: 0 },
-            viewport,
-          });
-        })();
-
-        const key = nextToolbarAnchor
-          ? `${nextToolbarAnchor.kind}:${Math.round(nextToolbarAnchor.screenX)}:${Math.round(nextToolbarAnchor.screenY)}:${nextToolbarAnchor.shapeId}`
-          : "";
-
-        if (key !== lastSelectionToolbarKeyRef.current) {
-          lastSelectionToolbarKeyRef.current = key;
-          setSelectionToolbarAnchor(nextToolbarAnchor);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const onChange = () => {
-      if (typeof window === "undefined") return;
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        sync();
-      });
-    };
-
-    sync();
-    const unsubscribe = (() => {
-      try {
-        return editor.store.listen(onChange);
-      } catch {
-        return null;
-      }
-    })();
-
-    return () => {
-      if (typeof window !== "undefined" && raf) {
-        window.cancelAnimationFrame(raf);
-      }
-      unsubscribe?.();
-    };
-  }, [editor]);
-
-  const ensureHtmlCardPreview = useCallback(
-    async (shapeId: string, html: string) => {
-      if (!editor) return;
-      if (!html.trim()) return;
-
-      const inFlight = htmlPreviewInFlightRef.current;
-      if (inFlight.has(shapeId)) return;
-      inFlight.add(shapeId);
-
-      try {
-        let w = 960;
-        let h = 600;
-        try {
-          const shape = editor.getShape?.(shapeId as any) as any;
-          const rawW = Number(shape?.props?.w);
-          const rawH = Number(shape?.props?.h);
-          if (Number.isFinite(rawW) && rawW > 0 && Number.isFinite(rawH) && rawH > 0) {
-            w = Math.max(320, Math.min(1200, Math.round(rawW)));
-            h = Math.max(200, Math.min(1200, Math.round((w * rawH) / rawW)));
-          }
-        } catch {
-          // ignore
-        }
-
-        try {
-          (editor as any).run(
-            () => {
-              editor.updateShape?.({
-                id: shapeId as any,
-                type: HTML_CARD_SHAPE_TYPE,
-                meta: { [PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY]: "rendering" },
-              } as any);
-            },
-            { history: "ignore" },
-          );
-        } catch {
-          // ignore
-        }
-
-        const previewDataUrl = await generateHtmlPreviewDataUrl({ html, width: w, height: h });
-        const nextMetaValue = previewDataUrl || "failed";
-
-        try {
-          (editor as any).run(
-            () => {
-              editor.updateShape?.({
-                id: shapeId as any,
-                type: HTML_CARD_SHAPE_TYPE,
-                meta: { [PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY]: nextMetaValue },
-              } as any);
-            },
-            { history: "ignore" },
-          );
-        } catch {
-          // ignore
-        }
-      } finally {
-        inFlight.delete(shapeId);
-      }
-    },
-    [editor],
-  );
-
-  useEffect(() => {
-    if (!editor) return;
-    if (!boardHydrated) return;
-    if (boardCrashMessage) return;
-    if (hasEnsuredHtmlPreviewsRef.current) return;
-
-    hasEnsuredHtmlPreviewsRef.current = true;
-
-    const candidates = (editor.getCurrentPageShapes?.() ?? [])
-      .filter((shape) => (shape as any)?.type === HTML_CARD_SHAPE_TYPE)
-      .slice(0, 4) as any[];
-
-    if (!candidates.length) return;
-
-    let canceled = false;
-    const run = async () => {
-      for (const shape of candidates) {
-        if (canceled) return;
-        const html = typeof shape?.props?.html === "string" ? shape.props.html : "";
-        if (!html.trim()) continue;
-        const previewRaw = shape?.meta?.[PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY];
-        if (typeof previewRaw === "string" && previewRaw.startsWith("data:image/png")) continue;
-        if (previewRaw === "rendering") continue;
-        await ensureHtmlCardPreview(String(shape.id), html);
-      }
-    };
-
-    void run();
-    return () => {
-      canceled = true;
-    };
-  }, [boardCrashMessage, boardHydrated, editor, ensureHtmlCardPreview]);
-
-  const coverUpdateRef = useRef<ReturnType<typeof debounce> | null>(null);
-  const updateBoardCover = useMemo(
-    () =>
-      debounce(async (snapshotJson: string) => {
-        pendingCoverSnapshotRef.current = snapshotJson;
-
-        if (!editor) return;
-        if (!boardHydrated) return;
-        if (boardCrashMessage) return;
-        if (!canvasQuery.data) return;
-
-        const requestedSnapshot = pendingCoverSnapshotRef.current ?? snapshotJson;
-        if (requestedSnapshot === lastSavedCoverSnapshotRef.current) return;
-
-        if (coverGenerationInFlightRef.current) {
-          coverGenerationRerunRequestedRef.current = true;
-          return;
-        }
-
-        coverGenerationInFlightRef.current = true;
-        coverGenerationRerunRequestedRef.current = false;
-
-        try {
-          const shapeIds = (editor.getCurrentPageShapes?.() ?? [])
-            .map((shape) => shape.id)
-            .filter(Boolean) as any[];
-
-          if (!shapeIds.length) {
-            if (canvasQuery.data?.coverImageUrl) {
-              await updateCanvas.mutateAsync({
-                param: { id: params.canvasId },
-                json: { coverImageUrl: null },
-              });
-            }
-            lastSavedCoverSnapshotRef.current = requestedSnapshot;
-            return;
-          }
-
-          const bounds = (editor.getCurrentPageBounds?.() ?? null) as any;
-          if (!bounds || !Number.isFinite(bounds.w) || !Number.isFinite(bounds.h) || bounds.w <= 0 || bounds.h <= 0) {
-            return;
-          }
-
-          const scale = getCanvasCoverScale(
-            { w: Number(bounds.w), h: Number(bounds.h) },
-            { targetPx: DEFAULT_CANVAS_COVER_TARGET_PX },
-          );
-
-          const dataUrl = await (editor as any).toImageDataUrl(shapeIds, {
-            format: "jpeg",
-            quality: 0.82,
-            scale,
-            background: true,
-            padding: 24,
-            pixelRatio: 1,
-            darkMode: false,
-          });
-
-          if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) return;
-
-          const uploadedUrl = await uploadImageDataUrl(
-            dataUrl,
-            `pigcasso_board_cover_${params.canvasId}_${Date.now()}.jpg`,
-          );
-
-          await updateCanvas.mutateAsync({
-            param: { id: params.canvasId },
-            json: { coverImageUrl: uploadedUrl },
-          });
-
-          lastSavedCoverSnapshotRef.current = requestedSnapshot;
-        } catch {
-          // ignore
-        } finally {
-          coverGenerationInFlightRef.current = false;
-          const pending = pendingCoverSnapshotRef.current;
-          const shouldRerun =
-            coverGenerationRerunRequestedRef.current &&
-            pending &&
-            pending !== lastSavedCoverSnapshotRef.current;
-          coverGenerationRerunRequestedRef.current = false;
-          if (shouldRerun) {
-            coverUpdateRef.current?.(pending);
-          }
-        }
-      }, 4500),
-    [
-      boardCrashMessage,
-      boardHydrated,
-      canvasQuery.data,
-      editor,
-      params.canvasId,
-      updateCanvas,
-    ],
-  );
-
-  coverUpdateRef.current = updateBoardCover;
-
-  useEffect(() => {
-    return () => {
-      updateBoardCover.cancel();
-    };
-  }, [updateBoardCover]);
-
-  useEffect(() => {
-    if (!editor) return;
-
-    let idleHandle: number | null = null;
-    let idleMode: "idle" | "timeout" | null = null;
-
-    const cancelIdle = () => {
-      if (typeof window === "undefined") return;
-      if (idleHandle === null || idleMode === null) return;
-      try {
-        if (idleMode === "idle" && typeof (window as any).cancelIdleCallback === "function") {
-          (window as any).cancelIdleCallback(idleHandle);
-        } else if (idleMode === "timeout") {
-          window.clearTimeout(idleHandle);
-        }
-      } catch {
-        // ignore
-      } finally {
-        idleHandle = null;
-        idleMode = null;
-      }
-    };
-
-    const save = debounce(() => {
-      if (!boardHydrated) return;
-      if (hydratingRef.current) return;
-      if (boardCrashMessage) return;
-
-      cancelIdle();
-
-        const run = () => {
-          let snapshotJson: string;
-          try {
-            snapshotJson = JSON.stringify(sanitizeTldrawStoreSnapshot(editor.store.getStoreSnapshot()));
-          } catch {
-            return;
-          }
-
-        if (snapshotJson === lastSavedSnapshotRef.current) return;
-        lastSavedSnapshotRef.current = snapshotJson;
-        pendingCoverSnapshotRef.current = snapshotJson;
-
-        try {
-          localStorage.setItem(localSnapshotKey, snapshotJson);
-        } catch {
-          // ignore
-        }
-
-        if (canvasQuery.data) {
-          updateCanvas.mutate({
-            param: { id: params.canvasId },
-            json: { snapshot: snapshotJson },
-          });
-        }
-
-        updateBoardCover(snapshotJson);
-      };
-
-      if (typeof window === "undefined") {
-        run();
-        return;
-      }
-
-      const requestIdle = (window as any).requestIdleCallback as
-        | ((cb: () => void, opts?: { timeout?: number }) => number)
-        | undefined;
-
-      if (typeof requestIdle === "function") {
-        idleMode = "idle";
-        idleHandle = requestIdle(() => {
-          idleHandle = null;
-          idleMode = null;
-          run();
-        }, { timeout: 2000 });
-        return;
-      }
-
-      idleMode = "timeout";
-      idleHandle = window.setTimeout(() => {
-        idleHandle = null;
-        idleMode = null;
-        run();
-      }, 0);
-    }, 1100);
-
-    const unsubscribe = editor.store.listen(() => {
-      save();
-    });
-
-    return () => {
-      unsubscribe();
-      save.cancel();
-      cancelIdle();
-    };
-  }, [
-    boardCrashMessage,
-    boardHydrated,
-    canvasQuery.data,
+  useCanvasEditorSync({
     editor,
-    localSnapshotKey,
-    params.canvasId,
-    updateBoardCover,
-    updateCanvas,
-  ]);
+    setActiveTool,
+    setZoomPercent,
+    setSelectedShapeIds,
+    setSelectedTextStyleKey,
+    setSelectionContext,
+    setSelectionToolbarAnchor,
+    lastKnownToolIdRef,
+    lastZoomPercentRef,
+    lastSelectedShapeIdsKeyRef,
+    lastSelectedTextStyleKeyRef,
+    lastSelectionShapeIdRef,
+    lastSelectionToolbarKeyRef,
+  });
 
-  const hasScheduledInitialCoverRef = useRef(false);
+  const { ensureHtmlCardPreview } = useCanvasHtmlPreviews({
+    editor,
+    boardHydrated,
+    boardCrashMessage,
+  });
+
+  useCanvasSnapshotPersistence({
+    canvasId: params.canvasId,
+    editor,
+    boardHydrated,
+    boardCrashMessage,
+    canvasQuery,
+    localSnapshotKey,
+    updateCanvas,
+    hydratingRef,
+    lastSavedSnapshotRef,
+    lastSavedCoverSnapshotRef,
+    pendingCoverSnapshotRef,
+    coverGenerationInFlightRef,
+    coverGenerationRerunRequestedRef,
+  });
+
   useEffect(() => {
     if (!editor) return;
     if (!boardHydrated) return;
     if (boardCrashMessage) return;
-    if (!canvasQuery.data) return;
-    if (hasScheduledInitialCoverRef.current) return;
 
-    hasScheduledInitialCoverRef.current = true;
+    const imageUrl = searchParams?.get("image");
+    if (!imageUrl) return;
 
-    const snapshotJson = lastSavedSnapshotRef.current;
-    if (snapshotJson) {
-      pendingCoverSnapshotRef.current = snapshotJson;
-      updateBoardCover(snapshotJson);
-    }
-  }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, updateBoardCover]);
-
-  const saveChat = useMemo(
-    () =>
-      debounce((chatJson: string | null) => {
-        if (!canvasQuery.data) return;
-        updateCanvas.mutate({
-          param: { id: params.canvasId },
-          json: { chatJson },
+    const insert = async () => {
+      try {
+        const boardImageUrl = toCanvasImageUrl(imageUrl);
+        const point = getAiInsertPoint(editor as any);
+        await withHistorySquash(editor as any, "insert:image", async () => {
+          await insertImageToCanvas(editor as any, {
+            src: boardImageUrl,
+            point,
+            name: `IMG_${Date.now()}.png`,
+          });
         });
-      }, 900),
-    [canvasQuery.data, params.canvasId, updateCanvas],
-  );
-
-  useEffect(() => {
-    return () => {
-      saveChat.cancel();
-    };
-  }, [saveChat]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!ready || !authenticated) return;
-    if (chatHydratingRef.current) return;
-    if (boardCrashMessage) return;
-
-    const serialized = serializeCanvasChatMessages(messages);
-    if (serialized === lastSavedChatRef.current) return;
-    lastSavedChatRef.current = serialized;
-
-    try {
-      if (serialized) {
-        localStorage.setItem(localChatKey, serialized);
-      } else {
-        localStorage.removeItem(localChatKey);
-      }
-    } catch {
-      // ignore
-    }
-
-    saveChat(serialized);
-  }, [authenticated, boardCrashMessage, localChatKey, messages, ready, saveChat]);
-
-    useEffect(() => {
-      if (!editor) return;
-      if (!boardHydrated) return;
-      if (boardCrashMessage) return;
-
-      const imageUrl = searchParams?.get("image");
-      if (!imageUrl) return;
-
-        const insert = async () => {
-          try {
-            const boardImageUrl = toCanvasImageUrl(imageUrl);
-            const point = getAiInsertPoint(editor as any);
-            await withHistorySquash(editor as any, "insert:image", async () => {
-              await insertImageToCanvas(editor as any, {
-                src: boardImageUrl,
-                point,
-                name: `IMG_${Date.now()}.png`,
-              });
-            });
-            try {
-              editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-          } catch {
-            // ignore
+        try {
+          editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
+        } catch {
+          // ignore
         }
-	      } catch {
-	        // ignore
-	      } finally {
-	        removeSearchParamsFromUrl(["image"]);
-	      }
-	    };
+      } catch {
+        // ignore
+      } finally {
+        removeSearchParamsFromUrl(["image"]);
+      }
+    };
 
     void insert();
-	  }, [boardCrashMessage, boardHydrated, editor, removeSearchParamsFromUrl, searchParams]);
-
-  type SendMessageOptions = {
-    point?: { x: number; y: number };
-    shapeId?: string | null;
-    shapeIds?: string[];
-  };
+  }, [boardCrashMessage, boardHydrated, editor, removeSearchParamsFromUrl, searchParams]);
 
   const withAiCommit = useCallback(<T,>(fn: () => Promise<T> | T) => {
     const mutex = aiCommitMutexRef.current;
@@ -1521,455 +926,27 @@ export default function CanvasScreen({ params }: PageProps) {
     return mutex.runExclusive(fn);
   }, []);
 
-  const sendMessage = useCallback(
-    async (value?: string, options?: SendMessageOptions) => {
-      const trimmed = (value ?? chatInputRef.current).trim();
-      if (!trimmed) return;
-
-      if (!editor || !boardHydrated || boardCrashMessage) {
-        if (boardCrashMessage) {
-          toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
-          return;
-        }
-        toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
-        return;
-      }
-
-      chatInputRef.current = "";
-      setChatInput("");
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
-
-      const queue = aiJobQueueRef.current;
-      if (!queue) return;
-
-      const contextShapeIds = options?.shapeIds ?? [];
-      const selectedShapeId =
-        options?.shapeId !== undefined
-          ? options.shapeId
-          : (() => {
-              try {
-                return editor.getSelectedShapeIds?.()?.[0] ?? null;
-              } catch {
-                return null;
-              }
-            })();
-
-      const selectedShape = selectedShapeId ? (editor.getShape(selectedShapeId as any) as any) : null;
-      const profile = aiProfile;
-
-      await queue.enqueue(async () => {
-        const uiJobId = startAiUiJob(profile === "gemini-pro-3" ? "Thinking…" : "Analyzing…");
-
-        try {
-          const apiProfile = toNanoBananaApiProfile(profile);
-          const promptContext = (() => {
-            const ids = contextShapeIds.slice(0, 12);
-            if (!ids.length) return null;
-            const lines = ids
-              .map((shapeId) => {
-                const ctx = getSelectionContext(editor as any, shapeId);
-                if (!ctx) return null;
-                return `- ${ctx.label} (${ctx.type})`;
-              })
-              .filter(Boolean);
-            if (!lines.length) return null;
-            return `Canvas context:\n${lines.join("\n")}`;
-          })();
-
-          const promptWithContext = promptContext ? `${trimmed}\n\n${promptContext}` : trimmed;
-
-          if (profile === "gemini-pro-3") {
-            updateAiUiJobLabel(uiJobId, "Thinking…");
-            const res = await chatAssistant.mutateAsync({ prompt: promptWithContext });
-            setMessages((prev) => [
-              ...prev,
-              { id: crypto.randomUUID(), role: "assistant", content: res.data.text },
-            ]);
-            return;
-          }
-
-          updateAiUiJobLabel(uiJobId, "Analyzing…");
-          const selectedCtx = selectedShapeId ? getSelectionContext(editor as any, selectedShapeId) : null;
-
-          const plan = await analyzeCanvasPrompt.mutateAsync({
-            prompt: trimmed,
-            context: promptContext ?? undefined,
-            selection: selectedCtx ? { type: selectedCtx.type, label: selectedCtx.label } : null,
-          });
-
-          if (plan.data.route === "ask_clarify") {
-            updateAiUiJobLabel(uiJobId, "Thinking…");
-            setMessages((prev) => [
-              ...prev,
-              { id: crypto.randomUUID(), role: "assistant", content: plan.data.question },
-            ]);
-            return;
-          }
-
-          if (plan.data.route === "generate_html") {
-            updateAiUiJobLabel(uiJobId, "Generating HTML…");
-            const prompt = promptContext ? `${plan.data.prompt}\n\n${promptContext}` : plan.data.prompt;
-            const res = await generateHtml.mutateAsync({ prompt });
-            const html = res.data.html;
-
-            let htmlCardMode: "created" | "updated" | "failed" = "failed";
-            let htmlCardShapeId: string | null = null;
-
-            try {
-              updateAiUiJobLabel(uiJobId, "Placing HTML on canvas…");
-              const point = options?.point ?? getAiInsertPoint(editor as any);
-              const existingShapeId =
-                selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
-
-              const result = await withAiCommit(() =>
-                withHistorySquash(editor as any, "ai:html", async () => {
-                  return upsertHtmlCard(editor as any, {
-                    html,
-                    point,
-                    existingShapeId: existingShapeId ?? undefined,
-                  });
-                }),
-              );
-
-              htmlCardMode = result.mode;
-              htmlCardShapeId = result.id;
-
-              try {
-                editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-              } catch {
-                // ignore
-              }
-            } catch {
-              htmlCardMode = "failed";
-              const copied = await copyTextToClipboard(html);
-              toast.error(
-                copied
-                  ? "Couldn’t add the HTML card. HTML copied to clipboard."
-                  : "Couldn’t add the HTML card to the canvas.",
-                { duration: 3500 },
-              );
-            }
-
-            if (htmlCardShapeId) {
-              updateAiUiJobLabel(uiJobId, "Rendering HTML preview…");
-              await ensureHtmlCardPreview(htmlCardShapeId, html);
-            }
-
-            const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
-              ? {
-                  id: crypto.randomUUID(),
-                  type: "html",
-                  label: `HTML_${String(outputCounterRef.current).padStart(4, "0")}`,
-                  shapeId: htmlCardShapeId,
-                }
-              : null;
-
-            if (htmlAttachment) {
-              outputCounterRef.current += 1;
-            }
-
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content:
-                  htmlCardMode === "updated"
-                    ? "Updated the HTML card on your canvas."
-                    : htmlCardMode === "created"
-                      ? "Added an HTML card to your canvas."
-                      : "Generated HTML, but couldn’t add it to the canvas.",
-                attachments: htmlAttachment ? [htmlAttachment] : undefined,
-              },
-            ]);
-            return;
-          }
-
-          const wantsEdit = plan.data.route === "edit_selected_image";
-          if (wantsEdit && selectedShape?.type === "image" && selectedShape?.props?.assetId) {
-            updateAiUiJobLabel(uiJobId, "Editing image…");
-            const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
-            const srcRaw =
-              (asset?.meta?.originalSrc as string | undefined) ??
-              (asset?.meta?.rawSrc as string | undefined) ??
-              (asset?.props?.src as string | undefined);
-            const src = srcRaw ? unwrapCanvasImageProxyUrl(srcRaw) : null;
-
-            if (!src) {
-              throw new Error("Selected image is missing a source URL.");
-            }
-
-            const wantsVariation = isImageVariationPrompt(trimmed);
-            if (wantsVariation) {
-              const userNotes = stripImageVariationPrompt(trimmed);
-              const instruction = userNotes
-                ? [
-                    "Create a refined variation of this image. Keep layout and composition consistent.",
-                    "Apply these user notes:",
-                    userNotes,
-                  ].join("\n")
-                : "Create a refined variation of this image. Keep layout and composition consistent.";
-
-              const res = await editImage.mutateAsync({
-                image: src,
-                instruction,
-                profile: apiProfile,
-              });
-
-              updateAiUiJobLabel(uiJobId, "Uploading image…");
-              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
-	              const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-	              const point = (() => {
-	                try {
-	                  const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-	                  if (bounds && typeof bounds === "object") {
-	                    return {
-	                      x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-	                      y: bounds.y + bounds.h * 0.5,
-	                    };
-	                  }
-	                } catch {
-	                  // ignore
-	                }
-	                return options?.point ?? getAiInsertPoint(editor as any);
-	              })();
-
-              updateAiUiJobLabel(uiJobId, "Placing on canvas…");
-              const inserted = await withAiCommit(() =>
-                withHistorySquash(editor as any, "ai:variation", async () => {
-                  const created = await insertImageToCanvas(editor as any, {
-                    src: canvasUrl,
-                    point,
-                    name: `pigcasso_variation_${Date.now()}.png`,
-                    size: {
-                      w: Number(asset?.props?.w) || 1024,
-                      h: Number(asset?.props?.h) || 1024,
-                    },
-                  });
-
-                  try {
-                    const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-                    if (createdAsset) {
-                      editor.updateAssets?.([
-                        {
-                          ...createdAsset,
-                          meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                        },
-                      ]);
-                    }
-                  } catch {
-                    // ignore
-                  }
-
-                  return created;
-                }),
-              );
-
-              const attachment: CanvasChatAttachment = {
-                id: crypto.randomUUID(),
-                type: "image",
-                label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-                shapeId: inserted.shapeId,
-                url: canvasUrl,
-              };
-              outputCounterRef.current += 1;
-
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: crypto.randomUUID(),
-                  role: "assistant",
-                  content: "Added a new variation (kept the original intact).",
-                  attachments: [attachment],
-                },
-              ]);
-              return;
-            }
-
-            const instruction =
-              plan.data.route === "edit_selected_image" ? plan.data.instruction : trimmed;
-
-            const res = await editImage.mutateAsync({
-              image: src,
-              instruction,
-              profile: apiProfile,
-            });
-
-            updateAiUiJobLabel(uiJobId, "Uploading image…");
-	          const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
-	            const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-	            const point = (() => {
-	              try {
-	                const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-	                if (bounds && typeof bounds === "object") {
-	                  return {
-	                    x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-	                    y: bounds.y + bounds.h * 0.5,
-	                  };
-	                }
-	              } catch {
-	                // ignore
-	              }
-	              return options?.point ?? getAiInsertPoint(editor as any);
-	            })();
-
-            updateAiUiJobLabel(uiJobId, "Placing on canvas…");
-	          const inserted = await withAiCommit(() =>
-	              withHistorySquash(editor as any, "ai:edit-image", async () => {
-	                const created = await insertImageToCanvas(editor as any, {
-	                  src: canvasUrl,
-	                  point,
-	                  name: `pigcasso_edit_${Date.now()}.png`,
-	                  size: {
-	                    w: Number(asset?.props?.w) || 1024,
-	                    h: Number(asset?.props?.h) || 1024,
-	                  },
-	                });
-
-	                try {
-	                  const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-	                  if (createdAsset) {
-	                    editor.updateAssets?.([
-	                      {
-	                        ...createdAsset,
-	                        meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-	                      },
-	                    ]);
-	                  }
-	                } catch {
-	                  // ignore
-	                }
-
-	                return created;
-	              }),
-	            );
-
-	            const editAttachment: CanvasChatAttachment = {
-	              id: crypto.randomUUID(),
-	              type: "image",
-	              label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-	              shapeId: inserted.shapeId,
-	              url: canvasUrl,
-	            };
-	            outputCounterRef.current += 1;
-
-	            setMessages((prev) => [
-	              ...prev,
-	              {
-	                id: crypto.randomUUID(),
-	                role: "assistant",
-	                content: "Added an edited version next to the original.",
-	                attachments: [editAttachment],
-	              },
-	            ]);
-	            return;
-	          }
-
-          updateAiUiJobLabel(uiJobId, "Generating image…");
-          const imagePrompt = promptContext
-            ? `${plan.data.route === "generate_image" ? plan.data.prompt : trimmed}\n\n${promptContext}`
-            : plan.data.route === "generate_image"
-              ? plan.data.prompt
-              : trimmed;
-
-          const generated = await generateImage.mutateAsync({
-            prompt: imagePrompt,
-            profile: apiProfile,
-            canvas: { width: 1024, height: 1024 },
-          });
-
-          updateAiUiJobLabel(uiJobId, "Uploading image…");
-          const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
-          const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-          const point = options?.point ?? getAiInsertPoint(editor as any);
-          updateAiUiJobLabel(uiJobId, "Placing on canvas…");
-          const inserted = await withAiCommit(() =>
-            withHistorySquash(editor as any, "ai:insert-image", async () => {
-              const created = await insertImageToCanvas(editor as any, {
-                src: canvasUrl,
-                point,
-                name: `pigcasso_${Date.now()}.png`,
-                size: { w: 1024, h: 1024 },
-              });
-              try {
-                const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-                if (createdAsset) {
-                  editor.updateAssets?.([
-                    {
-                      ...createdAsset,
-                      meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                    },
-                  ]);
-                }
-              } catch {
-                // ignore
-              }
-              return created;
-            }),
-          );
-
-          try {
-            editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-          } catch {
-            // ignore
-          }
-
-          const insertedShapeId = inserted.shapeId;
-          const insertAttachment: CanvasChatAttachment | null = insertedShapeId
-            ? {
-                id: crypto.randomUUID(),
-                type: "image",
-                label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-                shapeId: insertedShapeId,
-                url: canvasUrl,
-              }
-            : null;
-
-          if (insertAttachment) {
-            outputCounterRef.current += 1;
-          }
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: "Added a new image to your canvas.",
-              attachments: insertAttachment ? [insertAttachment] : undefined,
-            },
-          ]);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Something went wrong.";
-          toast.error(message, { duration: 3500 });
-          setMessages((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "assistant", content: message },
-          ]);
-        } finally {
-          finishAiUiJob(uiJobId);
-        }
-      });
-    },
-    [
-      aiProfile,
-      analyzeCanvasPrompt,
-      boardCrashMessage,
-      boardHydrated,
-      chatAssistant,
-      editImage,
-      editor,
-      ensureHtmlCardPreview,
-      finishAiUiJob,
-      generateHtml,
-      generateImage,
-      startAiUiJob,
-      updateAiUiJobLabel,
-      withAiCommit,
-    ],
-  );
+  const sendMessage = useCanvasSendMessage({
+    editor,
+    boardHydrated,
+    boardCrashMessage,
+    aiProfile,
+    aiJobQueueRef,
+    chatInputRef,
+    setChatInput,
+    setMessages,
+    outputCounterRef,
+    startAiUiJob,
+    updateAiUiJobLabel,
+    finishAiUiJob,
+    withAiCommit,
+    chatAssistant,
+    analyzeCanvasPrompt,
+    generateImage,
+    editImage,
+    generateHtml,
+    ensureHtmlCardPreview,
+  });
 
   const pinnedContexts = useMemo(() => {
     if (!editor) return [];
@@ -2050,6 +1027,26 @@ export default function CanvasScreen({ params }: PageProps) {
     return unwrapCanvasImageProxyUrl(src.trim());
   }, [selectedImageAsset]);
 
+  const { regenerateSelectedImage, removeBackgroundFromSelectedImage, makeSelectedImageTextEditable } =
+    useCanvasSelectedImageActions({
+      editor,
+      boardHydrated,
+      boardCrashMessage,
+      aiProfile,
+      aiJobQueueRef,
+      startAiUiJob,
+      finishAiUiJob,
+      withAiCommit,
+      selectedImageShape,
+      selectedImageAsset,
+      selectedImageAiSrc,
+      editImage,
+      removeBg,
+      extractText,
+      outputCounterRef,
+      setMessages,
+    });
+
   const selectedTextStyle = useMemo(() => {
     void selectedTextStyleKey;
     const props = (selectedTextShape as any)?.props ?? {};
@@ -2064,7 +1061,10 @@ export default function CanvasScreen({ params }: PageProps) {
     return { font, size, color, sizePx, fontFamily };
   }, [selectedTextShape, selectedTextStyleKey]);
 
+  const selectionToolbarSuppressed = downloadsOpen || exportNftOpen || htmlCodeDialogOpen;
+
   const resolvedSelectionToolbarAnchor = useMemo(() => {
+    if (selectionToolbarSuppressed) return null;
     if (!selectionToolbarAnchor) return null;
     if (selectedShapeIds.length !== 1) return null;
     if (selectionToolbarAnchor.shapeId !== selectedShapeIds[0]) return null;
@@ -2074,6 +1074,7 @@ export default function CanvasScreen({ params }: PageProps) {
     if (selectionToolbarAnchor.kind === "group" && !selectedGroupShape) return null;
     return selectionToolbarAnchor;
   }, [
+    selectionToolbarSuppressed,
     selectedGroupShape,
     selectedHtmlShape,
     selectedImageShape,
@@ -2192,46 +1193,6 @@ export default function CanvasScreen({ params }: PageProps) {
     [focusChatInput, selectionContext],
   );
 
-  const ensureCanvasReadyForAiAction = useCallback(() => {
-    if (!editor || !boardHydrated || boardCrashMessage) {
-      if (boardCrashMessage) {
-        toast.error("Board is unavailable. Reload to continue.", { duration: 3000 });
-        return false;
-      }
-      toast.message("Canvas is still loading. Try again in a moment.", { duration: 2500 });
-      return false;
-    }
-    return true;
-  }, [boardCrashMessage, boardHydrated, editor]);
-
-  const runAiAction = useCallback(
-    async (toastIdPrefix: string, label: string, fn: () => Promise<void>) => {
-      if (!ensureCanvasReadyForAiAction()) return;
-
-      const toastId = `${toastIdPrefix}:${crypto.randomUUID()}`;
-      toast.loading(label, { id: toastId, duration: Infinity });
-      const uiJobId = startAiUiJob(label);
-
-      try {
-        const queue = aiJobQueueRef.current;
-        if (!queue) return;
-        await queue.enqueue(async () => fn());
-        toast.success("Done.", { id: toastId, duration: 2000 });
-      } catch (error) {
-        const status = getApiErrorStatus(error);
-        const message = error instanceof Error ? error.message : "Something went wrong.";
-        if (status === 429 && message.toLowerCase().includes("daily limit")) {
-          toast.error("Daily AI limit reached. Try again tomorrow or unlock Pro.", { id: toastId, duration: 4000 });
-        } else {
-          toast.error(message || "Something went wrong.", { id: toastId, duration: 3500 });
-        }
-      } finally {
-        finishAiUiJob(uiJobId);
-      }
-    },
-    [ensureCanvasReadyForAiAction, finishAiUiJob, startAiUiJob],
-  );
-
   const downloadBlob = useCallback((blob: Blob, filename: string) => {
     if (typeof window === "undefined") return;
     const url = window.URL.createObjectURL(blob);
@@ -2286,7 +1247,7 @@ export default function CanvasScreen({ params }: PageProps) {
   }, [downloadBlob, selectedImageAsset]);
 
   const openExportNftForShapeId = useCallback(
-    (shapeId: string) => {
+    async (shapeId: string) => {
       if (!editor) {
         toast.error("Canvas is still loading. Try again in a moment.");
         return;
@@ -2325,26 +1286,50 @@ export default function CanvasScreen({ params }: PageProps) {
       const unwrapped = propsSrc ? unwrapCanvasImageProxyUrl(propsSrc) : "";
 
       const imageUrl = originalSrc || rawSrc || unwrapped || "";
-      if (!/^https:\/\//i.test(imageUrl)) {
+
+      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
+      const fallbackPreviewUrl = previewSrc || (imageUrl ? toCanvasImageUrl(imageUrl) : "");
+      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
+
+      const compositeUrl = await (async () => {
+        if (!boardHydrated) return null;
+        if (boardCrashMessage) return null;
+
+        try {
+          const dataUrl = await exportCurrentCanvasPageToPngDataUrl(editor as any, {
+            targetPx: 2048,
+            padding: 32,
+            pixelRatio: 2,
+          });
+
+          return await uploadImageDataUrl(
+            dataUrl,
+            `pigcasso_canvas_${params.canvasId}_${Date.now()}.png`,
+          );
+        } catch {
+          return null;
+        }
+      })();
+
+      const exportImageUrl = compositeUrl || imageUrl;
+      if (!/^https:\/\//i.test(exportImageUrl)) {
         toast.error("Selected image is missing a usable URL.");
         return;
       }
 
-      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
-      const previewUrl = previewSrc || toCanvasImageUrl(imageUrl);
-      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
+      const previewUrl = compositeUrl || fallbackPreviewUrl || exportImageUrl;
 
       setExportNftTarget({
         canvasId: params.canvasId,
         canvasName,
         shapeId,
-        imageUrl,
+        imageUrl: exportImageUrl,
         previewUrl,
         defaultName: rawName || contextLabel || canvasName,
       });
       setExportNftOpen(true);
     },
-    [canvasName, editor, params.canvasId],
+    [boardCrashMessage, boardHydrated, canvasName, editor, params.canvasId],
   );
 
   const selectedGroupMintImageShapeId = useMemo(() => {
@@ -2362,7 +1347,7 @@ export default function CanvasScreen({ params }: PageProps) {
       return;
     }
 
-    openExportNftForShapeId(shapeId);
+    void openExportNftForShapeId(shapeId);
   }, [openExportNftForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
 
   const viewSelectedHtmlCode = useCallback(() => {
@@ -2391,237 +1376,6 @@ export default function CanvasScreen({ params }: PageProps) {
     downloadBlob(blob, `pigcasso_html_${Date.now()}.html`);
   }, [downloadBlob, selectedHtmlShape]);
 
-  const readFileAsDataUrl = useCallback(async (file: File) => {
-    if (typeof FileReader === "undefined") {
-      throw new Error("FileReader is not available.");
-    }
-
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Failed to read file."));
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result === "string") {
-          resolve(result);
-        } else {
-          reject(new Error("File loaded without data."));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
-  const insertTextToBoard = useCallback(
-    async (
-      text: string,
-      options?: { font?: string; size?: string; source?: "paste" | "upload" },
-    ) => {
-      if (!editor || !boardHydrated || boardCrashMessage) return;
-
-      const trimmed = text.trimEnd();
-      if (!trimmed.trim()) return;
-
-      const limited = trimmed.length > MAX_INSERTED_TEXT_CHARS ? `${trimmed.slice(0, MAX_INSERTED_TEXT_CHARS)}\n…` : trimmed;
-      if (trimmed.length > MAX_INSERTED_TEXT_CHARS) {
-        toast.message("Pasted text was truncated to keep the canvas responsive.", { duration: 2500 });
-      }
-
-      const point = getAiInsertPoint(editor as any);
-      const width = 520;
-      const x = point.x - width / 2;
-      const y = point.y - 18;
-      const id = createShapeId();
-
-      const source = options?.source ?? "paste";
-      await withHistorySquash(editor as any, `insert:${source}:text`, async () => {
-        editor.createShape?.({
-          id,
-          type: "text",
-          x,
-          y,
-          props: {
-            color: "black",
-            size: options?.size ?? "m",
-            font: options?.font ?? "sans",
-            textAlign: "start",
-            w: width,
-            richText: toRichTextValue(limited),
-            scale: 1,
-            autoSize: false,
-          },
-        } as any);
-        editor.select?.(id as any);
-      });
-    },
-    [boardCrashMessage, boardHydrated, editor],
-  );
-
-  const insertImageFileToBoard = useCallback(
-    async (file: File, source: "paste" | "upload") => {
-      if (!editor || !boardHydrated || boardCrashMessage) return;
-
-      const dataUrl = await readFileAsDataUrl(file);
-      const uploadedUrl = await uploadImageDataUrl(
-        dataUrl,
-        file.name?.trim() || `pigcasso_${source}_${Date.now()}.png`,
-      );
-      const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-      const point = getAiInsertPoint(editor as any);
-
-      const created = await withHistorySquash(editor as any, `insert:${source}:image`, async () => {
-        const created = await insertImageToCanvas(editor as any, {
-          src: canvasUrl,
-          point,
-          name: file.name?.trim() || `IMG_${Date.now()}.png`,
-          mimeType: file.type || "image/png",
-          fileSize: Math.max(1, Math.floor(file.size || 1)),
-        });
-
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
-          }
-        } catch {
-          // ignore
-        }
-
-        return created;
-      });
-
-      try {
-        editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);
-      } catch {
-        // ignore
-      }
-
-	      return created;
-	    },
-	    [boardCrashMessage, boardHydrated, editor, readFileAsDataUrl],
-	  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!editor) return;
-    if (!boardHydrated) return;
-    if (boardCrashMessage) return;
-
-    const onPaste = (event: ClipboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (isEditableKeyboardTarget(event.target)) return;
-
-      const clipboard = event.clipboardData;
-      if (!clipboard) return;
-
-      const items = Array.from(clipboard.items ?? []);
-      const imageItem = items.find((item) => item.kind === "file" && item.type.startsWith("image/")) ?? null;
-      const imageFile = imageItem?.getAsFile?.() ?? Array.from(clipboard.files ?? []).find((file) => file.type.startsWith("image/")) ?? null;
-
-      if (imageFile) {
-        event.preventDefault();
-        void insertImageFileToBoard(imageFile, "paste");
-        return;
-      }
-
-      const text = clipboard.getData("text/plain") || "";
-      if (!text.trim()) return;
-
-      event.preventDefault();
-      const looksLikeCode = /<html|<!doctype|function\s|import\s|\{\s*\n/.test(text);
-      void insertTextToBoard(text, looksLikeCode ? { font: "mono", size: "s", source: "paste" } : { source: "paste" });
-    };
-
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [boardCrashMessage, boardHydrated, editor, insertImageFileToBoard, insertTextToBoard]);
-
-  const handleUploadFiles = useCallback(
-    async (files: File[]) => {
-      if (!editor || !boardHydrated || boardCrashMessage) {
-        toast.message("Canvas is still loading. Try again in a moment.", { duration: 2200 });
-        return;
-      }
-
-      for (const file of files) {
-        try {
-          if (file.type.startsWith("image/")) {
-            await insertImageFileToBoard(file, "upload");
-            continue;
-          }
-
-          const name = file.name?.trim() || "upload";
-          const lower = name.toLowerCase();
-          const ext = lower.includes(".") ? lower.split(".").pop() ?? "" : "";
-
-          const isHtml = file.type === "text/html" || ext === "html" || ext === "htm";
-          if (isHtml) {
-            const html = await file.text();
-            const point = getAiInsertPoint(editor as any);
-            await withHistorySquash(editor as any, "insert:upload:html", async () => {
-              upsertHtmlCard(editor as any, { html, point });
-            });
-            continue;
-          }
-
-          const isTextFile =
-            file.type.startsWith("text/") ||
-            [
-              "txt",
-              "md",
-              "json",
-              "js",
-              "jsx",
-              "ts",
-              "tsx",
-              "css",
-              "py",
-              "sol",
-              "yaml",
-              "yml",
-              "toml",
-            ].includes(ext);
-
-          if (isTextFile) {
-            const content = await file.text();
-            const prefix = name ? `${name}\n\n` : "";
-            const looksLikeCode = [
-              "json",
-              "js",
-              "jsx",
-              "ts",
-              "tsx",
-              "css",
-              "py",
-              "sol",
-              "yaml",
-              "yml",
-              "toml",
-              "md",
-            ].includes(ext);
-            await insertTextToBoard(`${prefix}${content}`, {
-              font: looksLikeCode ? "mono" : "sans",
-              size: looksLikeCode ? "s" : "m",
-              source: "upload",
-            });
-            continue;
-          }
-
-          toast.message(`Skipped ${name}: unsupported file type.`, { duration: 2500 });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : `Failed to upload ${file.name || "file"}.`;
-          toast.error(message, { duration: 3500 });
-        }
-      }
-    },
-    [boardCrashMessage, boardHydrated, editor, insertImageFileToBoard, insertTextToBoard],
-  );
-
   const ungroupSelectedShapes = useCallback(() => {
     if (!editor || !boardHydrated || boardCrashMessage) return;
     const selected = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
@@ -2645,499 +1399,6 @@ export default function CanvasScreen({ params }: PageProps) {
       toast.error("Couldn’t ungroup that selection.", { duration: 2500 });
     }
   }, [boardCrashMessage, boardHydrated, editor]);
-
-  const regenerateSelectedImage = useCallback(async () => {
-    const toastId = "pigcasso:canvas:regenerate";
-    const targetShape = selectedImageShape;
-    const targetAsset = selectedImageAsset;
-    const imageSrc = selectedImageAiSrc;
-    if (!editor || !targetShape || !targetAsset || !imageSrc) {
-      toast.error("Select an image to regenerate.");
-      return;
-    }
-
-    await runAiAction(toastId, "Generating a variation…", async () => {
-      const apiProfile = toNanoBananaApiProfile(aiProfile);
-      const instruction = "Create a refined variation of this image. Keep layout and composition consistent.";
-      const result = await editImage.mutateAsync({
-        image: imageSrc,
-        instruction,
-        profile: apiProfile,
-      });
-
-      const uploadedUrl = await uploadImageDataUrl(result.data, `pigcasso_variation_${Date.now()}.png`);
-      const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-      const point = (() => {
-        try {
-          const bounds = editor.getShapePageBounds?.(targetShape.id as any) as any;
-          if (bounds && typeof bounds === "object") {
-            return {
-              x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-              y: bounds.y + bounds.h * 0.5,
-            };
-          }
-        } catch {
-          // ignore
-        }
-        return getAiInsertPoint(editor as any);
-      })();
-
-      const inserted = await withAiCommit(() =>
-        withHistorySquash(editor as any, "ai:variation", async () => {
-          const created = await insertImageToCanvas(editor as any, {
-            src: canvasUrl,
-            point,
-            name: `pigcasso_variation_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
-            },
-          });
-
-          try {
-            const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-            if (createdAsset) {
-              editor.updateAssets?.([
-                {
-                  ...createdAsset,
-                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
-
-          return created;
-        }),
-      );
-
-	      const attachment: CanvasChatAttachment = {
-	        id: crypto.randomUUID(),
-	        type: "image",
-        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-        shapeId: inserted.shapeId,
-        url: canvasUrl,
-      };
-      outputCounterRef.current += 1;
-
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Regenerate a variation of the selected image." },
-        { id: crypto.randomUUID(), role: "assistant", content: "Added a new variation.", attachments: [attachment] },
-      ]);
-    });
-		  }, [aiProfile, editImage, editor, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
-
-  const removeBackgroundFromSelectedImage = useCallback(async () => {
-    const toastId = "pigcasso:canvas:remove-bg";
-    const targetShape = selectedImageShape;
-    const targetAsset = selectedImageAsset;
-    const imageSrc = selectedImageAiSrc;
-    if (!editor || !targetShape || !targetAsset || !imageSrc) {
-      toast.error("Select an image to remove its background.");
-      return;
-    }
-
-    await runAiAction(toastId, "Removing background…", async () => {
-      const result = await removeBg.mutateAsync({ image: imageSrc });
-      const uploadedUrl = await uploadImageDataUrl(result.data, `pigcasso_remove_bg_${Date.now()}.png`);
-      const canvasUrl = toCanvasImageUrl(uploadedUrl);
-
-      const point = (() => {
-        try {
-          const bounds = editor.getShapePageBounds?.(targetShape.id as any) as any;
-          if (bounds && typeof bounds === "object") {
-            return {
-              x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-              y: bounds.y + bounds.h * 0.5,
-            };
-          }
-        } catch {
-          // ignore
-        }
-        return getAiInsertPoint(editor as any);
-      })();
-
-      const inserted = await withAiCommit(() =>
-        withHistorySquash(editor as any, "ai:remove-bg", async () => {
-          const created = await insertImageToCanvas(editor as any, {
-            src: canvasUrl,
-            point,
-            name: `pigcasso_remove_bg_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
-            },
-          });
-
-          try {
-            const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-            if (createdAsset) {
-              editor.updateAssets?.([
-                {
-                  ...createdAsset,
-                  meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
-
-          return created;
-        }),
-      );
-
-	      const attachment: CanvasChatAttachment = {
-	        id: crypto.randomUUID(),
-	        type: "image",
-        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-        shapeId: inserted.shapeId,
-        url: canvasUrl,
-      };
-      outputCounterRef.current += 1;
-
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Remove background from the selected image." },
-        { id: crypto.randomUUID(), role: "assistant", content: "Added a cut-out version.", attachments: [attachment] },
-      ]);
-    });
-		  }, [editor, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
-
-  const makeSelectedImageTextEditable = useCallback(async () => {
-    const toastId = "pigcasso:canvas:separate-layers";
-    const targetShape = selectedImageShape;
-    const targetAsset = selectedImageAsset;
-    const imageSrc = selectedImageAiSrc;
-
-    if (!editor || !targetShape || !targetAsset || !imageSrc) {
-      toast.error("Select an image to separate its layers.");
-      return;
-    }
-
-    await runAiAction(toastId, "Separating layers…", async () => {
-      const bounds = (() => {
-        try {
-          return editor.getShapePageBounds?.(targetShape.id as any) as any;
-        } catch {
-          return null;
-        }
-      })();
-      if (!bounds || typeof bounds !== "object") {
-        throw new Error("Could not read image bounds.");
-      }
-
-      const point = {
-        x: bounds.x + bounds.w + Math.max(96, bounds.w * 0.25),
-        y: bounds.y + bounds.h * 0.5,
-      };
-
-      const apiProfile = toNanoBananaApiProfile(aiProfile);
-
-      toast.loading("Extracting text…", { id: toastId, duration: Infinity });
-      const blocks = await (async () => {
-        try {
-          const extraction = await extractText.mutateAsync({ image: imageSrc });
-          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
-        } catch {
-          const extraction = await extractText.mutateAsync({ image: imageSrc });
-          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
-        }
-      })();
-
-      toast.loading("Cutting out subject…", { id: toastId, duration: Infinity });
-      const cutout = await removeBg.mutateAsync({ image: imageSrc });
-      const cutoutUploadedUrl = await uploadImageDataUrl(cutout.data, `pigcasso_subject_${Date.now()}.png`);
-      const cutoutCanvasUrl = toCanvasImageUrl(cutoutUploadedUrl);
-
-      toast.loading("Generating background…", { id: toastId, duration: Infinity });
-      const background = await editImage.mutateAsync({
-        image: imageSrc,
-        instruction:
-          "Remove the main foreground subject(s) and remove all text/lettering from the image. Reconstruct a clean background that matches the original style and lighting.",
-        profile: apiProfile,
-      });
-      const backgroundUploadedUrl = await uploadImageDataUrl(background.data, `pigcasso_background_${Date.now()}.png`);
-      const backgroundCanvasUrl = toCanvasImageUrl(backgroundUploadedUrl);
-
-      const created = await withAiCommit(() =>
-        withHistorySquash(editor as any, "ai:separate-layers", async () => {
-          const backgroundInserted = await insertImageToCanvas(editor as any, {
-            src: backgroundCanvasUrl,
-            point,
-            name: `pigcasso_background_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
-            },
-          });
-
-          const cutoutInserted = await insertImageToCanvas(editor as any, {
-            src: cutoutCanvasUrl,
-            point,
-            name: `pigcasso_subject_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
-            },
-          });
-
-          try {
-            const bgAsset = editor.getAsset?.(backgroundInserted.assetId as any) as any;
-            if (bgAsset) {
-              editor.updateAssets?.([
-                {
-                  ...bgAsset,
-                  meta: { ...(bgAsset.meta ?? {}), originalSrc: backgroundUploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
-
-          try {
-            const subjectAsset = editor.getAsset?.(cutoutInserted.assetId as any) as any;
-            if (subjectAsset) {
-              editor.updateAssets?.([
-                {
-                  ...subjectAsset,
-                  meta: { ...(subjectAsset.meta ?? {}), originalSrc: cutoutUploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
-
-          const insertedBounds = (() => {
-            try {
-              return editor.getShapePageBounds?.(backgroundInserted.shapeId as any) as any;
-            } catch {
-              return null;
-            }
-          })();
-
-          const textBounds =
-            insertedBounds && typeof insertedBounds === "object"
-              ? insertedBounds
-              : { x: point.x - bounds.w / 2, y: point.y - bounds.h / 2, w: bounds.w, h: bounds.h };
-
-          const createdTextShapeIds: string[] = [];
-
-          const fitShapeBoundsToTarget = (shapeId: string, target: { x: number; y: number; w: number; h: number }) => {
-            const getShape = () => {
-              try {
-                return editor.getShape?.(shapeId as any) as any;
-              } catch {
-                return null;
-              }
-            };
-
-            const getBounds = () => {
-              try {
-                return editor.getShapePageBounds?.(shapeId as any) as any;
-              } catch {
-                return null;
-              }
-            };
-
-            const firstBounds = getBounds();
-            if (!firstBounds || typeof firstBounds !== "object" || !firstBounds.w || !firstBounds.h) return;
-
-            const currentShape = getShape();
-            const currentScaleRaw = currentShape?.props?.scale;
-            const currentScale =
-              typeof currentScaleRaw === "number" && Number.isFinite(currentScaleRaw) && currentScaleRaw > 0
-                ? currentScaleRaw
-                : 1;
-
-            const scaleX = target.w / firstBounds.w;
-            const scaleY = target.h / firstBounds.h;
-            const scaleFactor = Math.min(scaleX, scaleY);
-
-            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-              const nextScale = clampCanvasTextScale(currentScale * scaleFactor);
-              editor.updateShape?.({
-                id: shapeId as any,
-                type: "text",
-                props: { scale: nextScale },
-              } as any);
-            }
-
-            const nextBounds = getBounds();
-            if (!nextBounds || typeof nextBounds !== "object") return;
-            const nextShape = getShape();
-            if (!nextShape || typeof nextShape !== "object") return;
-
-            const dx = target.x - nextBounds.x;
-            const dy = target.y - nextBounds.y;
-            if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-
-            editor.updateShape?.({
-              id: shapeId as any,
-              type: "text",
-              x: Number(nextShape.x ?? 0) + dx,
-              y: Number(nextShape.y ?? 0) + dy,
-            } as any);
-          };
-
-          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
-            const box = block.box;
-            if (!box) return;
-
-            const w = Math.max(40, Math.round(box.w * textBounds.w));
-            const h = Math.max(12, Math.round(box.h * textBounds.h));
-            const x = textBounds.x + box.x * textBounds.w;
-            const y = textBounds.y + box.y * textBounds.h;
-
-            const id = createShapeId();
-            createdTextShapeIds.push(id);
-
-            const { size, scale } = pickCanvasTextSizeAndScaleFromPx(h);
-            const font = block.font ?? "sans";
-            const color = block.color ?? "black";
-            const textAlign = block.align ?? "start";
-            const angleDegrees = typeof block.angle === "number" ? block.angle : 0;
-            const rotation = (angleDegrees * Math.PI) / 180;
-
-            editor.createShape?.({
-              id,
-              type: "text",
-              x,
-              y,
-              rotation,
-              props: {
-                color,
-                size,
-                font,
-                textAlign,
-                w,
-                richText: toRichTextValue(block.text),
-                scale,
-                autoSize: false,
-              },
-            } as any);
-
-            fitShapeBoundsToTarget(id, { x, y, w, h });
-          });
-
-          try {
-            const ids = [backgroundInserted.shapeId, cutoutInserted.shapeId, ...createdTextShapeIds].filter(Boolean);
-            if (ids.length > 1) {
-              editor.groupShapes?.(ids as any);
-            }
-          } catch {
-            // ignore
-          }
-
-          return { insertedShapeId: backgroundInserted.shapeId, url: backgroundCanvasUrl };
-        }),
-      );
-
-      const attachment: CanvasChatAttachment = {
-        id: crypto.randomUUID(),
-        type: "image",
-        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-        shapeId: created.insertedShapeId,
-        url: created.url,
-      };
-      outputCounterRef.current += 1;
-
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: blocks.length
-            ? "Added background, subject, and editable text layers next to the original."
-            : "Added background and subject layers next to the original.",
-          attachments: [attachment],
-        },
-      ]);
-    });
-  }, [aiProfile, editImage, editor, extractText, removeBg, runAiAction, selectedImageAiSrc, selectedImageAsset, selectedImageShape, withAiCommit]);
-
-  const activeAtMention = useMemo(() => {
-    const el = mentionFocusElRef.current;
-    const cursor =
-      typeof el?.selectionStart === "number"
-        ? el.selectionStart
-        : chatCursorIndexRef.current ?? chatInput.length;
-    return getActiveAtMentionAtCursor(chatInput, cursor);
-  }, [chatInput]);
-
-  const openMentionPicker = useCallback((el?: HTMLTextAreaElement | null) => {
-    if (typeof window === "undefined") return;
-    const anchor = el ?? mentionFocusElRef.current ?? null;
-    if (!anchor) return;
-
-    mentionFocusElRef.current = anchor;
-    mentionCursorIndexRef.current = typeof anchor.selectionStart === "number" ? anchor.selectionStart : null;
-    const rect = anchor.getBoundingClientRect();
-
-    const popoverWidth = 320;
-    const popoverHeight = 260;
-    const padding = 12;
-    const offset = 8;
-
-    const rawX = rect.left;
-    const rawY = rect.top - popoverHeight - offset;
-
-    const maxX = window.innerWidth - popoverWidth - padding;
-    const maxY = window.innerHeight - popoverHeight - padding;
-
-    const screenX = Math.max(padding, Math.min(rawX, maxX));
-    const screenY = Math.max(padding, Math.min(rawY, maxY));
-
-    setMentionPicker({ screenX, screenY });
-  }, []);
-
-  const closeMentionPicker = useCallback(() => {
-    setMentionPicker(null);
-    mentionCursorIndexRef.current = null;
-    try {
-      mentionFocusElRef.current?.focus();
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const mentionableShapes = useMemo(() => {
-    if (!editor) return [];
-    if (!mentionPicker) return [];
-    const shapes = editor.getCurrentPageShapes?.() ?? [];
-    return shapes
-      .map((shape: any) => {
-        const shapeId = String(shape?.id ?? "");
-        if (!shapeId) return null;
-        const ctx = getSelectionContext(editor as any, shapeId);
-        const label = ctx?.label ?? String(shape?.type ?? "shape");
-        return { shapeId, label, type: ctx?.type ?? String(shape?.type ?? "shape") };
-      })
-      .filter(Boolean) as Array<{ shapeId: string; label: string; type: string }>;
-  }, [editor, mentionPicker]);
-
-  const filteredMentionShapes = useMemo(() => {
-    if (!mentionPicker) return [];
-    const query = activeAtMention?.query?.trim().toLowerCase() ?? "";
-    if (!query) return mentionableShapes.slice(0, 12);
-    return mentionableShapes
-      .filter((item) => item.label.toLowerCase().includes(query) || item.type.toLowerCase().includes(query))
-      .slice(0, 12);
-  }, [activeAtMention?.query, mentionPicker, mentionableShapes]);
-
-  useEffect(() => {
-    if (!mentionPicker) return;
-    if (!activeAtMention) {
-      closeMentionPicker();
-      return;
-    }
-  }, [activeAtMention, closeMentionPicker, mentionPicker]);
 
   const focusShapeId = useCallback(
     (shapeId: string) => {
@@ -3232,7 +1493,7 @@ export default function CanvasScreen({ params }: PageProps) {
                 </span>
               </div>
 
-              {typeof document === "undefined"
+              {typeof document === "undefined" || selectionToolbarSuppressed
                 ? null
                 : createPortal(
                     <CanvasSelectionToolbar
@@ -3562,34 +1823,7 @@ export default function CanvasScreen({ params }: PageProps) {
                 query={activeAtMention?.query}
                 items={filteredMentionShapes}
                 onClose={closeMentionPicker}
-                onPick={(item) => {
-                  setPinnedShapeIds((current) =>
-                    current.includes(item.shapeId) ? current : [...current, item.shapeId],
-                  );
-                  const el = mentionFocusElRef.current;
-                  const cursor =
-                    typeof el?.selectionStart === "number"
-                      ? el.selectionStart
-                      : mentionCursorIndexRef.current ?? chatCursorIndexRef.current ?? chatInputRef.current.length;
-
-                  const replaced = applyAtMentionReplacementAtCursor(chatInputRef.current, item.label, cursor);
-                  chatInputRef.current = replaced.value;
-                  setChatInput(replaced.value);
-                  chatCursorIndexRef.current = replaced.cursorIndex;
-                  closeMentionPicker();
-
-                  if (typeof window !== "undefined") {
-                    window.requestAnimationFrame(() => {
-                      try {
-                        const target = mentionFocusElRef.current;
-                        target?.focus();
-                        target?.setSelectionRange(replaced.cursorIndex, replaced.cursorIndex);
-                      } catch {
-                        // ignore
-                      }
-                    });
-                  }
-                }}
+                onPick={pickMention}
               />
 
             <CanvasMobileDock
@@ -3737,70 +1971,8 @@ export default function CanvasScreen({ params }: PageProps) {
             mentionPickerOpen={Boolean(mentionPicker)}
             onCloseMentionPicker={closeMentionPicker}
             onOpenMentionPicker={(input) => openMentionPicker(input)}
-            onDesktopMentionButtonClick={() => {
-              const input = desktopChatInputElRef.current;
-              if (!input) return;
-              mentionFocusElRef.current = input;
-              input.focus();
-              const cursor = typeof input.selectionStart === "number" ? input.selectionStart : chatInputRef.current.length;
-              const active = getActiveAtMentionAtCursor(chatInputRef.current, cursor);
-              if (!active) {
-                const before = chatInputRef.current.slice(0, cursor);
-                const after = chatInputRef.current.slice(cursor);
-                const needsSpace = before.trim().length > 0 && !/\s$/.test(before);
-                const insertion = `${needsSpace ? " " : ""}@`;
-                const next = `${before}${insertion}${after}`;
-                const nextCursor = before.length + insertion.length;
-                chatInputRef.current = next;
-                setChatInput(next);
-                chatCursorIndexRef.current = nextCursor;
-                if (typeof window !== "undefined") {
-                  window.requestAnimationFrame(() => {
-                    try {
-                      input.focus();
-                      input.setSelectionRange(nextCursor, nextCursor);
-                    } catch {
-                      // ignore
-                    }
-                  });
-                }
-              } else {
-                chatCursorIndexRef.current = cursor;
-              }
-              openMentionPicker(input);
-            }}
-            onMobileMentionButtonClick={() => {
-              const input = mobileChatInputElRef.current;
-              if (!input) return;
-              mentionFocusElRef.current = input;
-              input.focus();
-              const cursor = typeof input.selectionStart === "number" ? input.selectionStart : chatInputRef.current.length;
-              const active = getActiveAtMentionAtCursor(chatInputRef.current, cursor);
-              if (!active) {
-                const before = chatInputRef.current.slice(0, cursor);
-                const after = chatInputRef.current.slice(cursor);
-                const needsSpace = before.trim().length > 0 && !/\s$/.test(before);
-                const insertion = `${needsSpace ? " " : ""}@`;
-                const next = `${before}${insertion}${after}`;
-                const nextCursor = before.length + insertion.length;
-                chatInputRef.current = next;
-                setChatInput(next);
-                chatCursorIndexRef.current = nextCursor;
-                if (typeof window !== "undefined") {
-                  window.requestAnimationFrame(() => {
-                    try {
-                      input.focus();
-                      input.setSelectionRange(nextCursor, nextCursor);
-                    } catch {
-                      // ignore
-                    }
-                  });
-                }
-              } else {
-                chatCursorIndexRef.current = cursor;
-              }
-              openMentionPicker(input);
-            }}
+            onDesktopMentionButtonClick={onDesktopMentionButtonClick}
+            onMobileMentionButtonClick={onMobileMentionButtonClick}
           />
         </div>
       </main>
