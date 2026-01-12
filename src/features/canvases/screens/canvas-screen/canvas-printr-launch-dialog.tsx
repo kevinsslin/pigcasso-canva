@@ -15,7 +15,7 @@ import {
   getPayloadEip155ChainId,
   isPrintrEvmPayload,
 } from "@/features/printr/lib/payload";
-import { getPrintrEvmChainOption } from "@/features/printr/supported-chains";
+import { PRINTR_EVM_CHAIN_OPTIONS, getPrintrEvmChainOption } from "@/features/printr/supported-chains";
 import { readApiResponse } from "@/lib/api-response";
 import { client } from "@/lib/hono";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export type CanvasPrintrLaunchTarget = {
@@ -99,6 +100,7 @@ export const CanvasPrintrLaunchDialog = ({
   const [symbol, setSymbol] = useState("");
   const [description, setDescription] = useState("");
   const [supplyPercent, setSupplyPercent] = useState("0");
+  const [chainCaip2, setChainCaip2] = useState<string>(MANTLE_CAIP2);
   const [tokenResult, setTokenResult] = useState<PrintrPrintResponse | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -137,6 +139,7 @@ export const CanvasPrintrLaunchDialog = ({
     setSymbol(deriveSymbol(baseName));
     setDescription("Launched from Pigcasso Canvas.");
     setSupplyPercent("0");
+    setChainCaip2(MANTLE_CAIP2);
     setTokenResult(null);
     setTxHash(null);
   }, [open, target?.canvasName, target?.defaultName]);
@@ -147,8 +150,9 @@ export const CanvasPrintrLaunchDialog = ({
   });
 
   const canLaunch = Boolean(printrConfigured) && Boolean(isPro);
-  const homeDeployment = deployments.data?.deployments?.find((deployment) => deployment.chain_id === MANTLE_CAIP2) ?? null;
-  const homeExplorer = getPrintrEvmChainOption(MANTLE_CAIP2)?.explorerBaseUrl ?? null;
+  const selectedChain = chainCaip2 || MANTLE_CAIP2;
+  const chainDeployment = deployments.data?.deployments?.find((deployment) => deployment.chain_id === selectedChain) ?? null;
+  const chainExplorer = getPrintrEvmChainOption(selectedChain)?.explorerBaseUrl ?? null;
 
   const handleCreateToken = async () => {
     if (!target) return;
@@ -190,12 +194,12 @@ export const CanvasPrintrLaunchDialog = ({
     try {
       const response = await client.api.printr.print.$post({
         json: {
-          creator_accounts: [`${MANTLE_CAIP2}:${preferredWallet.address.toLowerCase()}`],
+          creator_accounts: [`${selectedChain}:${preferredWallet.address.toLowerCase()}`],
           name: trimmedName,
           symbol: trimmedSymbol,
           description: trimmedDescription,
           image: base64Image,
-          chains: [MANTLE_CAIP2],
+          chains: [selectedChain],
           initial_buy: { supply_percent: supplyPercentNum },
           graduation_threshold_per_chain_usd: 69000,
         },
@@ -262,7 +266,7 @@ export const CanvasPrintrLaunchDialog = ({
       const tx = buildEvmTransactionFromPrintrPayload(tokenResult.payload);
       const hash = await walletClient.sendTransaction({ ...tx, chain: null });
       setTxHash(hash);
-      const explorerBase = (homeExplorer ?? "").replace(/\/$/, "");
+      const explorerBase = (chainExplorer ?? "").replace(/\/$/, "");
       const txUrl = explorerBase ? `${explorerBase}/tx/${encodeURIComponent(hash)}` : null;
       const printrUrl = buildPrintrTokenUrl(tokenResult.token_id);
       toast.success("Transaction submitted.", {
@@ -336,6 +340,34 @@ export const CanvasPrintrLaunchDialog = ({
 
             <div className="md:col-span-3 space-y-4">
               <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Chain</Label>
+                  <span className="text-[11px] text-muted-foreground font-mono">{selectedChain}</span>
+                </div>
+                <select
+                  className={cn("w-full h-10 rounded-md border bg-background px-3 text-sm", !canLaunch && "opacity-60")}
+                  value={selectedChain}
+                  onChange={(e) => setChainCaip2(e.target.value)}
+                  disabled={!canLaunch || busy || Boolean(tokenResult)}
+                >
+                  {PRINTR_EVM_CHAIN_OPTIONS.map((option) => (
+                    <option key={option.caip2} value={option.caip2}>
+                      {option.label} ({option.caip2})
+                    </option>
+                  ))}
+                </select>
+                {tokenResult ? (
+                  <div className="text-xs text-muted-foreground">
+                    Chain is locked after token creation.
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Choose the chain where this token will be deployed.
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <div className="text-sm font-medium">Name</div>
                 <Input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
               </div>
@@ -371,7 +403,7 @@ export const CanvasPrintrLaunchDialog = ({
               <div className="rounded-xl border bg-muted/30 p-4">
                 <div className="text-sm font-medium">Chain</div>
                 <div className="mt-2 text-sm text-muted-foreground">
-                  {getPrintrEvmChainOption(MANTLE_CAIP2)?.label ?? "Mantle"} ({MANTLE_CAIP2})
+                  {getPrintrEvmChainOption(selectedChain)?.label ?? selectedChain} ({selectedChain})
                 </div>
               </div>
 
@@ -395,10 +427,10 @@ export const CanvasPrintrLaunchDialog = ({
                   {txHash ? (
                     <div className="mt-2 text-xs text-muted-foreground">
                       Submitted: <span className="font-mono">{shortHash(txHash)}</span>
-                      {homeExplorer ? (
+                      {chainExplorer ? (
                         <a
                           className="ml-2 inline-flex items-center text-primary hover:underline"
-                          href={`${homeExplorer.replace(/\/$/, "")}/tx/${encodeURIComponent(txHash)}`}
+                          href={`${chainExplorer.replace(/\/$/, "")}/tx/${encodeURIComponent(txHash)}`}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -414,22 +446,24 @@ export const CanvasPrintrLaunchDialog = ({
                     </div>
                   ) : null}
 
-                  {homeDeployment ? (
+                  {chainDeployment ? (
                     <div
                       className={cn(
                         "mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
-                        homeDeployment.status === "live" ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background",
+                        chainDeployment.status === "live" ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background",
                       )}
                     >
-                      {homeDeployment.status === "live" ? (
+                      {chainDeployment.status === "live" ? (
                         <CheckCircle2 className="size-4 text-emerald-600" />
-                      ) : homeDeployment.status === "failed" ? (
+                      ) : chainDeployment.status === "failed" ? (
                         <AlertTriangle className="size-4 text-red-500" />
                       ) : (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
                       )}
-                      <span className="font-medium">Mantle:</span>
-                      <span className="text-muted-foreground">{homeDeployment.status}</span>
+                      <span className="font-medium">
+                        {getPrintrEvmChainOption(selectedChain)?.label ?? "Chain"}:
+                      </span>
+                      <span className="text-muted-foreground">{chainDeployment.status}</span>
                     </div>
                   ) : null}
                 </div>
