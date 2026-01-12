@@ -8,13 +8,14 @@ import type { Editor as TldrawEditor } from "tldraw";
 import { toNanoBananaApiProfile, type NanoBananaProfileOption } from "@/features/ai/lib/nano-banana-profile";
 import type { ExtractTextBlock } from "@/features/ai/api/use-extract-text";
 import type { AiJobQueue } from "@/features/canvases/lib/ai-job-queue";
+import { filterProminentTextBlocks } from "@/features/canvases/lib/extract-text-blocks";
 import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import {
   clampCanvasTextScale,
   pickCanvasTextSizeAndScaleFromPx,
   toRichTextValue,
 } from "@/features/canvases/lib/text-style";
-import { ensureTransparentPngDataUrl } from "@/features/canvases/lib/transparent-png";
+import { ensureTransparentPngDataUrl, getOpaquePixelRatioFromDataUrl } from "@/features/canvases/lib/transparent-png";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
@@ -311,25 +312,45 @@ export const useCanvasSelectedImageActions = ({
     withAiCommit,
   ]);
 
-  const makeSelectedImageTextEditable = useCallback(async () => {
-    const toastId = "pigcasso:canvas:separate-layers";
-    const targetShape = selectedImageShape;
-    const targetAsset = selectedImageAsset;
-    const imageSrc = selectedImageAiSrc;
+	  const makeSelectedImageTextEditable = useCallback(async () => {
+	    const toastId = "pigcasso:canvas:separate-layers";
+	    const targetShape = selectedImageShape;
+	    const targetAsset = selectedImageAsset;
+	    const imageSrc = selectedImageAiSrc;
 
     if (!editor || !targetShape || !targetAsset || !imageSrc) {
       toast.error("Select an image to separate its layers.");
       return;
-    }
+	    }
+	
+	    await runAiAction(toastId, "Separating layers…", async ({ setLabel }) => {
+	      const pushAssistantMessage = (content: string, attachments?: CanvasChatAttachment[]) => {
+	        setMessages((prev) => [
+	          ...prev,
+	          {
+	            id: crypto.randomUUID(),
+	            role: "assistant",
+	            content,
+	            attachments,
+	          },
+	        ]);
+	      };
 
-    await runAiAction(toastId, "Separating layers…", async ({ setLabel }) => {
-      const bounds = (() => {
-        try {
-          return editor.getShapePageBounds?.(targetShape.id as any) as any;
-        } catch {
-          return null;
-        }
-      })();
+	      let stepIndex = 1;
+	      const totalSteps = 5;
+	      const pushStepDone = (title: string, detail?: string) => {
+	        const header = `Step ${stepIndex}/${totalSteps} ✅ ${title}`;
+	        stepIndex += 1;
+	        pushAssistantMessage(detail ? `${header}\n${detail}` : header);
+	      };
+
+	      const bounds = (() => {
+	        try {
+	          return editor.getShapePageBounds?.(targetShape.id as any) as any;
+	        } catch {
+	          return null;
+	        }
+	      })();
       if (!bounds || typeof bounds !== "object") {
         throw new Error("Could not read image bounds.");
       }
@@ -337,117 +358,204 @@ export const useCanvasSelectedImageActions = ({
       const point = {
         x: bounds.x + bounds.w + Math.max(96, bounds.w * 0.25),
         y: bounds.y + bounds.h * 0.5,
-      };
+	      };
+	
+	      const apiProfile = toNanoBananaApiProfile(aiProfile);
 
-      const apiProfile = toNanoBananaApiProfile(aiProfile);
+	      setMessages((prev) => [
+	        ...prev,
+	        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
+	        {
+	          id: crypto.randomUUID(),
+	          role: "assistant",
+	          content:
+	            "I’ll separate this into background, subject, and editable text (only big/prominent text). I’ll post each step as it completes.",
+	        },
+	      ]);
 
-      setLabel("Analyzing text & layout…");
-      const blocks = await (async () => {
-        try {
-          const extraction = await extractText.mutateAsync({ image: imageSrc });
-          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
-        } catch {
-          const extraction = await extractText.mutateAsync({ image: imageSrc });
-          return (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
-        }
-      })();
+	      const imageWidth = Math.max(1, Math.floor(Number(targetAsset?.props?.w) || 1024));
+	      const imageHeight = Math.max(1, Math.floor(Number(targetAsset?.props?.h) || 1024));
 
-      const hasText = blocks.length > 0;
-      const planLines = [
-        "Plan (Separate layers):",
-        "- Identify text blocks (OCR + style)",
-        hasText ? "- Remove text from the base image" : "- Skip text removal (no text detected)",
-        "- Cut out the main subject (transparent PNG)",
-        "- Generate a clean background (no subject, no text)",
-        "- Recreate editable text layers + group everything",
-      ];
+	      setLabel("Analyzing text & layout…");
+	      let rawBlocks: ExtractTextBlock[] = [];
+	      let extractionError: string | null = null;
+	      try {
+	        const extraction = await extractText.mutateAsync({ image: imageSrc });
+	        rawBlocks = (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
+	      } catch (error) {
+	        extractionError = error instanceof Error ? error.message : "Failed to extract text.";
+	        rawBlocks = [];
+	      }
 
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
-        { id: crypto.randomUUID(), role: "assistant", content: planLines.join("\n") },
-      ]);
+	      const blocks = filterProminentTextBlocks(rawBlocks, {
+	        imageWidth,
+	        imageHeight,
+	        minHeightPx: 20,
+	        maxBlocks: 16,
+	      });
 
-      let baseImage = imageSrc;
-      if (hasText) {
-        setLabel("Removing text from the image…");
-        const noText = await editImage.mutateAsync({
-          image: imageSrc,
-          instruction:
-            "Remove all text, lettering, logos, and watermarks from the image. Keep the subject, background, colors, and lighting unchanged. Return an OPAQUE image (no transparency).",
-          profile: apiProfile,
-        });
-        baseImage = noText.data;
-      }
+	      const ignoredCount = Math.max(0, rawBlocks.length - blocks.length);
+	      pushStepDone(
+	        "Analyze text & layout",
+	        extractionError
+	          ? `Text detection failed; continuing without editable text.\n${extractionError}`
+	          : `Found ${rawBlocks.length} text blocks; keeping ${blocks.length} prominent ones (${ignoredCount} ignored as too small).`,
+	      );
 
-      setLabel("Cutting out the subject…");
-      const cutout = await removeBg.mutateAsync({ image: baseImage });
-      setLabel("Ensuring true transparency…");
-      const normalizedCutout = await ensureTransparentPngDataUrl(cutout.data);
-      const cutoutUploadedUrl = await uploadImageDataUrl(normalizedCutout.dataUrl, `pigcasso_subject_${Date.now()}.png`);
-      const cutoutCanvasUrl = toCanvasImageUrl(cutoutUploadedUrl);
+	      const hasText = blocks.length > 0;
 
-      setLabel("Generating a clean background…");
-      const background = await editImage.mutateAsync({
-        image: baseImage,
-        instruction:
-          "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting. Do NOT include any text or logos. Return an OPAQUE image (no transparency).",
-        profile: apiProfile,
-        referenceImages: [normalizedCutout.dataUrl],
-      });
-      const backgroundUploadedUrl = await uploadImageDataUrl(background.data, `pigcasso_background_${Date.now()}.png`);
-      const backgroundCanvasUrl = toCanvasImageUrl(backgroundUploadedUrl);
+	      setLabel("Cutting out the subject…");
+	      const MIN_SUBJECT_OPAQUE_RATIO = 0.0008;
+	      const cutoutResult = await (async () => {
+	        try {
+	          return await removeBg.mutateAsync({ image: imageSrc });
+	        } catch (error) {
+	          return { data: null as any, error };
+	        }
+	      })();
 
-      const created = await withAiCommit(() =>
-        withHistorySquash(editor as any, "ai:separate-layers", async () => {
-          setLabel("Placing layers on the canvas…");
-          const backgroundInserted = await insertImageToCanvas(editor as any, {
-            src: backgroundCanvasUrl,
-            point,
-            name: `pigcasso_background_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
+	      let subjectSrcForCanvas = toCanvasImageUrl(imageSrc);
+	      let subjectOriginalSrc: string | null = imageSrc;
+	      let subjectWasFallback = true;
+	      let normalizedCutoutDataUrl: string | null = null;
+
+	      if (typeof cutoutResult?.data === "string" && cutoutResult.data.startsWith("data:")) {
+	        setLabel("Ensuring true transparency…");
+	        const normalizedCutout = await ensureTransparentPngDataUrl(cutoutResult.data);
+	        const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalizedCutout.dataUrl).catch(() => null);
+
+	        if (opaqueRatio !== null && opaqueRatio < MIN_SUBJECT_OPAQUE_RATIO) {
+	          subjectWasFallback = true;
+	        } else {
+	          normalizedCutoutDataUrl = normalizedCutout.dataUrl;
+	          try {
+	            const uploaded = await uploadImageDataUrl(normalizedCutout.dataUrl, `pigcasso_subject_${Date.now()}.png`);
+	            subjectOriginalSrc = uploaded;
+	            subjectSrcForCanvas = toCanvasImageUrl(uploaded);
+	          } catch {
+	            subjectOriginalSrc = normalizedCutout.dataUrl;
+	            subjectSrcForCanvas = normalizedCutout.dataUrl;
+	          }
+	          subjectWasFallback = false;
+	        }
+	      }
+
+	      pushStepDone(
+	        "Cut out subject",
+	        subjectWasFallback
+	          ? "Subject cutout failed or looked empty; using the original image as the subject layer (fallback)."
+	          : "Subject cutout ready (transparent PNG).",
+	      );
+
+	      let baseForBackground = imageSrc;
+	      if (hasText) {
+	        setLabel("Removing prominent text…");
+	        try {
+	          const noText = await editImage.mutateAsync({
+	            image: imageSrc,
+	            instruction:
+	              "Remove all prominent text (titles, headings, big lettering). Ignore tiny decorative text. Keep the scene intact. Return an OPAQUE image (no transparency).",
+	            profile: apiProfile,
+	          });
+	          baseForBackground = noText.data;
+	          pushStepDone("Remove prominent text", "Removed prominent text to avoid duplicates.");
+	        } catch (error) {
+	          const message = error instanceof Error ? error.message : "Failed to remove text.";
+	          baseForBackground = imageSrc;
+	          pushStepDone("Remove prominent text", `Text removal failed; continuing with the original image.\n${message}`);
+	        }
+	      } else {
+	        pushStepDone("Remove prominent text", "Skipped (no prominent text detected).");
+	      }
+
+	      setLabel("Generating a clean background…");
+	      let backgroundDataUrl: string | null = null;
+	      try {
+	        const background = await editImage.mutateAsync({
+	          image: baseForBackground,
+	          instruction:
+	            "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting. Also remove any prominent text. Return an OPAQUE image (no transparency).",
+	          profile: apiProfile,
+	          referenceImages: normalizedCutoutDataUrl ? [normalizedCutoutDataUrl] : undefined,
+	        });
+	        backgroundDataUrl = typeof background.data === "string" ? background.data : null;
+	      } catch (error) {
+	        backgroundDataUrl = null;
+	      }
+
+	      let backgroundSrcForCanvas = toCanvasImageUrl(baseForBackground);
+	      let backgroundOriginalSrc: string | null = baseForBackground;
+	      let backgroundWasFallback = true;
+
+	      if (typeof backgroundDataUrl === "string" && backgroundDataUrl.startsWith("data:")) {
+	        try {
+	          const uploaded = await uploadImageDataUrl(backgroundDataUrl, `pigcasso_background_${Date.now()}.png`);
+	          backgroundOriginalSrc = uploaded;
+	          backgroundSrcForCanvas = toCanvasImageUrl(uploaded);
+	        } catch {
+	          backgroundOriginalSrc = backgroundDataUrl;
+	          backgroundSrcForCanvas = backgroundDataUrl;
+	        }
+	        backgroundWasFallback = false;
+	      }
+
+	      pushStepDone(
+	        "Generate clean background",
+	        backgroundWasFallback
+	          ? "Background generation failed; using the base image as the background (fallback)."
+	          : "Background ready (subject removed).",
+	      );
+	
+	      const created = await withAiCommit(() =>
+	        withHistorySquash(editor as any, "ai:separate-layers", async () => {
+	          setLabel("Placing layers on the canvas…");
+	          const backgroundInserted = await insertImageToCanvas(editor as any, {
+	            src: backgroundSrcForCanvas,
+	            point,
+	            name: `pigcasso_background_${Date.now()}.png`,
+	            size: {
+	              w: Number(targetAsset?.props?.w) || 1024,
+	              h: Number(targetAsset?.props?.h) || 1024,
+	            },
+	          });
+	
+	          const cutoutInserted = await insertImageToCanvas(editor as any, {
+	            src: subjectSrcForCanvas,
+	            point,
+	            name: `pigcasso_subject_${Date.now()}.png`,
+	            size: {
+	              w: Number(targetAsset?.props?.w) || 1024,
+	              h: Number(targetAsset?.props?.h) || 1024,
             },
           });
 
-          const cutoutInserted = await insertImageToCanvas(editor as any, {
-            src: cutoutCanvasUrl,
-            point,
-            name: `pigcasso_subject_${Date.now()}.png`,
-            size: {
-              w: Number(targetAsset?.props?.w) || 1024,
-              h: Number(targetAsset?.props?.h) || 1024,
-            },
-          });
+	          try {
+	            const bgAsset = editor.getAsset?.(backgroundInserted.assetId as any) as any;
+	            if (bgAsset) {
+	              editor.updateAssets?.([
+	                {
+	                  ...bgAsset,
+	                  meta: { ...(bgAsset.meta ?? {}), originalSrc: backgroundOriginalSrc },
+	                },
+	              ]);
+	            }
+	          } catch {
+	            // ignore
+	          }
 
-          try {
-            const bgAsset = editor.getAsset?.(backgroundInserted.assetId as any) as any;
-            if (bgAsset) {
-              editor.updateAssets?.([
-                {
-                  ...bgAsset,
-                  meta: { ...(bgAsset.meta ?? {}), originalSrc: backgroundUploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
-
-          try {
-            const subjectAsset = editor.getAsset?.(cutoutInserted.assetId as any) as any;
-            if (subjectAsset) {
-              editor.updateAssets?.([
-                {
-                  ...subjectAsset,
-                  meta: { ...(subjectAsset.meta ?? {}), originalSrc: cutoutUploadedUrl },
-                },
-              ]);
-            }
-          } catch {
-            // ignore
-          }
+	          try {
+	            const subjectAsset = editor.getAsset?.(cutoutInserted.assetId as any) as any;
+	            if (subjectAsset) {
+	              editor.updateAssets?.([
+	                {
+	                  ...subjectAsset,
+	                  meta: { ...(subjectAsset.meta ?? {}), originalSrc: subjectOriginalSrc },
+	                },
+	              ]);
+	            }
+	          } catch {
+	            // ignore
+	          }
 
           const insertedBounds = (() => {
             try {
@@ -527,9 +635,9 @@ export const useCanvasSelectedImageActions = ({
             } as any);
           };
 
-          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
-            const box = block.box;
-            if (!box) return;
+	          blocks.slice(0, 40).forEach((block: ExtractTextBlock) => {
+	            const box = block.box;
+	            if (!box) return;
 
             const w = Math.max(40, Math.round(box.w * textBounds.w));
             const h = Math.max(12, Math.round(box.h * textBounds.h));
@@ -603,45 +711,50 @@ export const useCanvasSelectedImageActions = ({
             // ignore
           }
 
-          return { insertedShapeId: backgroundInserted.shapeId, url: backgroundCanvasUrl };
-        }),
-      );
+	          return { insertedShapeId: backgroundInserted.shapeId, url: backgroundSrcForCanvas };
+	        }),
+	      );
 
-      const attachment: CanvasChatAttachment = {
-        id: crypto.randomUUID(),
-        type: "image",
-        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
-        shapeId: created.insertedShapeId,
-        url: created.url,
-      };
-      outputCounterRef.current += 1;
-
-      setMessages((prev) => [
-        ...prev,
+	      pushStepDone(
+	        "Place layers on canvas",
+	        `Placed background + subject${blocks.length ? ` + ${blocks.length} text layer(s)` : ""} and grouped them.`,
+	      );
+	
+	      const attachment: CanvasChatAttachment = {
+	        id: crypto.randomUUID(),
+	        type: "image",
+	        label: `IMG_${String(outputCounterRef.current).padStart(4, "0")}`,
+	        shapeId: created.insertedShapeId,
+	        url: backgroundSrcForCanvas,
+	      };
+	      outputCounterRef.current += 1;
+	
+	      setMessages((prev) => [
+	        ...prev,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: blocks.length
-            ? "Added background, subject, and editable text layers next to the original."
-            : "Added background and subject layers next to the original.",
-          attachments: [attachment],
-        },
-      ]);
-    });
-  }, [
-    aiProfile,
-    editImage,
-    editor,
-    extractText,
-    outputCounterRef,
-    removeBg,
-    runAiAction,
-    selectedImageAiSrc,
-    selectedImageAsset,
-    selectedImageShape,
-    setMessages,
-    withAiCommit,
-  ]);
+	          content: blocks.length
+	            ? "Added background, subject, and editable text layers next to the original."
+	            : "Added background and subject layers next to the original.",
+	          attachments: [attachment],
+	        },
+	      ]);
+	    });
+	  }, [
+	    aiProfile,
+	    editImage,
+	    editor,
+	    extractText,
+	    outputCounterRef,
+	    removeBg,
+	    runAiAction,
+	    selectedImageAiSrc,
+	    selectedImageAsset,
+	    selectedImageShape,
+	    setMessages,
+	    withAiCommit,
+	  ]);
 
   return {
     regenerateSelectedImage,

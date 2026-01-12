@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { hasAnyTransparency, stripFakeTransparencyGrid } from "@/features/canvases/lib/transparent-png";
+import { estimateOpaquePixelRatio, hasAnyTransparency, stripFakeTransparencyGrid } from "@/features/canvases/lib/transparent-png";
 
 const rgb = (r: number, g: number, b: number) => ({ r, g, b, a: 255 });
 
@@ -23,6 +23,15 @@ describe("transparent PNG helpers", () => {
     expect(hasAnyTransparency(data)).toBe(false);
     data[3] = 0;
     expect(hasAnyTransparency(data)).toBe(true);
+  });
+
+  test("estimateOpaquePixelRatio returns the fraction of pixels above the alpha threshold", () => {
+    const width = 2;
+    const height = 2;
+    const data = makeRgba(width, height, rgb(255, 255, 255));
+    expect(estimateOpaquePixelRatio(data, 20)).toBe(1);
+    data[3] = 0;
+    expect(estimateOpaquePixelRatio(data, 20)).toBeCloseTo(0.75, 5);
   });
 
   test("stripFakeTransparencyGrid converts a checkerboard background into alpha=0", () => {
@@ -75,4 +84,3 @@ describe("transparent PNG helpers", () => {
     expect(result.data).toBe(data);
   });
 });
-

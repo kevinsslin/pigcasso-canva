@@ -26,6 +26,20 @@ export const hasAnyTransparency = (data: Uint8ClampedArray) => {
   return false;
 };
 
+export const estimateOpaquePixelRatio = (data: Uint8ClampedArray, alphaThreshold = 20) => {
+  if (!data.length) return 0;
+  const threshold = Math.max(1, Math.min(254, Math.floor(alphaThreshold)));
+  let opaque = 0;
+  const total = Math.floor(data.length / 4);
+
+  for (let i = 3; i < data.length; i += 4) {
+    if ((data[i] ?? 0) >= threshold) opaque += 1;
+  }
+
+  if (!total) return 0;
+  return opaque / total;
+};
+
 type ColorCluster = {
   count: number;
   mean: RgbColor;
@@ -183,6 +197,27 @@ const loadImageFromDataUrl = (dataUrl: string) =>
     img.src = dataUrl;
   });
 
+export const getOpaquePixelRatioFromDataUrl = async (dataUrl: string, alphaThreshold = 20) => {
+  if (typeof document === "undefined") return null;
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return null;
+
+  const img = await loadImageFromDataUrl(dataUrl);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (!width || !height) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  return estimateOpaquePixelRatio(imageData.data, alphaThreshold);
+};
+
 export const ensureTransparentPngDataUrl = async (dataUrl: string) => {
   if (typeof document === "undefined") return { dataUrl, changed: false };
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return { dataUrl, changed: false };
@@ -207,4 +242,3 @@ export const ensureTransparentPngDataUrl = async (dataUrl: string) => {
   ctx.putImageData(new ImageData(stripped.data, width, height), 0, 0);
   return { dataUrl: canvas.toDataURL("image/png"), changed: true };
 };
-
