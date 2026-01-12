@@ -15,20 +15,22 @@ export const buildCanvasNftMetadata = (params: {
   chainLabel?: string;
 }) => {
   const chain = params.chainLabel ?? "Mantle";
+  const imageIpfs = `ipfs://${params.imageCid}`;
   const imageUrl = cidToGatewayUrl(params.imageCid);
   const sourceUrl = cidToGatewayUrl(params.sourceCid);
 
   return {
     name: params.name,
     description: params.description,
-    image: imageUrl,
+    image: imageIpfs,
     image_url: imageUrl,
     attributes: [
       { trait_type: "Canvas", value: params.canvasName },
       { trait_type: "Chain", value: chain },
     ],
     properties: {
-      image_ipfs: `ipfs://${params.imageCid}`,
+      image_ipfs: imageIpfs,
+      image_http: imageUrl,
       source: `ipfs://${params.sourceCid}`,
       source_url: sourceUrl,
       canvasId: params.canvasId,
@@ -37,4 +39,3 @@ export const buildCanvasNftMetadata = (params: {
     },
   };
 };
-

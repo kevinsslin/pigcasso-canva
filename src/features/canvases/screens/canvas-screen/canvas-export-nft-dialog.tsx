@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const getFactoryAddress = () => process.env.NEXT_PUBLIC_NFT_FACTORY_ADDRESS?.trim() ?? "";
 
@@ -50,6 +51,15 @@ type ExportedCanvasNft = {
   metadataUrl: string;
 };
 
+type CollectionMode = "existing" | "new";
+type TokenUriMode = "ipfs" | "https";
+
+const formatAddress = (address: string) => {
+  const trimmed = address.trim();
+  if (!isEvmAddress(trimmed)) return trimmed;
+  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
+};
+
 export const CanvasExportNftDialog = ({
   open,
   onOpenChange,
@@ -72,6 +82,14 @@ export const CanvasExportNftDialog = ({
 
   const [tokenName, setTokenName] = useState("");
   const [tokenDescription, setTokenDescription] = useState("");
+  const [tokenUriMode, setTokenUriMode] = useState<TokenUriMode>("ipfs");
+
+  const [collectionMode, setCollectionMode] = useState<CollectionMode>("existing");
+  const [selectedCollectionAddress, setSelectedCollectionAddress] = useState<string>("");
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [newCollectionSymbol, setNewCollectionSymbol] = useState("");
+  const [newCollectionMaxSupply, setNewCollectionMaxSupply] = useState("10000");
+  const [newCollectionContractUri, setNewCollectionContractUri] = useState("");
 
   const [exported, setExported] = useState<ExportedCanvasNft | null>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -107,6 +125,13 @@ export const CanvasExportNftDialog = ({
     if (!open) {
       setTokenName("");
       setTokenDescription("");
+      setTokenUriMode("ipfs");
+      setCollectionMode("existing");
+      setSelectedCollectionAddress("");
+      setNewCollectionName("");
+      setNewCollectionSymbol("");
+      setNewCollectionMaxSupply("10000");
+      setNewCollectionContractUri("");
       setExported(null);
       setIsMinting(false);
       setMintSteps(getInitialMintSteps());
@@ -120,7 +145,41 @@ export const CanvasExportNftDialog = ({
       target?.canvasName?.trim() ||
       "Untitled";
     setTokenName(`${baseName} · NFT`);
+    setTokenUriMode("ipfs");
+
+    const defaults = getAutoCollectionDefaults();
+    setNewCollectionName(defaults.name);
+    setNewCollectionSymbol(defaults.symbol);
+    setNewCollectionMaxSupply(defaults.maxSupply.toString());
+    setNewCollectionContractUri(defaults.contractUri);
+    setCollectionMode("existing");
   }, [open, target?.canvasName, target?.defaultName]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (isMinting) return;
+    if (collectionMode !== "existing") return;
+
+    const validCollections = collectionsList.filter((collection) => isEvmAddress(collection.address ?? ""));
+    if (!validCollections.length) {
+      setSelectedCollectionAddress("");
+      setCollectionMode("new");
+      return;
+    }
+
+    setSelectedCollectionAddress((current) => {
+      const normalizedCurrent = current.trim().toLowerCase();
+      if (normalizedCurrent && validCollections.some((item) => (item.address ?? "").trim().toLowerCase() === normalizedCurrent)) {
+        return current;
+      }
+
+      const defaultAddress =
+        defaultCollection?.address ??
+        (validCollections[0]?.address as string | undefined) ??
+        "";
+      return defaultAddress;
+    });
+  }, [collectionMode, collectionsList, defaultCollection?.address, isMinting, open]);
 
   const setMintStep = (key: MintStepKey, patch: Partial<MintStepsState[MintStepKey]>) => {
     setMintSteps((current) => ({
@@ -208,22 +267,35 @@ export const CanvasExportNftDialog = ({
     publicClient: Awaited<ReturnType<typeof ensureClients>>["publicClient"];
     onProgress?: (detail: string) => void;
   }) => {
-    if (defaultCollection) {
-      return { address: defaultCollection.address };
+    if (collectionMode === "existing") {
+      const address = selectedCollectionAddress.trim();
+      if (!isEvmAddress(address)) {
+        throw new Error("Select a valid collection.");
+      }
+      return { address: address as `0x${string}` };
     }
 
     const defaults = getAutoCollectionDefaults();
+    const name = newCollectionName.trim() || defaults.name;
+    const symbol = newCollectionSymbol.trim() || defaults.symbol;
+    const contractUri = newCollectionContractUri.trim() || defaults.contractUri;
+    const maxSupplyRaw = Number(newCollectionMaxSupply);
+    const maxSupply = Number.isFinite(maxSupplyRaw) && maxSupplyRaw > 0 ? BigInt(Math.floor(maxSupplyRaw)) : defaults.maxSupply;
+
     onProgress?.("Deploying collection…");
     const address = await deployCollectionOnChain({
       walletClient,
       publicClient,
-      ...defaults,
+      name,
+      symbol,
+      maxSupply,
+      contractUri,
     });
 
     await createCollectionRecord.mutateAsync({
-      name: defaults.name,
-      symbol: defaults.symbol,
-      contractUri: defaults.contractUri || undefined,
+      name,
+      symbol,
+      contractUri: contractUri || undefined,
       address,
     });
 
@@ -302,9 +374,9 @@ export const CanvasExportNftDialog = ({
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
 
       const tokenUri =
-        exportedAsset.metadataUrl ||
-        ipfsToHttpUrl(exportedAsset.metadataUri) ||
-        exportedAsset.metadataUri;
+        tokenUriMode === "ipfs"
+          ? exportedAsset.metadataUri || exportedAsset.metadataUrl
+          : exportedAsset.metadataUrl || ipfsToHttpUrl(exportedAsset.metadataUri) || exportedAsset.metadataUri;
 
       const hash = await walletClient.writeContract({
         address: collection.address,
@@ -367,13 +439,13 @@ export const CanvasExportNftDialog = ({
           <DialogDescription>
             Export this canvas item to IPFS, then mint it onchain.
           </DialogDescription>
-        </DialogHeader>
+      </DialogHeader>
 
-        {!target ? (
-          <div className="text-sm text-muted-foreground">Select an image on the canvas to mint.</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-            <div className="md:col-span-2">
+      {!target ? (
+        <div className="text-sm text-muted-foreground">Select an image on the canvas to mint.</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+          <div className="md:col-span-2">
               <div className="rounded-xl border bg-muted/30 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={previewUrl} alt="" className="h-44 w-full object-cover" />
@@ -383,17 +455,55 @@ export const CanvasExportNftDialog = ({
                 <div className="mt-3 space-y-2 text-xs">
                   <div className="rounded-lg border bg-background/60 p-3">
                     <div className="font-medium">Metadata URL (tokenURI)</div>
-                    <div className="mt-1 font-mono break-all">{exported.metadataUrl}</div>
+                    <div className="mt-1 space-y-1 font-mono break-all">
+                      <div className={cn(tokenUriMode === "ipfs" ? "text-foreground" : "text-muted-foreground")}>
+                        {exported.metadataUri}
+                      </div>
+                      <div className={cn(tokenUriMode === "https" ? "text-foreground" : "text-muted-foreground")}>
+                        {exported.metadataUrl}
+                      </div>
+                    </div>
                   </div>
                   <div className="rounded-lg border bg-background/60 p-3">
                     <div className="font-medium">Image URL</div>
-                    <div className="mt-1 font-mono break-all">{exported.imageUrl}</div>
+                    <div className="mt-1 space-y-1 font-mono break-all">
+                      <div>{exported.imageUri}</div>
+                      <div className="text-muted-foreground">{exported.imageUrl}</div>
+                    </div>
                   </div>
                 </div>
               ) : null}
             </div>
 
             <div className="md:col-span-3 space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Token URI format</div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
+                    className="rounded-full"
+                    disabled={busy}
+                    onClick={() => setTokenUriMode("ipfs")}
+                  >
+                    IPFS URI (recommended)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={tokenUriMode === "https" ? "default" : "secondary"}
+                    className="rounded-full"
+                    disabled={busy}
+                    onClick={() => setTokenUriMode("https")}
+                  >
+                    Gateway URL (compatibility)
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  IPFS URIs avoid locking you into a specific gateway. Use the gateway URL if a marketplace/explorer
+                  doesn’t resolve ipfs:// yet.
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <div className="text-sm font-medium">Name</div>
                 <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
@@ -407,6 +517,122 @@ export const CanvasExportNftDialog = ({
                   placeholder="Created with Pigcasso Canvas."
                   disabled={busy}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Collection</div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={collectionMode === "existing" ? "default" : "secondary"}
+                    className="rounded-full"
+                    disabled={busy || !collectionsList.length}
+                    onClick={() => setCollectionMode("existing")}
+                  >
+                    Use existing
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={collectionMode === "new" ? "default" : "secondary"}
+                    className="rounded-full"
+                    disabled={busy}
+                    onClick={() => setCollectionMode("new")}
+                  >
+                    Deploy new
+                  </Button>
+                </div>
+
+                {collectionMode === "existing" ? (
+                  collectionsList.filter((collection) => isEvmAddress(collection.address ?? "")).length ? (
+                    <div className="grid gap-2">
+                      {collectionsList
+                        .filter((collection) => isEvmAddress(collection.address ?? ""))
+                        .map((collection) => {
+                          const address = (collection.address ?? "").trim();
+                          const selected = address.toLowerCase() === selectedCollectionAddress.trim().toLowerCase();
+                          return (
+                            <button
+                              key={collection.id}
+                              type="button"
+                              className={cn(
+                                "w-full rounded-xl border px-3 py-2 text-left transition",
+                                selected ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/30",
+                              )}
+                              disabled={busy}
+                              onClick={() => setSelectedCollectionAddress(address)}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold truncate">{collection.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {collection.symbol} · {formatAddress(address)}
+                                  </div>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "shrink-0 inline-flex items-center justify-center rounded-full border px-2 py-1 text-[10px] font-semibold",
+                                    selected ? "border-primary text-primary" : "border-border/60 text-muted-foreground",
+                                  )}
+                                >
+                                  {selected ? "Selected" : "Select"}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      No collections found yet. Deploy a new one to get started.
+                    </div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 rounded-xl border bg-background/60 p-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground">Name</div>
+                        <Input
+                          value={newCollectionName}
+                          onChange={(e) => setNewCollectionName(e.target.value)}
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground">Symbol</div>
+                        <Input
+                          value={newCollectionSymbol}
+                          onChange={(e) => setNewCollectionSymbol(e.target.value.toUpperCase())}
+                          disabled={busy}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground">Max supply</div>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={newCollectionMaxSupply}
+                          onChange={(e) => setNewCollectionMaxSupply(e.target.value)}
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground">Contract URI (optional)</div>
+                        <Input
+                          value={newCollectionContractUri}
+                          onChange={(e) => setNewCollectionContractUri(e.target.value)}
+                          disabled={busy}
+                          placeholder="ipfs://…"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Deploying creates a new onchain ERC-721 collection and saves it to your account for future mints.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-xl border bg-background/60 p-4 space-y-2 text-sm">
@@ -471,4 +697,3 @@ export const CanvasExportNftDialog = ({
     </Dialog>
   );
 };
-

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { buildNftAssetMetadata } from "@/server/nft-metadata";
 
 describe("buildNftAssetMetadata", () => {
-  test("emits absolute https gateway urls for preview clients", () => {
+  test("emits ipfs:// image with https fallback", () => {
     const prevGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
     process.env.NEXT_PUBLIC_IPFS_GATEWAY = "plum-high-rook-436.mypinata.cloud";
 
@@ -18,11 +18,12 @@ describe("buildNftAssetMetadata", () => {
       projectPageId: "page",
     });
 
-    expect(metadata.image).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
-    expect(metadata.image_url).toBe(metadata.image);
+    expect(metadata.image).toBe("ipfs://bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi");
+    expect(metadata.image_url).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
+    expect(metadata.properties.image_ipfs).toBe(metadata.image);
+    expect(metadata.properties.image_http).toBe(metadata.image_url);
     expect(metadata.properties.source_url).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
 
     process.env.NEXT_PUBLIC_IPFS_GATEWAY = prevGateway;
   });
 });
-

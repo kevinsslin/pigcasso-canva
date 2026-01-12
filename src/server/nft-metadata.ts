@@ -16,13 +16,14 @@ export const buildNftAssetMetadata = (params: {
   projectPageId: string;
 }) => {
   const chain = params.chainLabel ?? "Mantle";
+  const imageIpfs = `ipfs://${params.imageCid}`;
   const imageUrl = cidToGatewayUrl(params.imageCid);
   const sourceUrl = cidToGatewayUrl(params.sourceCid);
 
   return {
     name: params.name,
     description: params.description,
-    image: imageUrl,
+    image: imageIpfs,
     image_url: imageUrl,
     attributes: [
       { trait_type: "Project", value: params.projectName },
@@ -30,7 +31,8 @@ export const buildNftAssetMetadata = (params: {
       { trait_type: "Chain", value: chain },
     ],
     properties: {
-      image_ipfs: `ipfs://${params.imageCid}`,
+      image_ipfs: imageIpfs,
+      image_http: imageUrl,
       source: `ipfs://${params.sourceCid}`,
       source_url: sourceUrl,
       projectId: params.projectId,
@@ -38,4 +40,3 @@ export const buildNftAssetMetadata = (params: {
     },
   };
 };
-
