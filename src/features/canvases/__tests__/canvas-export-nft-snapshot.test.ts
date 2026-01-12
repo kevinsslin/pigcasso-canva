@@ -19,9 +19,8 @@ describe("Canvas Export NFT (regression)", () => {
       "utf8",
     );
 
-    expect(content).toContain("exportCurrentCanvasPageToPngDataUrl");
+    expect(content).toContain("exportCanvasSelectionToPngDataUrl");
     expect(content).toContain("uploadImageDataUrl");
     expect(content).toContain("pigcasso_canvas_");
   });
 });
-

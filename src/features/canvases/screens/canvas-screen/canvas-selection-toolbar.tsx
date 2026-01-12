@@ -12,6 +12,7 @@ import {
   Coins,
   Download,
   Layers3,
+  MoreHorizontal,
   RefreshCcw,
   Rocket,
   Wand2,
@@ -27,6 +28,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -66,6 +70,7 @@ export const CanvasSelectionToolbar = ({
   onBringForward,
   onBringToFront,
   onDownloadSelected,
+  onExportSelectionPng,
   onDownloadSelectedHtml,
   onMintNft,
   onLaunchPrintr,
@@ -89,6 +94,7 @@ export const CanvasSelectionToolbar = ({
   onBringForward: () => void;
   onBringToFront: () => void;
   onDownloadSelected: () => void;
+  onExportSelectionPng?: () => void;
   onDownloadSelectedHtml: () => void;
   onMintNft: () => void;
   onLaunchPrintr: () => void;
@@ -172,43 +178,6 @@ export const CanvasSelectionToolbar = ({
           <span className="ml-2">Add to chat</span>
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-9 rounded-full px-3"
-              disabled={disabled}
-              aria-label="Layer order"
-            >
-              <Layers3 className="size-4" />
-              <span className="ml-2">Order</span>
-              <ChevronDown className="ml-2 size-3 opacity-70" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-44">
-            <DropdownMenuLabel>Layer order</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onBringToFront} disabled={disabled}>
-              <ArrowUpToLine className="mr-2 size-4" />
-              Bring to front
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onBringForward} disabled={disabled}>
-              <ArrowUp className="mr-2 size-4" />
-              Bring forward
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onSendBackward} disabled={disabled}>
-              <ArrowDown className="mr-2 size-4" />
-              Send backward
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onSendToBack} disabled={disabled}>
-              <ArrowDownToLine className="mr-2 size-4" />
-              Send to back
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         {isGroup ? (
           <>
             <Button
@@ -219,40 +188,10 @@ export const CanvasSelectionToolbar = ({
               disabled={disabled}
               onClick={onUngroup}
               aria-label="Ungroup selection"
-            >
-              <Layers3 className="mr-2 size-4" />
-              Ungroup
-            </Button>
-
-            {showMintNft ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="h-9 rounded-full px-3"
-                disabled={disabled}
-                onClick={onMintNft}
-                aria-label="Mint NFT"
               >
-                <Coins className="mr-2 size-4" />
-                {mintNftLabel}
+                <Layers3 className="mr-2 size-4" />
+                Ungroup
               </Button>
-            ) : null}
-
-            {showLaunchPrintr ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="h-9 rounded-full px-3"
-                disabled={disabled}
-                onClick={onLaunchPrintr}
-                aria-label="Launch on Printr"
-              >
-                <Rocket className="mr-2 size-4" />
-                {launchPrintrLabel}
-              </Button>
-            ) : null}
           </>
         ) : null}
 
@@ -292,50 +231,10 @@ export const CanvasSelectionToolbar = ({
               disabled={disabled}
               onClick={onMakeTextEditable}
               aria-label="Separate layers"
-            >
-              <Layers3 className="mr-2 size-4" />
-              Separate layers
-            </Button>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-9 rounded-full px-3"
-              disabled={disabled}
-              onClick={onMintNft}
-              aria-label="Mint NFT"
-            >
-              <Coins className="mr-2 size-4" />
-              {mintNftLabel}
-            </Button>
-
-            {showLaunchPrintr ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="h-9 rounded-full px-3"
-                disabled={disabled}
-                onClick={onLaunchPrintr}
-                aria-label="Launch on Printr"
               >
-                <Rocket className="mr-2 size-4" />
-                {launchPrintrLabel}
+                <Layers3 className="mr-2 size-4" />
+                Separate layers
               </Button>
-            ) : null}
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              disabled={disabled}
-              onClick={onDownloadSelected}
-              aria-label="Download selected image"
-            >
-              <Download className="size-4" />
-            </Button>
           </>
         ) : null}
 
@@ -352,18 +251,6 @@ export const CanvasSelectionToolbar = ({
             >
               <Code2 className="mr-2 size-4" />
               Code
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              disabled={disabled}
-              onClick={onDownloadSelectedHtml}
-              aria-label="Download HTML"
-            >
-              <Download className="size-4" />
             </Button>
           </>
         ) : null}
@@ -553,6 +440,117 @@ export const CanvasSelectionToolbar = ({
             </DropdownMenu>
           </>
         ) : null}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              disabled={disabled}
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            {isImage ? (
+              <>
+                <DropdownMenuItem onClick={onDownloadSelected} disabled={disabled}>
+                  <Download className="mr-2 size-4" />
+                  Download image
+                </DropdownMenuItem>
+                {onExportSelectionPng ? (
+                  <DropdownMenuItem onClick={onExportSelectionPng} disabled={disabled}>
+                    <Download className="mr-2 size-4" />
+                    Export selection as PNG
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                {showMintNft ? (
+                  <DropdownMenuItem onClick={onMintNft} disabled={disabled}>
+                    <Coins className="mr-2 size-4" />
+                    {mintNftLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                {showLaunchPrintr ? (
+                  <DropdownMenuItem onClick={onLaunchPrintr} disabled={disabled}>
+                    <Rocket className="mr-2 size-4" />
+                    {launchPrintrLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            {isGroup ? (
+              <>
+                {onExportSelectionPng ? (
+                  <DropdownMenuItem onClick={onExportSelectionPng} disabled={disabled}>
+                    <Download className="mr-2 size-4" />
+                    Export selection as PNG
+                  </DropdownMenuItem>
+                ) : null}
+                {showMintNft ? (
+                  <DropdownMenuItem onClick={onMintNft} disabled={disabled}>
+                    <Coins className="mr-2 size-4" />
+                    {mintNftLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                {showLaunchPrintr ? (
+                  <DropdownMenuItem onClick={onLaunchPrintr} disabled={disabled}>
+                    <Rocket className="mr-2 size-4" />
+                    {launchPrintrLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            {isHtml ? (
+              <>
+                <DropdownMenuItem onClick={onViewHtmlCode} disabled={disabled}>
+                  <Code2 className="mr-2 size-4" />
+                  View HTML code
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onDownloadSelectedHtml} disabled={disabled}>
+                  <Download className="mr-2 size-4" />
+                  Download HTML
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Layers3 className="mr-2 size-4" />
+                Order
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-44">
+                <DropdownMenuItem onClick={onBringToFront} disabled={disabled}>
+                  <ArrowUpToLine className="mr-2 size-4" />
+                  Bring to front
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onBringForward} disabled={disabled}>
+                  <ArrowUp className="mr-2 size-4" />
+                  Bring forward
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSendBackward} disabled={disabled}>
+                  <ArrowDown className="mr-2 size-4" />
+                  Send backward
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSendToBack} disabled={disabled}>
+                  <ArrowDownToLine className="mr-2 size-4" />
+                  Send to back
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isText && textStyle ? (

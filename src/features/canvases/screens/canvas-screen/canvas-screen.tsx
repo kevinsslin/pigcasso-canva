@@ -47,7 +47,7 @@ import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { findFirstImageShapeIdInGroup } from "@/features/canvases/tldraw/find-image-in-group";
-import { exportCurrentCanvasPageToPngDataUrl } from "@/features/canvases/tldraw/export-canvas-image";
+import { exportCanvasSelectionToPngDataUrl } from "@/features/canvases/tldraw/export-canvas-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { PigcassoTextShapeUtil } from "@/features/canvases/tldraw/pigcasso-text-shape-util";
 import { sanitizeTldrawStoreSnapshot } from "@/features/canvases/tldraw/sanitize-snapshot";
@@ -1253,6 +1253,44 @@ export default function CanvasScreen({ params }: PageProps) {
     }
   }, [downloadBlob, selectedImageAsset]);
 
+  const exportSelectedSelectionAsPng = useCallback(async () => {
+    if (!editor) {
+      toast.error("Canvas is still loading. Try again in a moment.");
+      return;
+    }
+    if (!boardHydrated || boardCrashMessage) {
+      toast.error("Canvas is still loading. Try again in a moment.");
+      return;
+    }
+    if (selectedShapeIds.length !== 1) {
+      toast.error("Select a single item to export.");
+      return;
+    }
+
+    const shapeId = String(selectedShapeIds[0]);
+    const toastId = toast.loading("Exporting PNG…");
+    try {
+      const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
+        shapeId,
+        targetPx: 2048,
+        padding: 32,
+        pixelRatio: 1,
+        background: true,
+      });
+
+      const response = await fetch(dataUrl);
+      if (!response.ok) {
+        throw new Error("Failed to export PNG.");
+      }
+      const blob = await response.blob();
+      downloadBlob(blob, `pigcasso_export_${Date.now()}.png`);
+      toast.success("PNG downloaded.", { id: toastId, duration: 1500 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to export PNG.";
+      toast.error(message, { id: toastId, duration: 3500 });
+    }
+  }, [boardCrashMessage, boardHydrated, downloadBlob, editor, selectedShapeIds]);
+
   const openExportNftForShapeId = useCallback(
     async (shapeId: string) => {
       if (!editor) {
@@ -1305,10 +1343,12 @@ export default function CanvasScreen({ params }: PageProps) {
         if (boardCrashMessage) return null;
 
         try {
-          const dataUrl = await exportCurrentCanvasPageToPngDataUrl(editor as any, {
+          const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
+            shapeId,
             targetPx: 2048,
             padding: 32,
-            pixelRatio: 2,
+            pixelRatio: 1,
+            background: true,
           });
 
           return await uploadImageDataUrl(
@@ -1392,10 +1432,12 @@ export default function CanvasScreen({ params }: PageProps) {
       const toastId = toast.loading("Preparing token image…");
 
       try {
-        const dataUrl = await exportCurrentCanvasPageToPngDataUrl(editor as any, {
+        const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
+          shapeId,
           targetPx: 1536,
           padding: 32,
           pixelRatio: 1,
+          background: true,
         });
 
         setPrintrTarget({
@@ -1407,7 +1449,8 @@ export default function CanvasScreen({ params }: PageProps) {
         });
         setPrintrOpen(true);
         toast.success("Ready to launch.", { id: toastId, duration: 1200 });
-      } catch {
+      } catch (error) {
+        console.error("[printr] Failed to export token image", error);
         toast.error("Couldn’t prepare the token image. Please try again.", {
           id: toastId,
           duration: 3500,
@@ -1604,7 +1647,8 @@ export default function CanvasScreen({ params }: PageProps) {
                         onBringForward={() => reorderSelectedShapes("forward")}
                         onBringToFront={() => reorderSelectedShapes("front")}
 	                      onDownloadSelected={() => void downloadSelectedImage()}
-	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
+                        onExportSelectionPng={() => void exportSelectedSelectionAsPng()}
+		                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
                         onMintNft={() => mintSelectionAsNft()}
                         onLaunchPrintr={() => launchSelectionOnPrintr()}
                         showMintNft={Boolean(selectedGroupMintImageShapeId) || Boolean(selectedImageShape)}
