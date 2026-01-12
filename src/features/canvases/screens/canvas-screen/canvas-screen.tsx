@@ -48,6 +48,7 @@ import { HtmlCardShapeUtil } from "@/features/canvases/tldraw/html-card-shape";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
+import { findFirstImageShapeIdInGroup } from "@/features/canvases/tldraw/find-image-in-group";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { PigcassoTextShapeUtil } from "@/features/canvases/tldraw/pigcasso-text-shape-util";
 import { sanitizeTldrawStoreSnapshot } from "@/features/canvases/tldraw/sanitize-snapshot";
@@ -2193,39 +2194,85 @@ export default function CanvasScreen({ params }: PageProps) {
     }
   }, [downloadBlob, selectedImageAsset]);
 
-  const openExportNftForSelection = useCallback(() => {
-    const asset = selectedImageAsset as any;
-    const shapeId = selectionContext?.shapeId ?? null;
-    if (!asset || !shapeId) {
+  const openExportNftForShapeId = useCallback(
+    (shapeId: string) => {
+      if (!editor) {
+        toast.error("Canvas is still loading. Try again in a moment.");
+        return;
+      }
+
+      const shape = (() => {
+        try {
+          return editor.getShape?.(shapeId as any) as any;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!shape || typeof shape !== "object" || shape.type !== "image" || !shape.props?.assetId) {
+        toast.error("Select an image to mint.");
+        return;
+      }
+
+      const asset = (() => {
+        try {
+          return editor.getAsset?.(shape.props.assetId as any) as any;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!asset) {
+        toast.error("Select an image to mint.");
+        return;
+      }
+
+      const previewSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
+      const originalSrc = typeof asset?.meta?.originalSrc === "string" ? asset.meta.originalSrc.trim() : "";
+      const rawSrc = typeof asset?.meta?.rawSrc === "string" ? asset.meta.rawSrc.trim() : "";
+      const propsSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
+      const unwrapped = propsSrc ? unwrapCanvasImageProxyUrl(propsSrc) : "";
+
+      const imageUrl = originalSrc || rawSrc || unwrapped || "";
+      if (!/^https:\/\//i.test(imageUrl)) {
+        toast.error("Selected image is missing a usable URL.");
+        return;
+      }
+
+      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
+      const previewUrl = previewSrc || toCanvasImageUrl(imageUrl);
+      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
+
+      setExportNftTarget({
+        canvasId: params.canvasId,
+        canvasName,
+        shapeId,
+        imageUrl,
+        previewUrl,
+        defaultName: rawName || contextLabel || canvasName,
+      });
+      setExportNftOpen(true);
+    },
+    [canvasName, editor, params.canvasId],
+  );
+
+  const selectedGroupMintImageShapeId = useMemo(() => {
+    if (!editor) return null;
+    if (!selectedGroupShape) return null;
+    return findFirstImageShapeIdInGroup(editor as any, String((selectedGroupShape as any).id));
+  }, [editor, selectedGroupShape]);
+
+  const mintSelectionAsNft = useCallback(() => {
+    const shapeId = selectedImageShape
+      ? String((selectedImageShape as any).id)
+      : selectedGroupMintImageShapeId;
+    if (!shapeId) {
       toast.error("Select an image to mint.");
       return;
     }
 
-    const previewSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
-    const originalSrc = typeof asset?.meta?.originalSrc === "string" ? asset.meta.originalSrc.trim() : "";
-    const rawSrc = typeof asset?.meta?.rawSrc === "string" ? asset.meta.rawSrc.trim() : "";
-    const propsSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
-    const unwrapped = propsSrc ? unwrapCanvasImageProxyUrl(propsSrc) : "";
-
-    const imageUrl = originalSrc || rawSrc || unwrapped || "";
-    if (!/^https:\/\//i.test(imageUrl)) {
-      toast.error("Selected image is missing a usable URL.");
-      return;
-    }
-
-    const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
-    const previewUrl = previewSrc || toCanvasImageUrl(imageUrl);
-
-    setExportNftTarget({
-      canvasId: params.canvasId,
-      canvasName,
-      shapeId,
-      imageUrl,
-      previewUrl,
-      defaultName: rawName || selectionContext?.label || canvasName,
-    });
-    setExportNftOpen(true);
-  }, [canvasName, params.canvasId, selectedImageAsset, selectionContext]);
+    openExportNftForShapeId(shapeId);
+  }, [openExportNftForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
 
   const viewSelectedHtmlCode = useCallback(() => {
     const shape = selectedHtmlShape as any;
@@ -3103,7 +3150,8 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      onAddToChat={() => addSelectionToChat()}
 	                      onDownloadSelected={() => void downloadSelectedImage()}
 	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
-                        onMintNft={() => openExportNftForSelection()}
+                        onMintNft={() => mintSelectionAsNft()}
+                        showMintNft={Boolean(selectedGroupMintImageShapeId) || Boolean(selectedImageShape)}
 	                      onRegenerate={() => void regenerateSelectedImage()}
 	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                       onMakeTextEditable={() => void makeSelectedImageTextEditable()}

@@ -145,4 +145,80 @@ describe("CanvasSelectionToolbar", () => {
       root.unmount();
     });
   });
+
+  test("shows mint action for group selections when enabled", async () => {
+    const { CanvasSelectionToolbar } = await import("../screens/canvas-screen/canvas-selection-toolbar");
+    const { createRoot } = await import("react-dom/client");
+
+    const container = document.getElementById("root");
+    expect(container).not.toBeNull();
+
+    const root = createRoot(container as HTMLElement);
+
+    await act(async () => {
+      root.render(
+        <CanvasSelectionToolbar
+          anchor={{ kind: "group", screenX: 20, screenY: 20, shapeId: "shape:group" }}
+          disabled={false}
+          onAddToChat={() => {}}
+          onDownloadSelected={() => {}}
+          onDownloadSelectedHtml={() => {}}
+          onMintNft={() => {}}
+          showMintNft
+          onRegenerate={() => {}}
+          onRemoveBackground={() => {}}
+          onMakeTextEditable={() => {}}
+          onViewHtmlCode={() => {}}
+          onUngroup={() => {}}
+          textStyle={null}
+          onUpdateTextStyle={() => {}}
+        />,
+      );
+    });
+
+    expect(container?.querySelector("button[aria-label=\"Ungroup selection\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides mint action for group selections when disabled", async () => {
+    const { CanvasSelectionToolbar } = await import("../screens/canvas-screen/canvas-selection-toolbar");
+    const { createRoot } = await import("react-dom/client");
+
+    const container = document.getElementById("root");
+    expect(container).not.toBeNull();
+
+    const root = createRoot(container as HTMLElement);
+
+    await act(async () => {
+      root.render(
+        <CanvasSelectionToolbar
+          anchor={{ kind: "group", screenX: 20, screenY: 20, shapeId: "shape:group" }}
+          disabled={false}
+          onAddToChat={() => {}}
+          onDownloadSelected={() => {}}
+          onDownloadSelectedHtml={() => {}}
+          onMintNft={() => {}}
+          showMintNft={false}
+          onRegenerate={() => {}}
+          onRemoveBackground={() => {}}
+          onMakeTextEditable={() => {}}
+          onViewHtmlCode={() => {}}
+          onUngroup={() => {}}
+          textStyle={null}
+          onUpdateTextStyle={() => {}}
+        />,
+      );
+    });
+
+    expect(container?.querySelector("button[aria-label=\"Ungroup selection\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

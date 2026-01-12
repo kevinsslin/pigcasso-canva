@@ -52,6 +52,8 @@ export const CanvasSelectionToolbar = ({
   onDownloadSelected,
   onDownloadSelectedHtml,
   onMintNft,
+  showMintNft = true,
+  mintNftLabel = "Export NFT",
   onRegenerate,
   onRemoveBackground,
   onMakeTextEditable,
@@ -66,6 +68,8 @@ export const CanvasSelectionToolbar = ({
   onDownloadSelected: () => void;
   onDownloadSelectedHtml: () => void;
   onMintNft: () => void;
+  showMintNft?: boolean;
+  mintNftLabel?: string;
   onRegenerate: () => void;
   onRemoveBackground: () => void;
   onMakeTextEditable: () => void;
@@ -131,18 +135,35 @@ export const CanvasSelectionToolbar = ({
         </Button>
 
         {isGroup ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="h-9 rounded-full px-3"
-            disabled={disabled}
-            onClick={onUngroup}
-            aria-label="Ungroup selection"
-          >
-            <Layers3 className="mr-2 size-4" />
-            Ungroup
-          </Button>
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              onClick={onUngroup}
+              aria-label="Ungroup selection"
+            >
+              <Layers3 className="mr-2 size-4" />
+              Ungroup
+            </Button>
+
+            {showMintNft ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-9 rounded-full px-3"
+                disabled={disabled}
+                onClick={onMintNft}
+                aria-label="Mint NFT"
+              >
+                <Coins className="mr-2 size-4" />
+                {mintNftLabel}
+              </Button>
+            ) : null}
+          </>
         ) : null}
 
         {isImage ? (
@@ -196,7 +217,7 @@ export const CanvasSelectionToolbar = ({
               aria-label="Mint NFT"
             >
               <Coins className="mr-2 size-4" />
-              NFT
+              {mintNftLabel}
             </Button>
 
             <Button
