@@ -108,7 +108,7 @@ export const CanvasExportNftDialog = ({
 
   const [tokenName, setTokenName] = useState("");
   const [tokenDescription, setTokenDescription] = useState("");
-  const [tokenUriMode, setTokenUriMode] = useState<TokenUriMode>("ipfs");
+  const [tokenUriMode, setTokenUriMode] = useState<TokenUriMode>("https");
 
   const [collectionMode, setCollectionMode] = useState<CollectionMode>("existing");
   const [selectedCollectionAddress, setSelectedCollectionAddress] = useState<string>("");
@@ -162,7 +162,7 @@ export const CanvasExportNftDialog = ({
     if (!open) {
       setTokenName("");
       setTokenDescription("");
-      setTokenUriMode("ipfs");
+      setTokenUriMode("https");
       setCollectionMode("existing");
       setSelectedCollectionAddress("");
       setNewCollectionName("");
@@ -182,7 +182,7 @@ export const CanvasExportNftDialog = ({
       target?.canvasName?.trim() ||
       "Untitled";
     setTokenName(`${baseName} · NFT`);
-    setTokenUriMode("ipfs");
+    setTokenUriMode("https");
 
     const defaults = getAutoCollectionDefaults();
     setNewCollectionName(defaults.name);
@@ -513,26 +513,26 @@ export const CanvasExportNftDialog = ({
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
-                    className="rounded-full"
-                    disabled={busy}
-                    onClick={() => setTokenUriMode("ipfs")}
-                  >
-                    IPFS URI (recommended)
-                  </Button>
-                  <Button
-                    type="button"
                     variant={tokenUriMode === "https" ? "default" : "secondary"}
                     className="rounded-full"
                     disabled={busy}
                     onClick={() => setTokenUriMode("https")}
                   >
-                    Gateway URL (compatibility)
+                    Gateway URL (recommended)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
+                    className="rounded-full"
+                    disabled={busy}
+                    onClick={() => setTokenUriMode("ipfs")}
+                  >
+                    IPFS URI (advanced)
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  IPFS URIs avoid locking you into a specific gateway. Use the gateway URL if a marketplace/explorer
-                  doesn’t resolve ipfs:// yet.
+                  Explorers like Mantlescan are more reliable with gateway URLs. Use the IPFS URI if you specifically
+                  want an ipfs:// tokenURI.
                 </div>
               </div>
 
