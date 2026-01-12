@@ -14,6 +14,7 @@ import {
   pickCanvasTextSizeAndScaleFromPx,
   toRichTextValue,
 } from "@/features/canvases/lib/text-style";
+import { ensureTransparentPngDataUrl } from "@/features/canvases/lib/transparent-png";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
@@ -220,9 +221,15 @@ export const useCanvasSelectedImageActions = ({
       return;
     }
 
-    await runAiAction(toastId, "Removing background…", async () => {
+    await runAiAction(toastId, "Removing background…", async ({ setLabel }) => {
+      setLabel("Cutting out the subject…");
       const result = await removeBg.mutateAsync({ image: imageSrc });
-      const uploadedUrl = await uploadImageDataUrl(result.data, `pigcasso_remove_bg_${Date.now()}.png`);
+
+      setLabel("Ensuring true transparency…");
+      const normalized = await ensureTransparentPngDataUrl(result.data);
+
+      setLabel("Uploading image…");
+      const uploadedUrl = await uploadImageDataUrl(normalized.dataUrl, `pigcasso_remove_bg_${Date.now()}.png`);
       const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
       const point = (() => {
@@ -285,8 +292,9 @@ export const useCanvasSelectedImageActions = ({
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content:
-            "Added a cut-out version (transparent PNG). If you see a checkerboard, that’s just the transparency indicator in some viewers.",
+          content: normalized.changed
+            ? "Added a cut-out version (transparent PNG)."
+            : "Added a cut-out version (transparent PNG). If you see a checkerboard, that’s just the transparency indicator in some viewers.",
           attachments: [attachment],
         },
       ]);
@@ -374,7 +382,9 @@ export const useCanvasSelectedImageActions = ({
 
       setLabel("Cutting out the subject…");
       const cutout = await removeBg.mutateAsync({ image: baseImage });
-      const cutoutUploadedUrl = await uploadImageDataUrl(cutout.data, `pigcasso_subject_${Date.now()}.png`);
+      setLabel("Ensuring true transparency…");
+      const normalizedCutout = await ensureTransparentPngDataUrl(cutout.data);
+      const cutoutUploadedUrl = await uploadImageDataUrl(normalizedCutout.dataUrl, `pigcasso_subject_${Date.now()}.png`);
       const cutoutCanvasUrl = toCanvasImageUrl(cutoutUploadedUrl);
 
       setLabel("Generating a clean background…");
@@ -383,7 +393,7 @@ export const useCanvasSelectedImageActions = ({
         instruction:
           "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting. Do NOT include any text or logos. Return an OPAQUE image (no transparency).",
         profile: apiProfile,
-        referenceImages: [cutout.data],
+        referenceImages: [normalizedCutout.dataUrl],
       });
       const backgroundUploadedUrl = await uploadImageDataUrl(background.data, `pigcasso_background_${Date.now()}.png`);
       const backgroundCanvasUrl = toCanvasImageUrl(backgroundUploadedUrl);
@@ -453,6 +463,7 @@ export const useCanvasSelectedImageActions = ({
               : { x: point.x - bounds.w / 2, y: point.y - bounds.h / 2, w: bounds.w, h: bounds.h };
 
           const createdTextShapeIds: string[] = [];
+          const textTargets: Array<{ id: string; target: { x: number; y: number; w: number; h: number } }> = [];
 
           const fitShapeBoundsToTarget = (
             shapeId: string,
@@ -553,13 +564,40 @@ export const useCanvasSelectedImageActions = ({
               },
             } as any);
 
-            fitShapeBoundsToTarget(id, { x, y, w, h });
+            const target = { x, y, w, h };
+            textTargets.push({ id, target });
+            fitShapeBoundsToTarget(id, target);
           });
+
+          try {
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            textTargets.forEach(({ id, target }) => fitShapeBoundsToTarget(id, target));
+          } catch {
+            // ignore
+          }
+
+          try {
+            editor.sendToBack?.([backgroundInserted.shapeId] as any);
+            if (createdTextShapeIds.length) {
+              editor.bringToFront?.(createdTextShapeIds as any);
+            }
+          } catch {
+            // ignore
+          }
 
           try {
             const ids = [backgroundInserted.shapeId, cutoutInserted.shapeId, ...createdTextShapeIds].filter(Boolean);
             if (ids.length > 1) {
               editor.groupShapes?.(ids as any);
+            }
+          } catch {
+            // ignore
+          }
+
+          try {
+            editor.sendToBack?.([backgroundInserted.shapeId] as any);
+            if (createdTextShapeIds.length) {
+              editor.bringToFront?.(createdTextShapeIds as any);
             }
           } catch {
             // ignore

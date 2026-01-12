@@ -1,7 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Rocket, Wand2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
+  ArrowUpToLine,
+  AtSign,
+  ChevronDown,
+  Code2,
+  Coins,
+  Download,
+  Layers3,
+  RefreshCcw,
+  Rocket,
+  Wand2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -49,6 +63,8 @@ export const CanvasSelectionToolbar = ({
   anchor,
   disabled,
   onAddToChat,
+  onBringForward,
+  onBringToFront,
   onDownloadSelected,
   onDownloadSelectedHtml,
   onMintNft,
@@ -60,6 +76,8 @@ export const CanvasSelectionToolbar = ({
   onRegenerate,
   onRemoveBackground,
   onMakeTextEditable,
+  onSendBackward,
+  onSendToBack,
   onViewHtmlCode,
   onUngroup,
   textStyle,
@@ -68,6 +86,8 @@ export const CanvasSelectionToolbar = ({
   anchor: CanvasSelectionToolbarAnchor | null;
   disabled: boolean;
   onAddToChat: () => void;
+  onBringForward: () => void;
+  onBringToFront: () => void;
   onDownloadSelected: () => void;
   onDownloadSelectedHtml: () => void;
   onMintNft: () => void;
@@ -79,6 +99,8 @@ export const CanvasSelectionToolbar = ({
   onRegenerate: () => void;
   onRemoveBackground: () => void;
   onMakeTextEditable: () => void;
+  onSendBackward: () => void;
+  onSendToBack: () => void;
   onViewHtmlCode: () => void;
   onUngroup: () => void;
   textStyle: { font: string; size: string; color: string; sizePx: number; fontFamily: string | null } | null;
@@ -149,6 +171,43 @@ export const CanvasSelectionToolbar = ({
           <AtSign className="size-4" />
           <span className="ml-2">Add to chat</span>
         </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 rounded-full px-3"
+              disabled={disabled}
+              aria-label="Layer order"
+            >
+              <Layers3 className="size-4" />
+              <span className="ml-2">Order</span>
+              <ChevronDown className="ml-2 size-3 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuLabel>Layer order</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onBringToFront} disabled={disabled}>
+              <ArrowUpToLine className="mr-2 size-4" />
+              Bring to front
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onBringForward} disabled={disabled}>
+              <ArrowUp className="mr-2 size-4" />
+              Bring forward
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onSendBackward} disabled={disabled}>
+              <ArrowDown className="mr-2 size-4" />
+              Send backward
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onSendToBack} disabled={disabled}>
+              <ArrowDownToLine className="mr-2 size-4" />
+              Send to back
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {isGroup ? (
           <>

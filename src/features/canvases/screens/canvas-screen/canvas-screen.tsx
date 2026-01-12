@@ -1454,6 +1454,29 @@ export default function CanvasScreen({ params }: PageProps) {
     downloadBlob(blob, `pigcasso_html_${Date.now()}.html`);
   }, [downloadBlob, selectedHtmlShape]);
 
+  const reorderSelectedShapes = useCallback(
+    (mode: "front" | "forward" | "backward" | "back") => {
+      if (!editor || !boardHydrated || boardCrashMessage) return;
+      const ids = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
+      if (!ids.length) return;
+
+      try {
+        if (mode === "front") {
+          editor.bringToFront?.(ids as any);
+        } else if (mode === "forward") {
+          editor.bringForward?.(ids as any);
+        } else if (mode === "backward") {
+          editor.sendBackward?.(ids as any);
+        } else {
+          editor.sendToBack?.(ids as any);
+        }
+      } catch {
+        toast.error("Couldn’t reorder layers.", { duration: 2500 });
+      }
+    },
+    [boardCrashMessage, boardHydrated, editor],
+  );
+
   const ungroupSelectedShapes = useCallback(() => {
     if (!editor || !boardHydrated || boardCrashMessage) return;
     const selected = (editor.getSelectedShapeIds?.() ?? []).map((id) => String(id));
@@ -1578,6 +1601,8 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      anchor={resolvedSelectionToolbarAnchor}
 	                      disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
 	                      onAddToChat={() => addSelectionToChat()}
+                        onBringForward={() => reorderSelectedShapes("forward")}
+                        onBringToFront={() => reorderSelectedShapes("front")}
 	                      onDownloadSelected={() => void downloadSelectedImage()}
 	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
                         onMintNft={() => mintSelectionAsNft()}
@@ -1586,6 +1611,8 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      onRegenerate={() => void regenerateSelectedImage()}
 	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
                       onMakeTextEditable={() => void makeSelectedImageTextEditable()}
+                      onSendBackward={() => reorderSelectedShapes("backward")}
+                      onSendToBack={() => reorderSelectedShapes("back")}
                       onViewHtmlCode={() => viewSelectedHtmlCode()}
                       onUngroup={() => void ungroupSelectedShapes()}
                       textStyle={selectedTextShape ? selectedTextStyle : null}
