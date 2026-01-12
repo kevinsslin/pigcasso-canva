@@ -539,7 +539,10 @@ export const ExportNftDialog = ({
 
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
-      const tokenUri = asset.metadataUri;
+      const tokenUri =
+        asset.metadataUrl ||
+        ipfsToHttpUrl(asset.metadataUri) ||
+        asset.metadataUri;
       const hash = await walletClient.writeContract({
         address: collection.address,
         abi: pigcassoCollectionAbi,
@@ -623,7 +626,11 @@ export const ExportNftDialog = ({
     : exportedAsset?.imageUri
       ? ipfsToHttpUrl(exportedAsset.imageUri) ?? exportedAsset.imageUri
       : null;
-  const tokenUriForDisplay = exportedAsset?.metadataUri ?? null;
+  const tokenUriForDisplay = exportedAsset?.metadataUrl
+    ? exportedAsset.metadataUrl
+    : exportedAsset?.metadataUri
+      ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
+      : null;
 
   const collectionLabel =
     collectionMode === "existing" && isEvmAddress(selectedCollectionAddress.trim())

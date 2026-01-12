@@ -8,7 +8,7 @@ import { mantle } from "viem/chains";
 import { useWallets } from "@privy-io/react-auth";
 
 import { pigcassoCollectionAbi, pigcassoNftFactoryAbi } from "@/features/nfts/abi";
-import { ipfsToHttpUrl, ipfsToPublicHttpUrl } from "@/features/nfts/ipfs";
+import { ipfsToHttpUrl } from "@/features/nfts/ipfs";
 import { useMe } from "@/features/auth/api/use-me";
 import { useListNftCollections } from "@/features/nfts/api/use-list-collections";
 import { useCreateNftCollection } from "@/features/nfts/api/use-create-collection";
@@ -79,6 +79,7 @@ type ExportedCanvasNft = {
 };
 
 type CollectionMode = "existing" | "new";
+type TokenUriMode = "ipfs" | "https";
 
 const formatAddress = (address: string) => {
   const trimmed = address.trim();
@@ -108,6 +109,7 @@ export const CanvasExportNftDialog = ({
 
   const [tokenName, setTokenName] = useState("");
   const [tokenDescription, setTokenDescription] = useState("");
+  const [tokenUriMode, setTokenUriMode] = useState<TokenUriMode>("https");
 
   const [collectionMode, setCollectionMode] = useState<CollectionMode>("existing");
   const [selectedCollectionAddress, setSelectedCollectionAddress] = useState<string>("");
@@ -166,6 +168,7 @@ export const CanvasExportNftDialog = ({
     if (!open) {
       setTokenName("");
       setTokenDescription("");
+      setTokenUriMode("https");
       setCollectionMode("existing");
       setSelectedCollectionAddress("");
       setNewCollectionName("");
@@ -185,6 +188,7 @@ export const CanvasExportNftDialog = ({
       target?.canvasName?.trim() ||
       "Untitled";
     setTokenName(`${baseName} · NFT`);
+    setTokenUriMode("https");
 
     const defaults = getAutoCollectionDefaults();
     setNewCollectionName(defaults.name);
@@ -401,7 +405,10 @@ export const CanvasExportNftDialog = ({
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
 
-      const tokenUri = exportedAsset.metadataUri;
+      const tokenUri =
+        tokenUriMode === "ipfs"
+          ? exportedAsset.metadataUri || exportedAsset.metadataUrl
+          : exportedAsset.metadataUrl || ipfsToHttpUrl(exportedAsset.metadataUri) || exportedAsset.metadataUri;
 
       const hash = await walletClient.writeContract({
         address: collection.address,
@@ -471,11 +478,7 @@ export const CanvasExportNftDialog = ({
     createCollectionRecord.isPending ||
     isMinting;
 
-  const previewUrl = exported?.imageUrl
-    ? ipfsToPublicHttpUrl(exported.imageUri) ?? ipfsToHttpUrl(exported.imageUri) ?? exported.imageUrl
-    : target?.previewUrl ?? "";
-  const metadataHttpUrl = exported?.metadataUri ? ipfsToPublicHttpUrl(exported.metadataUri) : null;
-  const imageHttpUrl = exported?.imageUri ? ipfsToPublicHttpUrl(exported.imageUri) : null;
+  const previewUrl = exported?.imageUrl ? exported.imageUrl : target?.previewUrl ?? "";
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && isMinting) return;
@@ -507,15 +510,19 @@ export const CanvasExportNftDialog = ({
 	                  <div className="rounded-lg border bg-background/60 p-3">
 	                    <div className="font-medium">Metadata URL (tokenURI)</div>
 	                    <div className="mt-1 space-y-1 font-mono break-all">
-	                      <div className="text-foreground">{exported.metadataUri}</div>
-	                      {metadataHttpUrl ? <div className="text-muted-foreground">{metadataHttpUrl}</div> : null}
+	                      <div className={cn(tokenUriMode === "ipfs" ? "text-foreground" : "text-muted-foreground")}>
+	                        {exported.metadataUri}
+	                      </div>
+	                      <div className={cn(tokenUriMode === "https" ? "text-foreground" : "text-muted-foreground")}>
+	                        {exported.metadataUrl}
+	                      </div>
 	                    </div>
 	                  </div>
 	                  <div className="rounded-lg border bg-background/60 p-3">
 	                    <div className="font-medium">Image URL</div>
 	                    <div className="mt-1 space-y-1 font-mono break-all">
-	                      <div className="text-foreground">{exported.imageUri}</div>
-	                      {imageHttpUrl ? <div className="text-muted-foreground">{imageHttpUrl}</div> : null}
+	                      <div>{exported.imageUri}</div>
+	                      <div className="text-muted-foreground">{exported.imageUrl}</div>
 	                    </div>
 	                  </div>
 	                </div>
@@ -523,6 +530,34 @@ export const CanvasExportNftDialog = ({
 	            </div>
 
 	            <div className="md:col-span-3 space-y-4">
+	              <div className="space-y-2">
+	                <div className="text-sm font-medium">Token URI format</div>
+	                <div className="flex flex-wrap gap-2">
+	                  <Button
+	                    type="button"
+	                    variant={tokenUriMode === "https" ? "default" : "secondary"}
+	                    className="rounded-full"
+	                    disabled={busy}
+	                    onClick={() => setTokenUriMode("https")}
+	                  >
+	                    Gateway URL (recommended)
+	                  </Button>
+	                  <Button
+	                    type="button"
+	                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
+	                    className="rounded-full"
+	                    disabled={busy}
+	                    onClick={() => setTokenUriMode("ipfs")}
+	                  >
+	                    IPFS URI (advanced)
+	                  </Button>
+	                </div>
+	                <div className="text-xs text-muted-foreground">
+	                  Default uses an HTTPS gateway for best preview compatibility. Switch to IPFS URI if you specifically
+	                  want an ipfs:// tokenURI.
+	                </div>
+	              </div>
+
 	              <div className="space-y-2">
 	                <div className="text-sm font-medium">Name</div>
 	                <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
