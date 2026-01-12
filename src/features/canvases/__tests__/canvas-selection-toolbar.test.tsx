@@ -45,6 +45,7 @@ describe("CanvasSelectionToolbar", () => {
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
+          onLaunchPrintr={() => {}}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
@@ -61,6 +62,7 @@ describe("CanvasSelectionToolbar", () => {
     ) as HTMLButtonElement | null;
     expect(downloadButton).not.toBeNull();
     expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Launch on Printr\"]")).not.toBeNull();
     expect(container?.querySelector("button[aria-label=\"Regenerate selected image\"]")).not.toBeNull();
     expect(container?.querySelector("button[aria-label=\"Remove background\"]")).not.toBeNull();
 
@@ -87,6 +89,7 @@ describe("CanvasSelectionToolbar", () => {
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
+          onLaunchPrintr={() => {}}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
@@ -101,6 +104,7 @@ describe("CanvasSelectionToolbar", () => {
     expect(container?.querySelector("button[aria-label=\"Download selected image\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Edit selected image\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Launch on Printr\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Regenerate selected image\"]")).toBeNull();
     expect(container?.querySelector("button[aria-label=\"Remove background\"]")).toBeNull();
 
@@ -127,6 +131,7 @@ describe("CanvasSelectionToolbar", () => {
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
+          onLaunchPrintr={() => {}}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
           onMakeTextEditable={() => {}}
@@ -164,6 +169,7 @@ describe("CanvasSelectionToolbar", () => {
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
+          onLaunchPrintr={() => {}}
           showMintNft
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
@@ -178,6 +184,7 @@ describe("CanvasSelectionToolbar", () => {
 
     expect(container?.querySelector("button[aria-label=\"Ungroup selection\"]")).not.toBeNull();
     expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).not.toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Launch on Printr\"]")).not.toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -202,6 +209,7 @@ describe("CanvasSelectionToolbar", () => {
           onDownloadSelected={() => {}}
           onDownloadSelectedHtml={() => {}}
           onMintNft={() => {}}
+          onLaunchPrintr={() => {}}
           showMintNft={false}
           onRegenerate={() => {}}
           onRemoveBackground={() => {}}
@@ -216,6 +224,7 @@ describe("CanvasSelectionToolbar", () => {
 
     expect(container?.querySelector("button[aria-label=\"Ungroup selection\"]")).not.toBeNull();
     expect(container?.querySelector("button[aria-label=\"Mint NFT\"]")).toBeNull();
+    expect(container?.querySelector("button[aria-label=\"Launch on Printr\"]")).not.toBeNull();
 
     await act(async () => {
       root.unmount();

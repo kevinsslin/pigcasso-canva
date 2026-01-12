@@ -93,6 +93,10 @@ import {
   CanvasExportNftDialog,
   type CanvasExportNftTarget,
 } from "@/features/canvases/screens/canvas-screen/canvas-export-nft-dialog";
+import {
+  CanvasPrintrLaunchDialog,
+  type CanvasPrintrLaunchTarget,
+} from "@/features/canvases/screens/canvas-screen/canvas-printr-launch-dialog";
 import { CanvasHtmlCodeDialog } from "@/features/canvases/screens/canvas-screen/canvas-html-code-dialog";
 import { CanvasMentionPicker } from "@/features/canvases/screens/canvas-screen/canvas-mention-picker";
 import { CanvasMobileDock } from "@/features/canvases/screens/canvas-screen/canvas-mobile-dock";
@@ -342,6 +346,8 @@ export default function CanvasScreen({ params }: PageProps) {
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [exportNftOpen, setExportNftOpen] = useState(false);
   const [exportNftTarget, setExportNftTarget] = useState<CanvasExportNftTarget | null>(null);
+  const [printrOpen, setPrintrOpen] = useState(false);
+  const [printrTarget, setPrintrTarget] = useState<CanvasPrintrLaunchTarget | null>(null);
 
   useEffect(() => {
     if (activeTool === "select") return;
@@ -1061,7 +1067,7 @@ export default function CanvasScreen({ params }: PageProps) {
     return { font, size, color, sizePx, fontFamily };
   }, [selectedTextShape, selectedTextStyleKey]);
 
-  const selectionToolbarSuppressed = downloadsOpen || exportNftOpen || htmlCodeDialogOpen;
+  const selectionToolbarSuppressed = downloadsOpen || exportNftOpen || printrOpen || htmlCodeDialogOpen;
 
   const resolvedSelectionToolbarAnchor = useMemo(() => {
     if (selectionToolbarSuppressed) return null;
@@ -1291,6 +1297,8 @@ export default function CanvasScreen({ params }: PageProps) {
       const fallbackPreviewUrl = previewSrc || (imageUrl ? toCanvasImageUrl(imageUrl) : "");
       const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
 
+      const toastId = toast.loading("Preparing PNG…");
+
       const compositeUrl = await (async () => {
         if (!boardHydrated) return null;
         if (boardCrashMessage) return null;
@@ -1311,13 +1319,18 @@ export default function CanvasScreen({ params }: PageProps) {
         }
       })();
 
-      const exportImageUrl = compositeUrl || imageUrl;
-      if (!/^https:\/\//i.test(exportImageUrl)) {
-        toast.error("Selected image is missing a usable URL.");
+      if (!compositeUrl) {
+        toast.error("Couldn’t export a combined PNG. Please try again.", {
+          id: toastId,
+          duration: 3500,
+        });
         return;
       }
 
-      const previewUrl = compositeUrl || fallbackPreviewUrl || exportImageUrl;
+      toast.success("PNG ready.", { id: toastId, duration: 1200 });
+
+      const exportImageUrl = compositeUrl;
+      const previewUrl = compositeUrl || fallbackPreviewUrl || imageUrl;
 
       setExportNftTarget({
         canvasId: params.canvasId,
@@ -1349,6 +1362,70 @@ export default function CanvasScreen({ params }: PageProps) {
 
     void openExportNftForShapeId(shapeId);
   }, [openExportNftForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
+
+  const openPrintrLaunchForShapeId = useCallback(
+    async (shapeId: string) => {
+      if (!editor) {
+        toast.error("Canvas is still loading. Try again in a moment.");
+        return;
+      }
+      if (!boardHydrated || boardCrashMessage) {
+        toast.error("Canvas is still loading. Try again in a moment.");
+        return;
+      }
+
+      const shape = (() => {
+        try {
+          return editor.getShape?.(shapeId as any) as any;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!shape || typeof shape !== "object" || shape.type !== "image") {
+        toast.error("Select an image to launch.");
+        return;
+      }
+
+      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
+      const toastId = toast.loading("Preparing token image…");
+
+      try {
+        const dataUrl = await exportCurrentCanvasPageToPngDataUrl(editor as any, {
+          targetPx: 1536,
+          padding: 32,
+          pixelRatio: 1,
+        });
+
+        setPrintrTarget({
+          canvasId: params.canvasId,
+          canvasName,
+          shapeId,
+          imageDataUrl: dataUrl,
+          defaultName: contextLabel || canvasName,
+        });
+        setPrintrOpen(true);
+        toast.success("Ready to launch.", { id: toastId, duration: 1200 });
+      } catch {
+        toast.error("Couldn’t prepare the token image. Please try again.", {
+          id: toastId,
+          duration: 3500,
+        });
+      }
+    },
+    [boardCrashMessage, boardHydrated, canvasName, editor, params.canvasId],
+  );
+
+  const launchSelectionOnPrintr = useCallback(() => {
+    const shapeId = selectedImageShape
+      ? String((selectedImageShape as any).id)
+      : selectedGroupMintImageShapeId;
+    if (!shapeId) {
+      toast.error("Select an image to launch.");
+      return;
+    }
+    void openPrintrLaunchForShapeId(shapeId);
+  }, [openPrintrLaunchForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
 
   const viewSelectedHtmlCode = useCallback(() => {
     const shape = selectedHtmlShape as any;
@@ -1503,6 +1580,7 @@ export default function CanvasScreen({ params }: PageProps) {
 	                      onDownloadSelected={() => void downloadSelectedImage()}
 	                      onDownloadSelectedHtml={() => downloadSelectedHtml()}
                         onMintNft={() => mintSelectionAsNft()}
+                        onLaunchPrintr={() => launchSelectionOnPrintr()}
                         showMintNft={Boolean(selectedGroupMintImageShapeId) || Boolean(selectedImageShape)}
 	                      onRegenerate={() => void regenerateSelectedImage()}
 	                      onRemoveBackground={() => void removeBackgroundFromSelectedImage()}
@@ -1992,6 +2070,15 @@ export default function CanvasScreen({ params }: PageProps) {
           if (!next) setExportNftTarget(null);
         }}
         target={exportNftTarget}
+      />
+
+      <CanvasPrintrLaunchDialog
+        open={printrOpen}
+        onOpenChange={(next) => {
+          setPrintrOpen(next);
+          if (!next) setPrintrTarget(null);
+        }}
+        target={printrTarget}
       />
 
       <CanvasHtmlCodeDialog

@@ -13,7 +13,11 @@ export const dataUrlToFile = async (dataUrl: string, fileName: string) => {
 };
 
 export const uploadImageDataUrl = async (dataUrl: string, fileName: string) => {
-  const token = await getAuthToken();
+  const token = await getAuthToken({
+    maxWaitMs: 5000,
+    retries: 8,
+    retryDelayMs: 250,
+  });
   if (!token) {
     throw new Error("Missing auth token. Please sign in again.");
   }
@@ -32,4 +36,3 @@ export const uploadImageDataUrl = async (dataUrl: string, fileName: string) => {
 
   return url;
 };
-

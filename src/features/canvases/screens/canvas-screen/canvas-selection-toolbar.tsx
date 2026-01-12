@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Wand2 } from "lucide-react";
+import { AtSign, ChevronDown, Code2, Coins, Download, Layers3, RefreshCcw, Rocket, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -52,6 +52,9 @@ export const CanvasSelectionToolbar = ({
   onDownloadSelected,
   onDownloadSelectedHtml,
   onMintNft,
+  onLaunchPrintr,
+  showLaunchPrintr = true,
+  launchPrintrLabel = "Launch on Printr",
   showMintNft = true,
   mintNftLabel = "Export NFT",
   onRegenerate,
@@ -68,6 +71,9 @@ export const CanvasSelectionToolbar = ({
   onDownloadSelected: () => void;
   onDownloadSelectedHtml: () => void;
   onMintNft: () => void;
+  onLaunchPrintr: () => void;
+  showLaunchPrintr?: boolean;
+  launchPrintrLabel?: string;
   showMintNft?: boolean;
   mintNftLabel?: string;
   onRegenerate: () => void;
@@ -173,6 +179,21 @@ export const CanvasSelectionToolbar = ({
                 {mintNftLabel}
               </Button>
             ) : null}
+
+            {showLaunchPrintr ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-9 rounded-full px-3"
+                disabled={disabled}
+                onClick={onLaunchPrintr}
+                aria-label="Launch on Printr"
+              >
+                <Rocket className="mr-2 size-4" />
+                {launchPrintrLabel}
+              </Button>
+            ) : null}
           </>
         ) : null}
 
@@ -229,6 +250,21 @@ export const CanvasSelectionToolbar = ({
               <Coins className="mr-2 size-4" />
               {mintNftLabel}
             </Button>
+
+            {showLaunchPrintr ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-9 rounded-full px-3"
+                disabled={disabled}
+                onClick={onLaunchPrintr}
+                aria-label="Launch on Printr"
+              >
+                <Rocket className="mr-2 size-4" />
+                {launchPrintrLabel}
+              </Button>
+            ) : null}
 
             <Button
               type="button"
