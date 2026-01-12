@@ -282,7 +282,13 @@ export const useCanvasSelectedImageActions = ({
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: "user", content: "Remove background from the selected image." },
-        { id: crypto.randomUUID(), role: "assistant", content: "Added a cut-out version.", attachments: [attachment] },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            "Added a cut-out version (transparent PNG). If you see a checkerboard, that’s just the transparency indicator in some viewers.",
+          attachments: [attachment],
+        },
       ]);
     });
   }, [
