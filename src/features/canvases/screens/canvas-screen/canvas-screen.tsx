@@ -34,6 +34,7 @@ import {
   type NanoBananaProfileOption,
 } from "@/features/ai/lib/nano-banana-profile";
 import { useChatAssistant } from "@/features/ai/api/use-chat-assistant";
+import { useAnalyzeCanvasPrompt } from "@/features/ai/api/use-analyze-canvas-prompt";
 import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { useEditImage } from "@/features/ai/api/use-edit-image";
 import { useGenerateHtml } from "@/features/ai/api/use-generate-html";
@@ -89,7 +90,6 @@ import {
   getActiveAtMentionAtCursor,
 } from "@/features/canvases/lib/at-mentions";
 import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
-import { isHtmlPrompt } from "@/features/canvases/lib/prompt-intent";
 import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
 import { generateHtmlPreviewDataUrl, PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY } from "@/features/canvases/lib/html-preview";
@@ -176,6 +176,44 @@ export default function CanvasScreen({ params }: PageProps) {
     const fromQuery = parseNanoBananaProfileOption(searchParams?.get("profile"));
     return fromQuery ?? "auto";
   });
+
+  type AiUiJobState = { jobId: string; label: string; startedAt: number };
+  const [aiUiJob, setAiUiJob] = useState<AiUiJobState | null>(null);
+  const aiUiJobsRef = useRef<Map<string, AiUiJobState>>(new Map());
+
+  const refreshAiUiJob = useCallback(() => {
+    const jobs = Array.from(aiUiJobsRef.current.values());
+    jobs.sort((a, b) => b.startedAt - a.startedAt);
+    setAiUiJob(jobs[0] ?? null);
+  }, []);
+
+  const startAiUiJob = useCallback(
+    (label: string) => {
+      const jobId = crypto.randomUUID();
+      aiUiJobsRef.current.set(jobId, { jobId, label, startedAt: Date.now() });
+      refreshAiUiJob();
+      return jobId;
+    },
+    [refreshAiUiJob],
+  );
+
+  const updateAiUiJobLabel = useCallback(
+    (jobId: string, label: string) => {
+      const existing = aiUiJobsRef.current.get(jobId);
+      if (!existing) return;
+      aiUiJobsRef.current.set(jobId, { ...existing, label });
+      refreshAiUiJob();
+    },
+    [refreshAiUiJob],
+  );
+
+  const finishAiUiJob = useCallback(
+    (jobId: string) => {
+      aiUiJobsRef.current.delete(jobId);
+      refreshAiUiJob();
+    },
+    [refreshAiUiJob],
+  );
   const [boardHydrated, setBoardHydrated] = useState(false);
   const [boardCrashMessage, setBoardCrashMessage] = useState<string | null>(null);
   const [tldrawMountKey, setTldrawMountKey] = useState(0);
@@ -240,6 +278,7 @@ export default function CanvasScreen({ params }: PageProps) {
   }, []);
 
   const chatAssistant = useChatAssistant();
+  const analyzeCanvasPrompt = useAnalyzeCanvasPrompt();
   const generateImage = useGenerateImage();
   const editImage = useEditImage();
   const generateHtml = useGenerateHtml();
@@ -1519,11 +1558,14 @@ export default function CanvasScreen({ params }: PageProps) {
       const profile = aiProfile;
 
       await queue.enqueue(async () => {
+        const uiJobId = startAiUiJob(profile === "gemini-pro-3" ? "Thinking…" : "Analyzing…");
+
         try {
           const apiProfile = toNanoBananaApiProfile(profile);
           const promptContext = (() => {
-            if (!contextShapeIds.length) return null;
-            const lines = contextShapeIds
+            const ids = contextShapeIds.slice(0, 12);
+            if (!ids.length) return null;
+            const lines = ids
               .map((shapeId) => {
                 const ctx = getSelectionContext(editor as any, shapeId);
                 if (!ctx) return null;
@@ -1537,6 +1579,7 @@ export default function CanvasScreen({ params }: PageProps) {
           const promptWithContext = promptContext ? `${trimmed}\n\n${promptContext}` : trimmed;
 
           if (profile === "gemini-pro-3") {
+            updateAiUiJobLabel(uiJobId, "Thinking…");
             const res = await chatAssistant.mutateAsync({ prompt: promptWithContext });
             setMessages((prev) => [
               ...prev,
@@ -1545,15 +1588,35 @@ export default function CanvasScreen({ params }: PageProps) {
             return;
           }
 
-          const looksLikeHtmlPrompt = isHtmlPrompt(trimmed);
-          if (looksLikeHtmlPrompt) {
-            const res = await generateHtml.mutateAsync({ prompt: promptWithContext });
+          updateAiUiJobLabel(uiJobId, "Analyzing…");
+          const selectedCtx = selectedShapeId ? getSelectionContext(editor as any, selectedShapeId) : null;
+
+          const plan = await analyzeCanvasPrompt.mutateAsync({
+            prompt: trimmed,
+            context: promptContext ?? undefined,
+            selection: selectedCtx ? { type: selectedCtx.type, label: selectedCtx.label } : null,
+          });
+
+          if (plan.data.route === "ask_clarify") {
+            updateAiUiJobLabel(uiJobId, "Thinking…");
+            setMessages((prev) => [
+              ...prev,
+              { id: crypto.randomUUID(), role: "assistant", content: plan.data.question },
+            ]);
+            return;
+          }
+
+          if (plan.data.route === "generate_html") {
+            updateAiUiJobLabel(uiJobId, "Generating HTML…");
+            const prompt = promptContext ? `${plan.data.prompt}\n\n${promptContext}` : plan.data.prompt;
+            const res = await generateHtml.mutateAsync({ prompt });
             const html = res.data.html;
 
             let htmlCardMode: "created" | "updated" | "failed" = "failed";
             let htmlCardShapeId: string | null = null;
 
             try {
+              updateAiUiJobLabel(uiJobId, "Placing HTML on canvas…");
               const point = options?.point ?? getAiInsertPoint(editor as any);
               const existingShapeId =
                 selectedShape?.type === HTML_CARD_SHAPE_TYPE ? selectedShapeId ?? undefined : undefined;
@@ -1588,7 +1651,8 @@ export default function CanvasScreen({ params }: PageProps) {
             }
 
             if (htmlCardShapeId) {
-              void ensureHtmlCardPreview(htmlCardShapeId, html);
+              updateAiUiJobLabel(uiJobId, "Rendering HTML preview…");
+              await ensureHtmlCardPreview(htmlCardShapeId, html);
             }
 
             const htmlAttachment: CanvasChatAttachment | null = htmlCardShapeId
@@ -1621,7 +1685,9 @@ export default function CanvasScreen({ params }: PageProps) {
             return;
           }
 
-          if (selectedShape?.type === "image" && selectedShape?.props?.assetId) {
+          const wantsEdit = plan.data.route === "edit_selected_image";
+          if (wantsEdit && selectedShape?.type === "image" && selectedShape?.props?.assetId) {
+            updateAiUiJobLabel(uiJobId, "Editing image…");
             const asset = editor.getAsset?.(selectedShape.props.assetId) as any;
             const srcRaw =
               (asset?.meta?.originalSrc as string | undefined) ??
@@ -1650,7 +1716,8 @@ export default function CanvasScreen({ params }: PageProps) {
                 profile: apiProfile,
               });
 
-	              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
+              updateAiUiJobLabel(uiJobId, "Uploading image…");
+              const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
 	              const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
 	              const point = (() => {
@@ -1668,6 +1735,7 @@ export default function CanvasScreen({ params }: PageProps) {
 	                return options?.point ?? getAiInsertPoint(editor as any);
 	              })();
 
+              updateAiUiJobLabel(uiJobId, "Placing on canvas…");
               const inserted = await withAiCommit(() =>
                 withHistorySquash(editor as any, "ai:variation", async () => {
                   const created = await insertImageToCanvas(editor as any, {
@@ -1719,13 +1787,17 @@ export default function CanvasScreen({ params }: PageProps) {
               return;
             }
 
+            const instruction =
+              plan.data.route === "edit_selected_image" ? plan.data.instruction : trimmed;
+
             const res = await editImage.mutateAsync({
               image: src,
-              instruction: trimmed,
+              instruction,
               profile: apiProfile,
             });
 
-	            const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
+            updateAiUiJobLabel(uiJobId, "Uploading image…");
+	          const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
 	            const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
 	            const point = (() => {
@@ -1743,7 +1815,8 @@ export default function CanvasScreen({ params }: PageProps) {
 	              return options?.point ?? getAiInsertPoint(editor as any);
 	            })();
 
-	            const inserted = await withAiCommit(() =>
+            updateAiUiJobLabel(uiJobId, "Placing on canvas…");
+	          const inserted = await withAiCommit(() =>
 	              withHistorySquash(editor as any, "ai:edit-image", async () => {
 	                const created = await insertImageToCanvas(editor as any, {
 	                  src: canvasUrl,
@@ -1794,16 +1867,25 @@ export default function CanvasScreen({ params }: PageProps) {
 	            return;
 	          }
 
+          updateAiUiJobLabel(uiJobId, "Generating image…");
+          const imagePrompt = promptContext
+            ? `${plan.data.route === "generate_image" ? plan.data.prompt : trimmed}\n\n${promptContext}`
+            : plan.data.route === "generate_image"
+              ? plan.data.prompt
+              : trimmed;
+
           const generated = await generateImage.mutateAsync({
-            prompt: promptWithContext,
+            prompt: imagePrompt,
             profile: apiProfile,
             canvas: { width: 1024, height: 1024 },
           });
 
+          updateAiUiJobLabel(uiJobId, "Uploading image…");
           const uploadedUrl = await uploadImageDataUrl(generated.data, `pigcasso_${Date.now()}.png`);
           const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
           const point = options?.point ?? getAiInsertPoint(editor as any);
+          updateAiUiJobLabel(uiJobId, "Placing on canvas…");
           const inserted = await withAiCommit(() =>
             withHistorySquash(editor as any, "ai:insert-image", async () => {
               const created = await insertImageToCanvas(editor as any, {
@@ -1866,19 +1948,25 @@ export default function CanvasScreen({ params }: PageProps) {
             ...prev,
             { id: crypto.randomUUID(), role: "assistant", content: message },
           ]);
+        } finally {
+          finishAiUiJob(uiJobId);
         }
       });
     },
     [
       aiProfile,
+      analyzeCanvasPrompt,
       boardCrashMessage,
       boardHydrated,
       chatAssistant,
       editImage,
       editor,
       ensureHtmlCardPreview,
+      finishAiUiJob,
       generateHtml,
       generateImage,
+      startAiUiJob,
+      updateAiUiJobLabel,
       withAiCommit,
     ],
   );
@@ -2122,6 +2210,7 @@ export default function CanvasScreen({ params }: PageProps) {
 
       const toastId = `${toastIdPrefix}:${crypto.randomUUID()}`;
       toast.loading(label, { id: toastId, duration: Infinity });
+      const uiJobId = startAiUiJob(label);
 
       try {
         const queue = aiJobQueueRef.current;
@@ -2136,9 +2225,11 @@ export default function CanvasScreen({ params }: PageProps) {
         } else {
           toast.error(message || "Something went wrong.", { id: toastId, duration: 3500 });
         }
+      } finally {
+        finishAiUiJob(uiJobId);
       }
     },
-    [ensureCanvasReadyForAiAction],
+    [ensureCanvasReadyForAiAction, finishAiUiJob, startAiUiJob],
   );
 
   const downloadBlob = useCallback((blob: Blob, filename: string) => {
@@ -3533,6 +3624,9 @@ export default function CanvasScreen({ params }: PageProps) {
             recentAttachments={recentAttachments}
             messages={messages}
             busy={busy}
+            busyLabel={aiUiJob?.label ?? null}
+            busySince={aiUiJob?.startedAt ?? null}
+            busyCounts={aiJobCounts}
             desktopEndRef={desktopChatEndRef}
             mobileEndRef={mobileChatEndRef}
             desktopInputRef={desktopChatInputElRef}

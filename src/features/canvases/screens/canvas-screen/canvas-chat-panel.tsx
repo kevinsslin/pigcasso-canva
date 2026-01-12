@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import Image from "next/image";
 import { ArrowUp, AtSign, ChevronDown, Download, Loader2, LocateFixed, Paperclip, X } from "lucide-react";
 
@@ -41,6 +41,9 @@ export const CanvasChatPanel = ({
   recentAttachments,
   messages,
   busy,
+  busyLabel,
+  busySince,
+  busyCounts,
   desktopEndRef,
   mobileEndRef,
   desktopInputRef,
@@ -78,6 +81,9 @@ export const CanvasChatPanel = ({
   recentAttachments: CanvasChatAttachment[];
   messages: CanvasChatMessage[];
   busy: boolean;
+  busyLabel?: string | null;
+  busySince?: number | null;
+  busyCounts?: { active: number; queued: number } | null;
   desktopEndRef: RefObject<HTMLDivElement>;
   mobileEndRef: RefObject<HTMLDivElement>;
   desktopInputRef: RefObject<HTMLTextAreaElement>;
@@ -102,6 +108,37 @@ export const CanvasChatPanel = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const openFilePicker = () => fileInputRef.current?.click();
+
+  const resolvedBusyLabel = useMemo(() => {
+    const raw = typeof busyLabel === "string" ? busyLabel.trim() : "";
+    return raw || "Thinking…";
+  }, [busyLabel]);
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!busy) return;
+    if (!busySince) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [busy, busySince]);
+
+  const elapsedLabel = useMemo(() => {
+    if (!busySince) return null;
+    const elapsedSeconds = Math.max(0, Math.floor((now - busySince) / 1000));
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }, [busySince, now]);
+
+  const countsLabel = useMemo(() => {
+    if (!busyCounts) return null;
+    const active = Math.max(0, Math.floor(busyCounts.active ?? 0));
+    const queued = Math.max(0, Math.floor(busyCounts.queued ?? 0));
+    if (!active && !queued) return null;
+    if (queued) return `${active} running • ${queued} queued`;
+    return `${active} running`;
+  }, [busyCounts]);
 
   return (
     <>
@@ -299,8 +336,12 @@ export const CanvasChatPanel = ({
                       <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
                       <div className="mt-1 flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Thinking…
+                        <span>{resolvedBusyLabel}</span>
+                        {elapsedLabel ? <span className="text-xs tabular-nums">{elapsedLabel}</span> : null}
                       </div>
+                      {countsLabel ? (
+                        <div className="mt-1 text-[11px] text-muted-foreground">{countsLabel}</div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -643,8 +684,12 @@ export const CanvasChatPanel = ({
                         <div className="text-xs font-semibold text-muted-foreground">Pigcasso</div>
                         <div className="mt-1 flex items-center gap-2 text-muted-foreground">
                           <Loader2 className="size-4 animate-spin" />
-                          Thinking…
+                          <span>{resolvedBusyLabel}</span>
+                          {elapsedLabel ? <span className="text-xs tabular-nums">{elapsedLabel}</span> : null}
                         </div>
+                        {countsLabel ? (
+                          <div className="mt-1 text-[11px] text-muted-foreground">{countsLabel}</div>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}

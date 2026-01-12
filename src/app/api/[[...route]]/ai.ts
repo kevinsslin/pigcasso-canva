@@ -4,6 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 
 import { requireAuth } from "@/server/hono-auth";
 import {
+  analyzeCanvasPrompt,
   chatAssistant,
   editImage,
   extractTextBlocks,
@@ -17,6 +18,45 @@ import {
 import { incrementAiUsage } from "@/server/ai-usage";
 
 const app = new Hono()
+  .post(
+    "/analyze",
+    requireAuth,
+    zValidator(
+      "json",
+      z.object({
+        prompt: z.string().trim().min(1).max(8000),
+        context: z.string().trim().max(4000).optional(),
+        selection: z
+          .object({
+            type: z.string().trim().min(1).max(64),
+            label: z.string().trim().max(200).optional(),
+          })
+          .nullable()
+          .optional(),
+      }),
+    ),
+    async (c) => {
+      const authUser = c.get("authUser");
+      const { prompt, context, selection } = c.req.valid("json");
+
+      const { decision } = await getAiAccessDecision({
+        authUser,
+        action: "generate",
+      });
+
+      if (!decision.allowed) {
+        return c.json(getAiLimitErrorBody(decision), 429);
+      }
+
+      const result = await analyzeCanvasPrompt({
+        prompt,
+        context: context ?? null,
+        selection: selection ?? null,
+      });
+
+      return c.json({ data: result.data, meta: { provider: result.provider } });
+    },
+  )
   .post(
     "/chat",
     requireAuth,
