@@ -327,32 +327,82 @@ export const useCanvasSelectedImageActions = ({
 
     await runAiAction(toastId, "Separating layers…", async ({ setLabel }) => {
       const workflowMessageId = crypto.randomUUID();
+      const startedAt = Date.now();
 
       type StepKey = "analyze" | "removeText" | "background" | "subject" | "place";
       type StepStatus = "todo" | "doing" | "done" | "warn";
       type StepState = { key: StepKey; title: string; status: StepStatus; detail?: string | null };
 
+      const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+      let spinnerIndex = 0;
+      let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+      let currentSteps: StepState[] = [];
+
+      const formatElapsed = (ms: number) => {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        return `${minutes}:${seconds}`;
+      };
+
+      const getProgressBar = (doneCount: number, total: number) => {
+        const size = 10;
+        const filled = total > 0 ? Math.round((doneCount / total) * size) : 0;
+        return `${"█".repeat(Math.max(0, Math.min(size, filled)))}${"░".repeat(Math.max(0, size - filled))}`;
+      };
+
       const renderWorkflow = (steps: StepState[]) => {
-        const icon = (status: StepStatus) => {
-          if (status === "done") return "[x]";
-          if (status === "doing") return "[…]";
-          if (status === "warn") return "[!]";
-          return "[ ]";
+        const completedCount = steps.filter((step) => step.status === "done" || step.status === "warn").length;
+        const total = steps.length;
+        const progress = getProgressBar(completedCount, total);
+        const elapsed = formatElapsed(Date.now() - startedAt);
+
+        const iconFor = (status: StepStatus) => {
+          if (status === "done") return "✓";
+          if (status === "doing") return SPINNER_FRAMES[spinnerIndex] ?? "⠋";
+          if (status === "warn") return "!";
+          return "○";
         };
 
         return [
-          "Separate layers workflow",
-          ...steps.flatMap((step) => {
-            const line = `- ${icon(step.status)} ${step.title}`;
-            const detail = step.detail?.trim() ? `  ${step.detail.trim().replace(/\n/g, "\n  ")}` : null;
-            return detail ? [line, detail] : [line];
+          "Separate layers",
+          `Progress: ${progress}  ${completedCount}/${total}  ·  ${elapsed}`,
+          "",
+          ...steps.flatMap((step, index) => {
+            const icon = iconFor(step.status);
+            const active = step.status === "doing";
+            const label = `${icon} ${index + 1}. ${step.title}${active ? "…" : ""}`;
+            const detail = step.detail?.trim()
+              ? `   ${step.detail.trim().replace(/\n/g, "\n   ")}`
+              : null;
+            return detail ? [label, detail] : [label];
           }),
         ].join("\n");
       };
 
-      const updateWorkflowMessage = (steps: StepState[]) => {
-        const content = renderWorkflow(steps);
+      const updateWorkflowMessageNow = () => {
+        const content = renderWorkflow(currentSteps);
         setMessages((prev) => prev.map((msg) => (msg.id === workflowMessageId ? { ...msg, content } : msg)));
+      };
+
+      const ensureSpinner = () => {
+        const hasActiveStep = currentSteps.some((step) => step.status === "doing");
+        if (!hasActiveStep) {
+          if (spinnerTimer) clearInterval(spinnerTimer);
+          spinnerTimer = null;
+          return;
+        }
+        if (spinnerTimer) return;
+        spinnerTimer = setInterval(() => {
+          spinnerIndex = (spinnerIndex + 1) % SPINNER_FRAMES.length;
+          updateWorkflowMessageNow();
+        }, 180);
+      };
+
+      const updateWorkflowMessage = (steps: StepState[]) => {
+        currentSteps = steps;
+        updateWorkflowMessageNow();
+        ensureSpinner();
       };
 
       const setStep = (
@@ -391,15 +441,18 @@ export const useCanvasSelectedImageActions = ({
         { key: "place", title: "Place layers on canvas", status: "todo" },
       ];
 
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
-        {
-          id: workflowMessageId,
-          role: "assistant",
-          content: renderWorkflow(initialSteps),
-        },
-      ]);
+      try {
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
+          {
+            id: workflowMessageId,
+            role: "assistant",
+            content: renderWorkflow(initialSteps),
+          },
+        ]);
+
+        updateWorkflowMessage(initialSteps);
 
       const ensureCanvasImageSource = async (
         input: string,
@@ -802,6 +855,10 @@ export const useCanvasSelectedImageActions = ({
           attachments: [attachment],
         },
       ]);
+      } finally {
+        if (spinnerTimer) clearInterval(spinnerTimer);
+        spinnerTimer = null;
+      }
     });
   }, [
     aiProfile,
