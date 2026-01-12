@@ -959,43 +959,6 @@ export default function CanvasScreen({ params }: PageProps) {
 
           const viewport = { width: window.innerWidth, height: window.innerHeight };
 
-          const bounds = editor.getShapePageBounds?.(shapeId as any) as any;
-          const pageToScreen = (editor as any).pageToScreen as
-            | ((pt: { x: number; y: number }) => { x: number; y: number })
-            | undefined;
-          if (bounds && typeof bounds === "object" && typeof pageToScreen === "function") {
-            const pageToScreenWithOffset = (pt: { x: number; y: number }) => {
-              const screen = pageToScreen(pt);
-              const tlContainer = document.querySelector(".tl-container") as HTMLElement | null;
-              const rect = tlContainer?.getBoundingClientRect?.() ?? null;
-              if (!rect) return screen;
-
-              const isContainerRelative =
-                screen.x >= 0 &&
-                screen.y >= 0 &&
-                screen.x <= rect.width &&
-                screen.y <= rect.height;
-              const isWindowRelative =
-                screen.x >= rect.left &&
-                screen.y >= rect.top &&
-                screen.x <= rect.right &&
-                screen.y <= rect.bottom;
-
-              if (isContainerRelative && !isWindowRelative) {
-                return { x: screen.x + rect.left, y: screen.y + rect.top };
-              }
-              return screen;
-            };
-
-            return computeCanvasSelectionToolbarAnchor({
-              kind,
-              shapeId,
-              bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
-              pageToScreen: pageToScreenWithOffset,
-              viewport,
-            });
-          }
-
           const domEl = document.querySelector(`[data-shape-id=\"${shapeId}\"]`) as HTMLElement | null;
           if (domEl) {
             const rect = domEl.getBoundingClientRect();
@@ -1006,6 +969,59 @@ export default function CanvasScreen({ params }: PageProps) {
                 rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
                 viewport,
               });
+            }
+          }
+
+          const bounds = (() => {
+            try {
+              return editor.getShapePageBounds?.(shapeId as any) as any;
+            } catch {
+              return null;
+            }
+          })();
+
+          const pageToScreen = (() => {
+            try {
+              const fn = (editor as any).pageToScreen as
+                | ((pt: { x: number; y: number }) => { x: number; y: number })
+                | undefined;
+              return typeof fn === "function" ? fn : undefined;
+            } catch {
+              return undefined;
+            }
+          })();
+
+          if (bounds && typeof bounds === "object" && pageToScreen) {
+            const pageToScreenWithOffset = (pt: { x: number; y: number }) => {
+              const screen = pageToScreen(pt);
+              const x = Number((screen as any)?.x);
+              const y = Number((screen as any)?.y);
+              if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: viewport.width / 2, y: viewport.height / 2 };
+
+              const tlContainer = document.querySelector(".tl-container") as HTMLElement | null;
+              const rect = tlContainer?.getBoundingClientRect?.() ?? null;
+              if (!rect) return { x, y };
+
+              const isContainerRelative = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
+              const isWindowRelative = x >= rect.left && y >= rect.top && x <= rect.right && y <= rect.bottom;
+
+              if (isContainerRelative && !isWindowRelative) {
+                return { x: x + rect.left, y: y + rect.top };
+              }
+              return { x, y };
+            };
+
+            try {
+              const anchor = computeCanvasSelectionToolbarAnchor({
+                kind,
+                shapeId,
+                bounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
+                pageToScreen: pageToScreenWithOffset,
+                viewport,
+              });
+              if (Number.isFinite(anchor.screenX) && Number.isFinite(anchor.screenY)) return anchor;
+            } catch {
+              // ignore
             }
           }
 
