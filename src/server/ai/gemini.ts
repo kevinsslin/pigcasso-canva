@@ -36,9 +36,10 @@ const GEMINI_IMAGE_MODEL =
   "gemini-2.5-flash-image-preview";
 
 // Used for structured vision outputs (OCR, layout extraction). Must support JSON-mode.
+const DEFAULT_GEMINI_OCR_MODEL = "gemini-2.0-flash";
 const GEMINI_OCR_MODEL =
   normalizeModelName(process.env.GEMINI_OCR_MODEL ?? "") ||
-  "gemini-2.0-flash";
+  DEFAULT_GEMINI_OCR_MODEL;
 
 const GEMINI_IMAGE_MODEL_NANO_BANANA =
   normalizeModelName(process.env.GEMINI_IMAGE_MODEL_NANO_BANANA ?? "") || "";
@@ -746,10 +747,10 @@ const extractErrorMessage = (error: unknown) => {
 };
 
 const isJsonModeNotEnabledError = (error: unknown) => {
-  const status = getErrorStatus(error);
-  if (status !== 400) return false;
   const message = extractErrorMessage(error).toLowerCase();
-  return message.includes("json mode is not enabled");
+  if (!message.includes("json mode is not enabled")) return false;
+  const status = getErrorStatus(error);
+  return status === undefined || status === 400;
 };
 
 export const extractTextBlocks = async (params: { image: string }) => {
@@ -822,7 +823,11 @@ Rules:
   const inline = parseDataUrl(params.image) ?? (await fetchUrlAsBase64(params.image));
 
   const candidates = Array.from(
-    new Set([GEMINI_OCR_MODEL, GEMINI_IMAGE_MODEL, GEMINI_ASSISTANT_MODEL].map(normalizeModelName).filter(Boolean)),
+    new Set(
+      [GEMINI_OCR_MODEL, DEFAULT_GEMINI_OCR_MODEL, GEMINI_ASSISTANT_MODEL, GEMINI_IMAGE_MODEL]
+        .map(normalizeModelName)
+        .filter(Boolean),
+    ),
   );
 
   let lastError: unknown = null;

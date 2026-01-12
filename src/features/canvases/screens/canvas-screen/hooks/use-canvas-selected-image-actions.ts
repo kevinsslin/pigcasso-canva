@@ -31,6 +31,7 @@ type UseCanvasSelectedImageActionsParams = {
   aiProfile: NanoBananaProfileOption;
   aiJobQueueRef: { current: AiJobQueue | null };
   startAiUiJob: (label: string) => string;
+  updateAiUiJobLabel: (jobId: string, label: string) => void;
   finishAiUiJob: (jobId: string) => void;
   withAiCommit: WithAiCommit;
   selectedImageShape: any | null;
@@ -50,6 +51,7 @@ export const useCanvasSelectedImageActions = ({
   aiProfile,
   aiJobQueueRef,
   startAiUiJob,
+  updateAiUiJobLabel,
   finishAiUiJob,
   withAiCommit,
   selectedImageShape,
@@ -74,7 +76,11 @@ export const useCanvasSelectedImageActions = ({
   }, [boardCrashMessage, boardHydrated, editor]);
 
   const runAiAction = useCallback(
-    async (toastIdPrefix: string, label: string, fn: () => Promise<void>) => {
+    async (
+      toastIdPrefix: string,
+      label: string,
+      fn: (context: { setLabel: (nextLabel: string) => void }) => Promise<void>,
+    ) => {
       if (!ensureCanvasReadyForAiAction()) return;
 
       const toastId = `${toastIdPrefix}:${crypto.randomUUID()}`;
@@ -83,8 +89,16 @@ export const useCanvasSelectedImageActions = ({
 
       try {
         const queue = aiJobQueueRef.current;
-        if (!queue) return;
-        await queue.enqueue(async () => fn());
+        if (!queue) {
+          throw new Error("AI queue unavailable. Reload to continue.");
+        }
+
+        const setLabel = (nextLabel: string) => {
+          toast.loading(nextLabel, { id: toastId, duration: Infinity });
+          updateAiUiJobLabel(uiJobId, nextLabel);
+        };
+
+        await queue.enqueue(async () => fn({ setLabel }));
         toast.success("Done.", { id: toastId, duration: 2000 });
       } catch (error) {
         const status = getApiErrorStatus(error);
@@ -98,7 +112,7 @@ export const useCanvasSelectedImageActions = ({
         finishAiUiJob(uiJobId);
       }
     },
-    [aiJobQueueRef, ensureCanvasReadyForAiAction, finishAiUiJob, startAiUiJob],
+    [aiJobQueueRef, ensureCanvasReadyForAiAction, finishAiUiJob, startAiUiJob, updateAiUiJobLabel],
   );
 
   const regenerateSelectedImage = useCallback(async () => {
@@ -294,7 +308,7 @@ export const useCanvasSelectedImageActions = ({
       return;
     }
 
-    await runAiAction(toastId, "Separating layers…", async () => {
+    await runAiAction(toastId, "Separating layers…", async ({ setLabel }) => {
       const bounds = (() => {
         try {
           return editor.getShapePageBounds?.(targetShape.id as any) as any;
@@ -313,7 +327,7 @@ export const useCanvasSelectedImageActions = ({
 
       const apiProfile = toNanoBananaApiProfile(aiProfile);
 
-      toast.loading("Extracting text…", { id: toastId, duration: Infinity });
+      setLabel("Analyzing text & layout…");
       const blocks = await (async () => {
         try {
           const extraction = await extractText.mutateAsync({ image: imageSrc });
@@ -324,23 +338,53 @@ export const useCanvasSelectedImageActions = ({
         }
       })();
 
-      toast.loading("Cutting out subject…", { id: toastId, duration: Infinity });
-      const cutout = await removeBg.mutateAsync({ image: imageSrc });
+      const hasText = blocks.length > 0;
+      const planLines = [
+        "Plan (Separate layers):",
+        "- Identify text blocks (OCR + style)",
+        hasText ? "- Remove text from the base image" : "- Skip text removal (no text detected)",
+        "- Cut out the main subject (transparent PNG)",
+        "- Generate a clean background (no subject, no text)",
+        "- Recreate editable text layers + group everything",
+      ];
+
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
+        { id: crypto.randomUUID(), role: "assistant", content: planLines.join("\n") },
+      ]);
+
+      let baseImage = imageSrc;
+      if (hasText) {
+        setLabel("Removing text from the image…");
+        const noText = await editImage.mutateAsync({
+          image: imageSrc,
+          instruction:
+            "Remove all text, lettering, logos, and watermarks from the image. Keep the subject, background, colors, and lighting unchanged. Return an OPAQUE image (no transparency).",
+          profile: apiProfile,
+        });
+        baseImage = noText.data;
+      }
+
+      setLabel("Cutting out the subject…");
+      const cutout = await removeBg.mutateAsync({ image: baseImage });
       const cutoutUploadedUrl = await uploadImageDataUrl(cutout.data, `pigcasso_subject_${Date.now()}.png`);
       const cutoutCanvasUrl = toCanvasImageUrl(cutoutUploadedUrl);
 
-      toast.loading("Generating background…", { id: toastId, duration: Infinity });
+      setLabel("Generating a clean background…");
       const background = await editImage.mutateAsync({
-        image: imageSrc,
+        image: baseImage,
         instruction:
-          "Remove the main foreground subject(s) and remove all text/lettering from the image. Reconstruct a clean background that matches the original style and lighting.",
+          "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting. Do NOT include any text or logos. Return an OPAQUE image (no transparency).",
         profile: apiProfile,
+        referenceImages: [cutout.data],
       });
       const backgroundUploadedUrl = await uploadImageDataUrl(background.data, `pigcasso_background_${Date.now()}.png`);
       const backgroundCanvasUrl = toCanvasImageUrl(backgroundUploadedUrl);
 
       const created = await withAiCommit(() =>
         withHistorySquash(editor as any, "ai:separate-layers", async () => {
+          setLabel("Placing layers on the canvas…");
           const backgroundInserted = await insertImageToCanvas(editor as any, {
             src: backgroundCanvasUrl,
             point,
@@ -530,7 +574,6 @@ export const useCanvasSelectedImageActions = ({
 
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: "user", content: "Separate the selected image into editable layers." },
         {
           id: crypto.randomUUID(),
           role: "assistant",
@@ -562,4 +605,3 @@ export const useCanvasSelectedImageActions = ({
     makeSelectedImageTextEditable,
   };
 };
-

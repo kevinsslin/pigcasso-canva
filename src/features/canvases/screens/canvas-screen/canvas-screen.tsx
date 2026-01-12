@@ -1041,6 +1041,7 @@ export default function CanvasScreen({ params }: PageProps) {
       aiProfile,
       aiJobQueueRef,
       startAiUiJob,
+      updateAiUiJobLabel,
       finishAiUiJob,
       withAiCommit,
       selectedImageShape,
