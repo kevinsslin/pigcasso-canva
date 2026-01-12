@@ -8,11 +8,12 @@ import { mantle } from "viem/chains";
 import { useWallets } from "@privy-io/react-auth";
 
 import { pigcassoCollectionAbi, pigcassoNftFactoryAbi } from "@/features/nfts/abi";
-import { ipfsToHttpUrl } from "@/features/nfts/ipfs";
+import { ipfsToHttpUrl, ipfsToPublicHttpUrl } from "@/features/nfts/ipfs";
 import { useMe } from "@/features/auth/api/use-me";
 import { useListNftCollections } from "@/features/nfts/api/use-list-collections";
 import { useCreateNftCollection } from "@/features/nfts/api/use-create-collection";
 import { useExportCanvasNft } from "@/features/canvases/api/use-export-canvas-nft";
+import { MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,7 +79,6 @@ type ExportedCanvasNft = {
 };
 
 type CollectionMode = "existing" | "new";
-type TokenUriMode = "ipfs" | "https";
 
 const formatAddress = (address: string) => {
   const trimmed = address.trim();
@@ -108,7 +108,6 @@ export const CanvasExportNftDialog = ({
 
   const [tokenName, setTokenName] = useState("");
   const [tokenDescription, setTokenDescription] = useState("");
-  const [tokenUriMode, setTokenUriMode] = useState<TokenUriMode>("https");
 
   const [collectionMode, setCollectionMode] = useState<CollectionMode>("existing");
   const [selectedCollectionAddress, setSelectedCollectionAddress] = useState<string>("");
@@ -121,7 +120,12 @@ export const CanvasExportNftDialog = ({
   const [isMinting, setIsMinting] = useState(false);
   const [mintSteps, setMintSteps] = useState<MintStepsState>(() => getInitialMintSteps());
   const [mintError, setMintError] = useState<string | null>(null);
-  const [mintResult, setMintResult] = useState<{ txHash: string; tokenId: string | null; tokenUri: string } | null>(null);
+  const [mintResult, setMintResult] = useState<{
+    collectionAddress: string;
+    txHash: string;
+    tokenId: string | null;
+    tokenUri: string;
+  } | null>(null);
 
   const collectionsList = useMemo(() => collections.data?.data ?? [], [collections.data?.data]);
   const defaultCollection = useMemo(() => {
@@ -162,7 +166,6 @@ export const CanvasExportNftDialog = ({
     if (!open) {
       setTokenName("");
       setTokenDescription("");
-      setTokenUriMode("https");
       setCollectionMode("existing");
       setSelectedCollectionAddress("");
       setNewCollectionName("");
@@ -182,7 +185,6 @@ export const CanvasExportNftDialog = ({
       target?.canvasName?.trim() ||
       "Untitled";
     setTokenName(`${baseName} · NFT`);
-    setTokenUriMode("https");
 
     const defaults = getAutoCollectionDefaults();
     setNewCollectionName(defaults.name);
@@ -399,10 +401,7 @@ export const CanvasExportNftDialog = ({
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
 
-      const tokenUri =
-        tokenUriMode === "ipfs"
-          ? exportedAsset.metadataUri || exportedAsset.metadataUrl
-          : exportedAsset.metadataUrl || ipfsToHttpUrl(exportedAsset.metadataUri) || exportedAsset.metadataUri;
+      const tokenUri = exportedAsset.metadataUri;
 
       const hash = await walletClient.writeContract({
         address: collection.address,
@@ -431,9 +430,25 @@ export const CanvasExportNftDialog = ({
 
       const tokenId = transfer ? transfer.args.tokenId.toString() : null;
 
-      setMintResult({ txHash: hash, tokenId, tokenUri });
+      const explorerBase = MANTLE_EXPLORER_BASE_URL.replace(/\/$/, "");
+      const txUrl = `${explorerBase}/tx/${encodeURIComponent(hash)}`;
+      const tokenUrl = tokenId
+        ? `${explorerBase}/token/${encodeURIComponent(collection.address)}?a=${encodeURIComponent(tokenId)}`
+        : `${explorerBase}/address/${encodeURIComponent(collection.address)}`;
+
+      setMintResult({ collectionAddress: collection.address, txHash: hash, tokenId, tokenUri });
       setMintStep("mint", { status: "done", detail: tokenId ? `Minted token #${tokenId}.` : "NFT minted." });
-      toast.success("NFT minted.", { duration: 3500 });
+      toast.success("NFT minted.", {
+        duration: 4500,
+        action: {
+          label: "View tx",
+          onClick: () => window.open(txUrl, "_blank", "noreferrer"),
+        },
+        cancel: {
+          label: tokenId ? "View token" : "View collection",
+          onClick: () => window.open(tokenUrl, "_blank", "noreferrer"),
+        },
+      });
     } catch (error) {
       if (isUserRejectedWalletAction(error)) {
         setMintError(null);
@@ -456,7 +471,11 @@ export const CanvasExportNftDialog = ({
     createCollectionRecord.isPending ||
     isMinting;
 
-  const previewUrl = exported?.imageUrl ? ipfsToHttpUrl(exported.imageUri) ?? exported.imageUrl : target?.previewUrl ?? "";
+  const previewUrl = exported?.imageUrl
+    ? ipfsToPublicHttpUrl(exported.imageUri) ?? ipfsToHttpUrl(exported.imageUri) ?? exported.imageUrl
+    : target?.previewUrl ?? "";
+  const metadataHttpUrl = exported?.metadataUri ? ipfsToPublicHttpUrl(exported.metadataUri) : null;
+  const imageHttpUrl = exported?.imageUri ? ipfsToPublicHttpUrl(exported.imageUri) : null;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && isMinting) return;
@@ -483,63 +502,31 @@ export const CanvasExportNftDialog = ({
                 <img src={previewUrl} alt="" className="h-44 w-full object-cover" />
               </div>
 
-              {exported ? (
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="rounded-lg border bg-background/60 p-3">
-                    <div className="font-medium">Metadata URL (tokenURI)</div>
-                    <div className="mt-1 space-y-1 font-mono break-all">
-                      <div className={cn(tokenUriMode === "ipfs" ? "text-foreground" : "text-muted-foreground")}>
-                        {exported.metadataUri}
-                      </div>
-                      <div className={cn(tokenUriMode === "https" ? "text-foreground" : "text-muted-foreground")}>
-                        {exported.metadataUrl}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-background/60 p-3">
-                    <div className="font-medium">Image URL</div>
-                    <div className="mt-1 space-y-1 font-mono break-all">
-                      <div>{exported.imageUri}</div>
-                      <div className="text-muted-foreground">{exported.imageUrl}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+	              {exported ? (
+	                <div className="mt-3 space-y-2 text-xs">
+	                  <div className="rounded-lg border bg-background/60 p-3">
+	                    <div className="font-medium">Metadata URL (tokenURI)</div>
+	                    <div className="mt-1 space-y-1 font-mono break-all">
+	                      <div className="text-foreground">{exported.metadataUri}</div>
+	                      {metadataHttpUrl ? <div className="text-muted-foreground">{metadataHttpUrl}</div> : null}
+	                    </div>
+	                  </div>
+	                  <div className="rounded-lg border bg-background/60 p-3">
+	                    <div className="font-medium">Image URL</div>
+	                    <div className="mt-1 space-y-1 font-mono break-all">
+	                      <div className="text-foreground">{exported.imageUri}</div>
+	                      {imageHttpUrl ? <div className="text-muted-foreground">{imageHttpUrl}</div> : null}
+	                    </div>
+	                  </div>
+	                </div>
+	              ) : null}
+	            </div>
 
-            <div className="md:col-span-3 space-y-4">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Token URI format</div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={tokenUriMode === "https" ? "default" : "secondary"}
-                    className="rounded-full"
-                    disabled={busy}
-                    onClick={() => setTokenUriMode("https")}
-                  >
-                    Gateway URL (recommended)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
-                    className="rounded-full"
-                    disabled={busy}
-                    onClick={() => setTokenUriMode("ipfs")}
-                  >
-                    IPFS URI (advanced)
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Explorers like Mantlescan are more reliable with gateway URLs. Use the IPFS URI if you specifically
-                  want an ipfs:// tokenURI.
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Name</div>
-                <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
-              </div>
+	            <div className="md:col-span-3 space-y-4">
+	              <div className="space-y-2">
+	                <div className="text-sm font-medium">Name</div>
+	                <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
+	              </div>
 
               <div className="space-y-2">
                 <div className="text-sm font-medium">Description</div>
@@ -703,14 +690,15 @@ export const CanvasExportNftDialog = ({
                   </div>
                 ) : null}
 
-                {mintResult ? (
-                  <div className="rounded-lg border bg-background p-3 text-xs space-y-1">
-                    <div className="font-medium">Mint result</div>
-                    <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
-                    {mintResult.tokenId ? <div className="font-mono break-all">Token ID: {mintResult.tokenId}</div> : null}
-                    <div className="font-mono break-all">Token URI: {mintResult.tokenUri}</div>
-                  </div>
-                ) : null}
+	                {mintResult ? (
+	                  <div className="rounded-lg border bg-background p-3 text-xs space-y-1">
+	                    <div className="font-medium">Mint result</div>
+	                    <div className="font-mono break-all">Collection: {mintResult.collectionAddress}</div>
+	                    <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
+	                    {mintResult.tokenId ? <div className="font-mono break-all">Token ID: {mintResult.tokenId}</div> : null}
+	                    <div className="font-mono break-all">Token URI: {mintResult.tokenUri}</div>
+	                  </div>
+	                ) : null}
               </div>
             </div>
           </div>

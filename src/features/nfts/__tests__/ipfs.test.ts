@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { getIpfsGatewayBase, ipfsToHttpUrl } from "@/features/nfts/ipfs";
+import { getIpfsGatewayBase, ipfsToHttpUrl, ipfsToPublicHttpUrl } from "@/features/nfts/ipfs";
 
 describe("ipfsToHttpUrl", () => {
   test("converts ipfs:// URIs using default gateway", () => {
@@ -73,5 +73,26 @@ describe("getIpfsGatewayBase", () => {
     } finally {
       process.env.NEXT_PUBLIC_IPFS_GATEWAY = previous;
     }
+  });
+});
+
+describe("ipfsToPublicHttpUrl", () => {
+  test("converts ipfs:// URIs using ipfs.io", () => {
+    expect(ipfsToPublicHttpUrl("ipfs://bafy123")).toBe("https://ipfs.io/ipfs/bafy123");
+  });
+
+  test("converts ipfs://ipfs/ URIs using ipfs.io", () => {
+    expect(ipfsToPublicHttpUrl("ipfs://ipfs/bafy123")).toBe("https://ipfs.io/ipfs/bafy123");
+  });
+
+  test("converts bare CIDs using ipfs.io", () => {
+    expect(ipfsToPublicHttpUrl("bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi")).toBe(
+      "https://ipfs.io/ipfs/bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi",
+    );
+  });
+
+  test("passes through http(s) URLs", () => {
+    expect(ipfsToPublicHttpUrl("https://example.com/a.png")).toBe("https://example.com/a.png");
+    expect(ipfsToPublicHttpUrl("http://example.com/a.png")).toBe("http://example.com/a.png");
   });
 });

@@ -23,8 +23,8 @@ export const buildNftAssetMetadata = (params: {
   return {
     name: params.name,
     description: params.description,
-    image: imageUrl,
-    image_url: imageUrl,
+    image: imageIpfs,
+    image_url: imageIpfs,
     attributes: [
       { trait_type: "Project", value: params.projectName },
       { trait_type: "Page", value: String(params.pageIndex + 1) },

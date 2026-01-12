@@ -207,7 +207,15 @@ export const CanvasPrintrLaunchDialog = ({
       }
 
       setTokenResult(body);
-      toast.success("Token draft created.", { id: toastId, duration: 2500 });
+      const printrUrl = buildPrintrTokenUrl(body.token_id);
+      toast.success("Token draft created.", {
+        id: toastId,
+        duration: 4500,
+        action: {
+          label: "Open Printr",
+          onClick: () => window.open(printrUrl, "_blank", "noreferrer"),
+        },
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create token", {
         id: toastId,
@@ -254,7 +262,23 @@ export const CanvasPrintrLaunchDialog = ({
       const tx = buildEvmTransactionFromPrintrPayload(tokenResult.payload);
       const hash = await walletClient.sendTransaction({ ...tx, chain: null });
       setTxHash(hash);
-      toast.success("Transaction submitted.", { id: toastId, duration: 3000 });
+      const explorerBase = (homeExplorer ?? "").replace(/\/$/, "");
+      const txUrl = explorerBase ? `${explorerBase}/tx/${encodeURIComponent(hash)}` : null;
+      const printrUrl = buildPrintrTokenUrl(tokenResult.token_id);
+      toast.success("Transaction submitted.", {
+        id: toastId,
+        duration: 4500,
+        action: txUrl
+          ? {
+              label: "View tx",
+              onClick: () => window.open(txUrl, "_blank", "noreferrer"),
+            }
+          : undefined,
+        cancel: {
+          label: "Open Printr",
+          onClick: () => window.open(printrUrl, "_blank", "noreferrer"),
+        },
+      });
     } catch (error) {
       if (isUserRejectedWalletAction(error)) {
         toast.message("User rejected the transaction.", { id: toastId, duration: 2500 });

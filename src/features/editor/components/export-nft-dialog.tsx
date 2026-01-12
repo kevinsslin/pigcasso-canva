@@ -19,6 +19,7 @@ import { useListNftCollections } from "@/features/nfts/api/use-list-collections"
 import { useCreateNftCollection } from "@/features/nfts/api/use-create-collection";
 import { useExportNftAsset } from "@/features/nfts/api/use-export-asset";
 import { useUpdateNftAsset } from "@/features/nfts/api/use-update-asset";
+import { MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
 
 import { getAuthToken } from "@/lib/auth-token";
 import { uploadFiles } from "@/lib/uploadthing";
@@ -538,10 +539,7 @@ export const ExportNftDialog = ({
 
       currentStep = "mint";
       setMintStep("mint", { status: "active", detail: "Minting NFT…" });
-      const tokenUri =
-        asset.metadataUrl ||
-        ipfsToHttpUrl(asset.metadataUri) ||
-        asset.metadataUri;
+      const tokenUri = asset.metadataUri;
       const hash = await walletClient.writeContract({
         address: collection.address,
         abi: pigcassoCollectionAbi,
@@ -583,7 +581,22 @@ export const ExportNftDialog = ({
 
       setMintResult({ collectionAddress: collection.address, txHash: hash, tokenId, tokenUri });
       setMintStep("mint", { status: "done", detail: tokenId ? `Minted token #${tokenId}.` : "NFT minted." });
-      toast.success("NFT minted.", { duration: 3500 });
+      const explorerBase = MANTLE_EXPLORER_BASE_URL.replace(/\/$/, "");
+      const txUrl = `${explorerBase}/tx/${encodeURIComponent(hash)}`;
+      const tokenUrl = tokenId
+        ? `${explorerBase}/token/${encodeURIComponent(collection.address)}?a=${encodeURIComponent(tokenId)}`
+        : `${explorerBase}/address/${encodeURIComponent(collection.address)}`;
+      toast.success("NFT minted.", {
+        duration: 4500,
+        action: {
+          label: "View tx",
+          onClick: () => window.open(txUrl, "_blank", "noreferrer"),
+        },
+        cancel: {
+          label: tokenId ? "View token" : "View collection",
+          onClick: () => window.open(tokenUrl, "_blank", "noreferrer"),
+        },
+      });
     } catch (error) {
       if (isUserRejectedWalletAction(error)) {
         setMintError(null);
@@ -610,11 +623,7 @@ export const ExportNftDialog = ({
     : exportedAsset?.imageUri
       ? ipfsToHttpUrl(exportedAsset.imageUri) ?? exportedAsset.imageUri
       : null;
-  const tokenUriForDisplay = exportedAsset?.metadataUrl
-    ? exportedAsset.metadataUrl
-    : exportedAsset?.metadataUri
-      ? ipfsToHttpUrl(exportedAsset.metadataUri) ?? exportedAsset.metadataUri
-      : null;
+  const tokenUriForDisplay = exportedAsset?.metadataUri ?? null;
 
   const collectionLabel =
     collectionMode === "existing" && isEvmAddress(selectedCollectionAddress.trim())

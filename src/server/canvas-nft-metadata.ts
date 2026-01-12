@@ -22,8 +22,8 @@ export const buildCanvasNftMetadata = (params: {
   return {
     name: params.name,
     description: params.description,
-    image: imageUrl,
-    image_url: imageUrl,
+    image: imageIpfs,
+    image_url: imageIpfs,
     attributes: [
       { trait_type: "Canvas", value: params.canvasName },
       { trait_type: "Chain", value: chain },

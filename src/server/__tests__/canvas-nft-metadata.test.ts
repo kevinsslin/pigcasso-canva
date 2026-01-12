@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { buildCanvasNftMetadata } from "@/server/canvas-nft-metadata";
 
 describe("buildCanvasNftMetadata", () => {
-  test("emits https image with ipfs fallback", () => {
+  test("emits ipfs image with https fallback", () => {
     const prevGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
     process.env.NEXT_PUBLIC_IPFS_GATEWAY = "plum-high-rook-436.mypinata.cloud";
 
@@ -17,10 +17,10 @@ describe("buildCanvasNftMetadata", () => {
       shapeId: "shape:image",
     });
 
-    expect(metadata.image).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
-    expect(metadata.image_url).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
+    expect(metadata.image).toBe("ipfs://bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi");
+    expect(metadata.image_url).toBe("ipfs://bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi");
     expect(metadata.properties.image_ipfs).toBe("ipfs://bafybeib7ti6s5ei73wer5fnfxrstznf3aau537bpksqw55knp7s5gznrxi");
-    expect(metadata.properties.image_http).toBe(metadata.image_url);
+    expect(metadata.properties.image_http).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
     expect(metadata.properties.source_url).toStartWith("https://plum-high-rook-436.mypinata.cloud/ipfs/");
 
     process.env.NEXT_PUBLIC_IPFS_GATEWAY = prevGateway;
