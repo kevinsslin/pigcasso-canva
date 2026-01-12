@@ -15,6 +15,11 @@ import {
   pickCanvasTextSizeAndScaleFromPx,
   toRichTextValue,
 } from "@/features/canvases/lib/text-style";
+import {
+  inferTextColorFromRegionPixels,
+  loadImagePixels,
+  pickFontFamilyPresetForExtractedText,
+} from "@/features/canvases/lib/extracted-text-style";
 import { ensureTransparentPngDataUrl, getOpaquePixelRatioFromDataUrl } from "@/features/canvases/lib/transparent-png";
 import { extractSubjectByBackgroundDiffDataUrl } from "@/features/canvases/lib/subject-matte";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
@@ -475,6 +480,7 @@ export const useCanvasSelectedImageActions = ({
       const imageHeight = Math.max(1, Math.floor(Number(targetAsset?.props?.h) || 1024));
 
       setLabel("Analyzing text & layout…");
+      const sourcePixels = await loadImagePixels(imageSrc).catch(() => null);
       let rawBlocks: ExtractTextBlock[] = [];
       let extractionError: string | null = null;
       try {
@@ -764,10 +770,25 @@ export const useCanvasSelectedImageActions = ({
 
             const { size, scale } = pickCanvasTextSizeAndScaleFromPx(h);
             const font = block.font ?? "sans";
-            const color = block.color ?? "black";
+            const color = (() => {
+              const defaultColor = block.color ?? "black";
+              if (!sourcePixels) return defaultColor;
+              const pxX = Math.floor(box.x * sourcePixels.width);
+              const pxY = Math.floor(box.y * sourcePixels.height);
+              const pxW = Math.max(1, Math.floor(box.w * sourcePixels.width));
+              const pxH = Math.max(1, Math.floor(box.h * sourcePixels.height));
+              const inferred = inferTextColorFromRegionPixels({
+                pixels: sourcePixels.pixels,
+                width: sourcePixels.width,
+                height: sourcePixels.height,
+                region: { x: pxX, y: pxY, w: pxW, h: pxH },
+              });
+              return inferred.confidence >= 0.35 ? inferred.color : defaultColor;
+            })();
             const textAlign = block.align ?? "start";
             const angleDegrees = typeof block.angle === "number" ? block.angle : 0;
             const rotation = (angleDegrees * Math.PI) / 180;
+            const fontFamilyMeta = pickFontFamilyPresetForExtractedText({ text: block.text, font });
 
             editor.createShape?.({
               id,
@@ -775,6 +796,7 @@ export const useCanvasSelectedImageActions = ({
               x,
               y,
               rotation,
+              meta: fontFamilyMeta ? { [fontFamilyMeta.metaKey]: fontFamilyMeta.fontFamily } : undefined,
               props: {
                 color,
                 size,
