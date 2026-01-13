@@ -9,6 +9,8 @@ import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import {
   clampCanvasTextScale,
   pickCanvasTextSizeAndScaleFromPx,
+  TEXT_COLOR_OPTIONS,
+  TEXT_FONT_OPTIONS,
   toRichTextValue,
 } from "@/features/canvases/lib/text-style";
 import {
@@ -19,6 +21,7 @@ import {
 import { ensureTransparentPngDataUrl, getOpaquePixelRatioFromDataUrl } from "@/features/canvases/lib/transparent-png";
 import { extractSubjectByBackgroundDiffDataUrl } from "@/features/canvases/lib/subject-matte";
 import { compareOcrTextBlocks } from "@/features/canvases/lib/ocr-review";
+import { computeImageSimilarityScore } from "@/features/canvases/lib/image-similarity";
 import { exportCanvasShapeIdsToPngDataUrl } from "@/features/canvases/tldraw/export-canvas-image";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
@@ -58,6 +61,21 @@ const ensureCanvasImageSource = async (
     }
   }
   return { canvasUrl: toCanvasImageUrl(trimmed), originalSrc: trimmed };
+};
+
+const ALLOWED_TEXT_COLORS = new Set(TEXT_COLOR_OPTIONS.map((opt) => opt.id));
+const ALLOWED_TEXT_FONTS = new Set(TEXT_FONT_OPTIONS.map((opt) => opt.id));
+
+const sanitizeTextColor = (value: unknown) => {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (raw && ALLOWED_TEXT_COLORS.has(raw as any)) return raw;
+  return "black";
+};
+
+const sanitizeTextFont = (value: unknown) => {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (raw && ALLOWED_TEXT_FONTS.has(raw as any)) return raw;
+  return "sans";
 };
 
 export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersDeps) => {
@@ -217,6 +235,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         minHeightPx: 20,
         maxBlocks: 16,
       });
+      const planLabel = `Plan: background + subject${blocks.length ? ` + ${blocks.length} text layer(s)` : ""}.`;
 
       let steps = initialSteps;
       const ignoredCount = Math.max(0, rawBlocks.length - blocks.length);
@@ -224,7 +243,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         status: extractionError ? "warn" : "done",
         detail: extractionError
           ? `Text detection failed; continuing without editable text. (${extractionError})`
-          : `Found ${rawBlocks.length}; keeping ${blocks.length} (${ignoredCount} ignored as too small).`,
+          : `Found ${rawBlocks.length}; keeping ${blocks.length} (${ignoredCount} ignored as too small). ${planLabel}`,
       });
       steps = setStep(steps, "removeText", { status: "doing" });
 
@@ -256,15 +275,64 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       steps = setStep(steps, "background", { status: "doing" });
       setLabel("Generating background-only…");
       let backgroundDataUrl: string | null = null;
+      let backgroundDiffCandidate: { dataUrl: string; opaqueRatio: number } | null = null;
+
+      const validateBackground = async (candidateDataUrl: string) => {
+        const diff = await extractSubjectByBackgroundDiffDataUrl({
+          foregroundDataUrl: noTextDataUrl,
+          backgroundDataUrl: candidateDataUrl,
+        }).catch(() => null);
+
+        const opaqueRatio =
+          typeof diff?.opaqueRatio === "number" && Number.isFinite(diff.opaqueRatio)
+            ? diff.opaqueRatio
+            : diff?.dataUrl
+              ? await getOpaquePixelRatioFromDataUrl(diff.dataUrl).catch(() => null)
+              : null;
+
+        if (!diff?.changed || typeof diff.dataUrl !== "string" || !diff.dataUrl || opaqueRatio === null) return null;
+        const normalized = await ensureTransparentPngDataUrl(diff.dataUrl).catch(() => null);
+        if (!normalized) return null;
+        return { dataUrl: normalized.dataUrl, opaqueRatio };
+      };
+
       try {
-        const background = await params.editImage.mutateAsync({
-          image: noTextDataUrl,
-          instruction:
-            "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting. Remove any remaining prominent text. Return an OPAQUE image (no transparency).",
-          profile: apiProfile,
-          referenceImages: undefined,
-        });
-        backgroundDataUrl = typeof background.data === "string" ? background.data : null;
+        const backgroundInstructions = [
+          "Remove the main foreground subject(s) from the image and reconstruct a clean background that matches the original style and lighting.",
+          "Remove any remaining prominent text.",
+          "Return an OPAQUE image (no transparency).",
+        ];
+        const retryInstructions = [
+          "Remove ALL foreground subjects (people, characters, objects) so only the background remains.",
+          "Reconstruct occluded background realistically (match lighting, perspective, texture).",
+          "Remove any remaining prominent text.",
+          "Return an OPAQUE image (no transparency).",
+        ];
+
+        const candidates = [backgroundInstructions.join(" "), retryInstructions.join(" ")];
+        for (let i = 0; i < candidates.length; i += 1) {
+          const instruction = candidates[i] ?? candidates[0]!;
+          const res = await params.editImage.mutateAsync({
+            image: noTextDataUrl,
+            instruction,
+            profile: apiProfile,
+            referenceImages: undefined,
+          });
+          const next = typeof res.data === "string" ? res.data : null;
+          if (!next || !next.startsWith("data:")) continue;
+
+          const validation = await validateBackground(next);
+          const MIN_BG_DIFF_OPAQUE_RATIO = 0.0008;
+          if (validation && validation.opaqueRatio >= MIN_BG_DIFF_OPAQUE_RATIO) {
+            backgroundDataUrl = next;
+            backgroundDiffCandidate = validation;
+            break;
+          }
+
+          if (i === candidates.length - 1) {
+            backgroundDataUrl = next;
+          }
+        }
       } catch {
         backgroundDataUrl = null;
       }
@@ -282,7 +350,11 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
 
       steps = setStep(steps, "background", {
         status: backgroundWasFallback ? "warn" : "done",
-        detail: backgroundWasFallback ? "Failed; using base image as background." : "Background-only ready.",
+        detail: backgroundWasFallback
+          ? "Failed; using base image as background."
+          : backgroundDiffCandidate
+            ? `Background-only ready. (diff cutout ${Math.round(backgroundDiffCandidate.opaqueRatio * 1000) / 10}% opaque)`
+            : "Background-only ready.",
       });
 
       steps = setStep(steps, "subject", { status: "doing" });
@@ -302,37 +374,25 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         }
       })();
 
-      let subjectCandidate: string | null = null;
+      let subjectCandidate: { dataUrl: string; opaqueRatio: number } | null = null;
       if (typeof subjectFromRemoveBg === "string" && subjectFromRemoveBg.startsWith("data:")) {
         const normalized = await ensureTransparentPngDataUrl(subjectFromRemoveBg);
         const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
         if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
-          subjectCandidate = normalized.dataUrl;
-          subjectDetail = "Cutout from remove-bg (transparent PNG).";
+          subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
+          subjectDetail = `Cutout from remove-bg (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
         }
       }
 
-      if (!subjectCandidate && typeof backgroundDataUrl === "string" && backgroundDataUrl.startsWith("data:")) {
-        const diff = await extractSubjectByBackgroundDiffDataUrl({
-          foregroundDataUrl: noTextDataUrl,
-          backgroundDataUrl,
-        }).catch(() => null);
-
-        if (diff?.changed && typeof diff.dataUrl === "string") {
-          const normalized = await ensureTransparentPngDataUrl(diff.dataUrl);
-          const opaqueRatio =
-            typeof diff.opaqueRatio === "number" && Number.isFinite(diff.opaqueRatio)
-              ? diff.opaqueRatio
-              : await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
-          if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
-            subjectCandidate = normalized.dataUrl;
-            subjectDetail = "Cutout from background-diff (transparent PNG).";
-          }
+      if (backgroundDiffCandidate && backgroundDiffCandidate.opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
+        if (!subjectCandidate || backgroundDiffCandidate.opaqueRatio > subjectCandidate.opaqueRatio) {
+          subjectCandidate = backgroundDiffCandidate;
+          subjectDetail = `Cutout from background-diff (transparent PNG, ${Math.round(backgroundDiffCandidate.opaqueRatio * 1000) / 10}% opaque).`;
         }
       }
 
       if (subjectCandidate) {
-        const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate, `pigcasso_subject_${Date.now()}.png`);
+        const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate.dataUrl, `pigcasso_subject_${Date.now()}.png`);
         subjectOriginalSrc = subjectForCanvas.originalSrc;
         subjectSrcForCanvas = subjectForCanvas.canvasUrl;
       }
@@ -351,9 +411,9 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
           const normalized = await ensureTransparentPngDataUrl(retry);
           const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
           if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
-            subjectCandidate = normalized.dataUrl;
-            subjectDetail = "Cutout from remove-bg (retry on original image).";
-            const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate, `pigcasso_subject_${Date.now()}.png`);
+            subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
+            subjectDetail = `Cutout from remove-bg (retry on original image, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
+            const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate.dataUrl, `pigcasso_subject_${Date.now()}.png`);
             subjectOriginalSrc = subjectForCanvas.originalSrc;
             subjectSrcForCanvas = subjectForCanvas.canvasUrl;
           }
@@ -484,9 +544,9 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             createdTextShapeIds.push(id);
 
             const { size, scale } = pickCanvasTextSizeAndScaleFromPx(h);
-            const font = block.font ?? "sans";
+            const font = sanitizeTextFont(block.font ?? "sans");
             const color = (() => {
-              const defaultColor = block.color ?? "black";
+              const defaultColor = sanitizeTextColor(block.color ?? "black");
               if (!sourcePixels) return defaultColor;
               const pxX = Math.floor(box.x * sourcePixels.width);
               const pxY = Math.floor(box.y * sourcePixels.height);
@@ -498,7 +558,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
                 height: sourcePixels.height,
                 region: { x: pxX, y: pxY, w: pxW, h: pxH },
               });
-              return inferred.confidence >= 0.35 ? inferred.color : defaultColor;
+              return inferred.confidence >= 0.35 ? sanitizeTextColor(inferred.color) : defaultColor;
             })();
             const textAlign = block.align ?? "start";
             const angleDegrees = typeof block.angle === "number" ? block.angle : 0;
@@ -575,6 +635,8 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             background: true,
           });
 
+          const visualMatch = await computeImageSimilarityScore(imageSrc, compositeDataUrl, { size: 96 }).catch(() => null);
+
           const compositeExtraction = await params.extractText.mutateAsync({ image: compositeDataUrl });
           const compositeBlocks = filterProminentTextBlocks(compositeExtraction.data?.blocks ?? [], {
             imageWidth,
@@ -596,7 +658,12 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             return `${report.summary} Missing: ${missingPreview}${suffix}`;
           })();
 
-          steps = setStep(steps, "review", { status: report.ok ? "done" : "warn", detail });
+          const visualDetail =
+            typeof visualMatch === "number" && Number.isFinite(visualMatch)
+              ? ` Visual match: ${Math.round(visualMatch * 100)}%.`
+              : "";
+
+          steps = setStep(steps, "review", { status: report.ok ? "done" : "warn", detail: `${detail}${visualDetail}` });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Review failed.";
