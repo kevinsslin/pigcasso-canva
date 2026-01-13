@@ -26,6 +26,7 @@ import { BentoCard } from "@/features/marketing/components/bento-card";
 import { FAQItem } from "@/features/marketing/components/faq-item";
 import { FeatureCard } from "@/features/marketing/components/feature-card";
 import { ScrollStory } from "@/features/marketing/components/scroll-story";
+import { StackedCards } from "@/features/marketing/components/stacked-cards";
 import { SectionTitle } from "@/features/marketing/components/section-title";
 import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
@@ -276,6 +277,44 @@ export default function LandingPage() {
               bullets: ["Download PNG/SVG", "Export NFT metadata", "Launch on Printr"],
               imageSrc: "/pig-banner.png",
               imageAlt: "Export and publish assets",
+            },
+          ]}
+        />
+
+        <StackedCards
+          id="showcase"
+          heading="Scroll to feel the workflow"
+          subheading="A landing page should play like a timeline: prompt → place → refine → ship. Scroll to scrub through the moments."
+          cards={[
+            {
+              id: "stack-1",
+              indexLabel: "01",
+              title: "Prompt → draft",
+              subtitle: "Start in seconds",
+              description:
+                "One input box, instant output. Generate a first draft you can actually build on — not a dead-end image.",
+              imageSrc: "/travel.png",
+              imageAlt: "Prompt to draft example",
+            },
+            {
+              id: "stack-2",
+              indexLabel: "02",
+              title: "Separate layers",
+              subtitle: "Make it editable",
+              description:
+                "Turn a single render into layers: background, subject, and text. Keep text on top so you can iterate fast.",
+              imageSrc: "/flash_sale.png",
+              imageAlt: "Separate layers example",
+            },
+            {
+              id: "stack-3",
+              indexLabel: "03",
+              title: "Ship as an asset",
+              subtitle: "Export • mint • print",
+              description:
+                "Download, mint, or launch on Printr. Variants don’t overwrite — compare side-by-side and ship the best one.",
+              imageSrc: "/car_sale.png",
+              imageAlt: "Export asset example",
             },
           ]}
         />
