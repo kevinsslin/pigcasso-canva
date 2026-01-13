@@ -507,11 +507,17 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
 
             const scaleX = target.w / firstBounds.w;
             const scaleY = target.h / firstBounds.h;
-            const scaleFactor = Math.min(scaleX, scaleY);
+            const prefersHeight = scaleY > scaleX * 1.06;
+            const scaleFactor = prefersHeight ? scaleY : Math.min(scaleX, scaleY);
 
             if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
               const nextScale = clampCanvasTextScale(currentScale * scaleFactor);
-              params.editor.updateShape?.({ id: shapeId as any, type: "text", props: { scale: nextScale } } as any);
+              const nextW = Math.max(16, Math.round(target.w / Math.max(0.0001, nextScale)));
+              params.editor.updateShape?.({
+                id: shapeId as any,
+                type: "text",
+                props: { scale: nextScale, w: nextW, autoSize: false },
+              } as any);
             }
 
             const nextBounds = getBounds();
@@ -535,15 +541,16 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             const box = block.box;
             if (!box) return;
 
-            const w = Math.max(40, Math.round(box.w * textBounds.w));
-            const h = Math.max(12, Math.round(box.h * textBounds.h));
+            const targetW = Math.max(40, Math.round(box.w * textBounds.w));
+            const targetH = Math.max(12, Math.round(box.h * textBounds.h));
             const x = textBounds.x + box.x * textBounds.w;
             const y = textBounds.y + box.y * textBounds.h;
 
             const id = createShapeId();
             createdTextShapeIds.push(id);
 
-            const { size, scale } = pickCanvasTextSizeAndScaleFromPx(h);
+            const { size, scale } = pickCanvasTextSizeAndScaleFromPx(targetH);
+            const unscaledW = Math.max(16, Math.round(targetW / Math.max(0.0001, scale)));
             const font = sanitizeTextFont(block.font ?? "sans");
             const color = (() => {
               const defaultColor = sanitizeTextColor(block.color ?? "black");
@@ -572,10 +579,19 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
               y,
               rotation,
               meta: fontFamilyMeta ? { [fontFamilyMeta.metaKey]: fontFamilyMeta.fontFamily } : undefined,
-              props: { color, size, font, textAlign, w, richText: toRichTextValue(block.text), scale, autoSize: true },
+              props: {
+                color,
+                size,
+                font,
+                textAlign,
+                w: unscaledW,
+                richText: toRichTextValue(block.text),
+                scale,
+                autoSize: false,
+              },
             } as any);
 
-            const target = { x, y, w, h };
+            const target = { x, y, w: targetW, h: targetH };
             textTargets.push({ id, target });
             fitShapeBoundsToTarget(id, target);
           });

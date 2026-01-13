@@ -34,5 +34,6 @@ describe("Separate layers progress (regression)", () => {
     expect(workflowContent).toContain('setLabel("Analyzing text & layout…")');
     expect(workflowContent).toContain("bringToFront?.([cutoutInserted.shapeId]");
     expect(workflowContent).toContain("bringToFront?.(createdTextShapeIds");
+    expect(workflowContent).toContain("autoSize: false");
   });
 });
