@@ -26,7 +26,6 @@ import { BentoCard } from "@/features/marketing/components/bento-card";
 import { FAQItem } from "@/features/marketing/components/faq-item";
 import { FeatureCard } from "@/features/marketing/components/feature-card";
 import { ScrollStory } from "@/features/marketing/components/scroll-story";
-import { StackedCards } from "@/features/marketing/components/stacked-cards";
 import { SectionTitle } from "@/features/marketing/components/section-title";
 import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
@@ -216,19 +215,19 @@ export default function LandingPage() {
 
                   <div className="hidden sm:block absolute left-6 bottom-6 motion-safe:animate-[pigcasso-float_10s_ease-in-out_0ms_infinite]">
                     <div className="rounded-2xl bg-white/90 backdrop-blur border border-white/60 shadow-xl px-4 py-3 transition-shadow duration-300 hover:shadow-glow">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
-                      <Sparkles className="size-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold">AI-powered</div>
-                      <div className="text-xs text-muted-foreground">
-                        Drafts + quick edits.
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-400/15 flex items-center justify-center border border-white/50">
+                          <Sparkles className="size-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">AI-powered</div>
+                          <div className="text-xs text-muted-foreground">
+                            Drafts + quick edits.
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
                 </Tilt>
               </div>
             </div>
@@ -277,44 +276,6 @@ export default function LandingPage() {
               bullets: ["Download PNG/SVG", "Export NFT metadata", "Launch on Printr"],
               imageSrc: "/pig-banner.png",
               imageAlt: "Export and publish assets",
-            },
-          ]}
-        />
-
-        <StackedCards
-          id="showcase"
-          heading="Scroll to feel the workflow"
-          subheading="A landing page should play like a timeline: prompt → place → refine → ship. Scroll to scrub through the moments."
-          cards={[
-            {
-              id: "stack-1",
-              indexLabel: "01",
-              title: "Prompt → draft",
-              subtitle: "Start in seconds",
-              description:
-                "One input box, instant output. Generate a first draft you can actually build on — not a dead-end image.",
-              imageSrc: "/travel.png",
-              imageAlt: "Prompt to draft example",
-            },
-            {
-              id: "stack-2",
-              indexLabel: "02",
-              title: "Separate layers",
-              subtitle: "Make it editable",
-              description:
-                "Turn a single render into layers: background, subject, and text. Keep text on top so you can iterate fast.",
-              imageSrc: "/flash_sale.png",
-              imageAlt: "Separate layers example",
-            },
-            {
-              id: "stack-3",
-              indexLabel: "03",
-              title: "Ship as an asset",
-              subtitle: "Export • mint • print",
-              description:
-                "Download, mint, or launch on Printr. Variants don’t overwrite — compare side-by-side and ship the best one.",
-              imageSrc: "/car_sale.png",
-              imageAlt: "Export asset example",
             },
           ]}
         />
