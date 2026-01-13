@@ -17,12 +17,9 @@ export const usePrefersReducedMotion = () => {
     }
 
     // Safari < 14
-    // eslint-disable-next-line deprecation/deprecation
-    query.addListener(update);
-    // eslint-disable-next-line deprecation/deprecation
-    return () => query.removeListener(update);
+    (query as any).addListener?.(update);
+    return () => (query as any).removeListener?.(update);
   }, []);
 
   return reduced;
 };
-
