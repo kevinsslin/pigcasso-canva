@@ -916,28 +916,28 @@ export default function CanvasScreen({ params }: PageProps) {
       if (!editor) return;
       if (!selectedTextShape) return;
       try {
-        const nextProps: Record<string, unknown> = {};
-        const fontFamilyTouched = Object.prototype.hasOwnProperty.call(partial, "fontFamily");
-        let metaPatch: Record<string, unknown> | null = null;
+	        const nextProps: Record<string, unknown> = {};
+	        const fontFamilyTouched = Object.prototype.hasOwnProperty.call(partial, "fontFamily");
+	        let metaPatch: Record<string, unknown> | undefined;
 
-        if (fontFamilyTouched) {
-          const raw = partial.fontFamily;
-          if (typeof raw === "string" && raw.trim()) {
-            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(raw) };
-            if (partial.font === undefined) {
-              nextProps.font = "sans";
-            }
-          } else {
-            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(null) };
-          }
-        }
+	        if (fontFamilyTouched) {
+	          const raw = partial.fontFamily;
+	          if (typeof raw === "string" && raw.trim()) {
+	            metaPatch = { ...(metaPatch ?? {}), ...buildTextFontFamilyMetaPatch(raw) };
+	            if (partial.font === undefined) {
+	              nextProps.font = "sans";
+	            }
+	          } else {
+	            metaPatch = { ...(metaPatch ?? {}), ...buildTextFontFamilyMetaPatch(null) };
+	          }
+	        }
 
-        if (typeof partial.font === "string" && partial.font.trim()) {
-          nextProps.font = partial.font;
-          if (!fontFamilyTouched) {
-            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(null) };
-          }
-        }
+	        if (typeof partial.font === "string" && partial.font.trim()) {
+	          nextProps.font = partial.font;
+	          if (!fontFamilyTouched) {
+	            metaPatch = { ...(metaPatch ?? {}), ...buildTextFontFamilyMetaPatch(null) };
+	          }
+	        }
 
         if (typeof partial.color === "string" && partial.color.trim()) {
           nextProps.color = partial.color;

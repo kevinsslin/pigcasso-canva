@@ -72,9 +72,11 @@ const sanitizeTextColor = (value: unknown) => {
   return "black";
 };
 
-const sanitizeTextFont = (value: unknown) => {
+type CanvasTextFontId = (typeof TEXT_FONT_OPTIONS)[number]["id"];
+
+const sanitizeTextFont = (value: unknown): CanvasTextFontId => {
   const raw = typeof value === "string" ? value.trim() : "";
-  if (raw && ALLOWED_TEXT_FONTS.has(raw as any)) return raw;
+  if (raw && ALLOWED_TEXT_FONTS.has(raw as any)) return raw as CanvasTextFontId;
   return "sans";
 };
 
