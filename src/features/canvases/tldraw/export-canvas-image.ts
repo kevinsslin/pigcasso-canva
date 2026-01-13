@@ -137,7 +137,7 @@ export const getCanvasExportShapeIdsForSelection = (
   shapeId: string,
   options?: { padding?: number },
 ) => {
-  const padding = Math.max(0, Number(options?.padding ?? 48));
+  const fallbackPadding = Math.max(0, Number(options?.padding ?? 48));
 
   const shapeType = getShapeType(editor, shapeId);
   const hasChildren = (() => {
@@ -162,7 +162,9 @@ export const getCanvasExportShapeIdsForSelection = (
   const targetBounds = safeGetShapePageBounds(editor, shapeId);
   if (!targetBounds) return [shapeId];
 
-  const expanded = expandBox(targetBounds, padding);
+  const maxDim = Math.max(targetBounds.w, targetBounds.h);
+  const adaptivePadding = Math.max(fallbackPadding, Math.min(240, Math.round(maxDim * 0.25)));
+  const expanded = expandBox(targetBounds, adaptivePadding);
   const pageId = (() => {
     try {
       const raw = (editor as any).getCurrentPageId?.();
@@ -237,5 +239,13 @@ export const exportCanvasSelectionToPngDataUrl = async (
   const shapeId = options.shapeId.trim();
   if (!shapeId) throw new Error("Missing shape id.");
   const shapeIds = getCanvasExportShapeIdsForSelection(editor, shapeId, { padding: 48 });
+  return exportShapeIdsToPngDataUrl(editor, shapeIds, options);
+};
+
+export const exportCanvasShapeIdsToPngDataUrl = async (
+  editor: TldrawEditor,
+  options: { shapeIds: string[]; targetPx?: number; padding?: number; pixelRatio?: number; background?: boolean },
+) => {
+  const shapeIds = Array.from(new Set((options.shapeIds ?? []).map((id) => String(id)).filter(Boolean)));
   return exportShapeIdsToPngDataUrl(editor, shapeIds, options);
 };

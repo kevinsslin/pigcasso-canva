@@ -52,6 +52,26 @@ export const handleCanvasKeyboardShortcuts = (
 
   const key = (event.key || "").toLowerCase();
 
+  if (event.altKey && (key === "arrowup" || key === "arrowdown")) {
+    const ids = getSelectedShapeIdsSafe(editor);
+    if (!ids.length) return false;
+    event.preventDefault();
+    if (key === "arrowup") {
+      if (event.shiftKey) {
+        editor.bringToFront?.(ids);
+      } else {
+        editor.bringForward?.(ids);
+      }
+    } else if (key === "arrowdown") {
+      if (event.shiftKey) {
+        editor.sendToBack?.(ids);
+      } else {
+        editor.sendBackward?.(ids);
+      }
+    }
+    return true;
+  }
+
   if (isAccelKey(event)) {
     if (key === "z") {
       event.preventDefault();

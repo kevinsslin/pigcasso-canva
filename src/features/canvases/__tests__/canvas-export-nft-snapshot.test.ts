@@ -14,7 +14,8 @@ describe("Canvas Export NFT (regression)", () => {
         "canvases",
         "screens",
         "canvas-screen",
-        "canvas-screen.tsx",
+        "hooks",
+        "use-canvas-export-actions.ts",
       ),
       "utf8",
     );

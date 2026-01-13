@@ -48,6 +48,13 @@ export type CanvasTextSize = (typeof TEXT_SIZE_OPTIONS)[number]["id"];
 
 export const PIGCASSO_TEXT_FONT_FAMILY_META_KEY = "pigcassoFontFamily";
 
+export const buildTextFontFamilyMetaPatch = (fontFamily: string | null) => {
+  if (typeof fontFamily === "string" && fontFamily.trim()) {
+    return { [PIGCASSO_TEXT_FONT_FAMILY_META_KEY]: fontFamily.trim() } as const;
+  }
+  return { [PIGCASSO_TEXT_FONT_FAMILY_META_KEY]: undefined } as const;
+};
+
 export const TEXT_SIZE_BASE_PX: Record<CanvasTextSize, number> = {
   s: 18,
   m: 24,

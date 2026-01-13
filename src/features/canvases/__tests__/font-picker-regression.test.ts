@@ -21,7 +21,7 @@ describe("CanvasSelectionToolbar font picker (regression)", () => {
 
     expect(content).not.toContain("Default {opt.label}");
     expect(content).toContain("Built-in");
-    expect(content).toContain("Recommended");
+    expect(content).toContain("Presets");
   });
 
   test("custom font selection is not a no-op", () => {
@@ -41,4 +41,3 @@ describe("CanvasSelectionToolbar font picker (regression)", () => {
     expect(content).not.toContain("if (value === \"__custom__\") return");
   });
 });
-

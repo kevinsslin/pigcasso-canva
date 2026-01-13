@@ -79,6 +79,32 @@ describe("canvas keyboard shortcuts", () => {
     expect(lastArgs[0]).toEqual(["shape:a"]);
   });
 
+  test("alt+arrow keys change layer order", () => {
+    const calls: string[] = [];
+    const editor = {
+      getSelectedShapeIds: () => ["shape:a"],
+      bringForward: () => calls.push("bringForward"),
+      sendBackward: () => calls.push("sendBackward"),
+      bringToFront: () => calls.push("bringToFront"),
+      sendToBack: () => calls.push("sendToBack"),
+    };
+
+    const forwardEv = makeEvent({ key: "ArrowUp", altKey: true });
+    expect(handleCanvasKeyboardShortcuts(editor as any, forwardEv)).toBe(true);
+    expect(forwardEv.prevented).toBe(true);
+
+    const backwardEv = makeEvent({ key: "ArrowDown", altKey: true });
+    expect(handleCanvasKeyboardShortcuts(editor as any, backwardEv)).toBe(true);
+
+    const frontEv = makeEvent({ key: "ArrowUp", altKey: true, shiftKey: true });
+    expect(handleCanvasKeyboardShortcuts(editor as any, frontEv)).toBe(true);
+
+    const backEv = makeEvent({ key: "ArrowDown", altKey: true, shiftKey: true });
+    expect(handleCanvasKeyboardShortcuts(editor as any, backEv)).toBe(true);
+
+    expect(calls).toEqual(["bringForward", "sendBackward", "bringToFront", "sendToBack"]);
+  });
+
   test("cmd+c copies to internal clipboard; cmd+v pastes it", () => {
     const clipboard = { current: null as any };
     const content = { schema: "x", shapes: [] };

@@ -2,7 +2,7 @@ import { createHtmlCardSrcDoc } from "@/features/canvases/tldraw/html-card";
 
 export const PIGCASSO_HTML_PREVIEW_DATA_URL_META_KEY = "pigcassoHtmlPreviewDataUrl";
 
-const HTML2CANVAS_CDN_URL = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+const HTML2CANVAS_CDN_URL = "/vendor/html2canvas.min.js";
 
 const injectPreviewScript = (srcDoc: string, params: { requestId: string; width: number; height: number }) => {
   const { requestId, width, height } = params;
@@ -41,9 +41,26 @@ const injectPreviewScript = (srcDoc: string, params: { requestId: string; width:
     "    await waitForHtml2Canvas(5000);",
     "    await waitForFonts(1500);",
     "    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));",
-    "    const canvas = await window.html2canvas(document.body,{backgroundColor:'#ffffff',scale:1,logging:false,useCORS:true,scrollX:0,scrollY:0,windowWidth:TARGET_WIDTH,windowHeight:TARGET_HEIGHT,width:TARGET_WIDTH,height:TARGET_HEIGHT});",
+    "    const scale = (TARGET_WIDTH * TARGET_HEIGHT) > 1100000 ? 0.75 : 1;",
+    "    const canvas = await window.html2canvas(document.body,{backgroundColor:'#ffffff',scale,logging:false,useCORS:true,scrollX:0,scrollY:0,windowWidth:TARGET_WIDTH,windowHeight:TARGET_HEIGHT,width:TARGET_WIDTH,height:TARGET_HEIGHT});",
     "    const dataUrl = canvas.toDataURL('image/png');",
-    "    send({dataUrl});",
+    "    (function(){",
+    "      try{",
+    "        const ctx = canvas.getContext('2d');",
+    "        if(!ctx) return;",
+    "        const sample = (x,y)=>Array.from(ctx.getImageData(x,y,1,1).data);",
+    "        const pts=[[0,0],[canvas.width-1,0],[0,canvas.height-1],[canvas.width-1,canvas.height-1],[Math.floor(canvas.width/2),Math.floor(canvas.height/2)]];",
+    "        const looksAllBlack = pts.every(([x,y])=>{const d=sample(Math.max(0,x),Math.max(0,y)); return d[0]===0 && d[1]===0 && d[2]===0 && d[3]===255;});",
+    "        if(looksAllBlack){",
+    "          send({error:'Preview rendered as an all-black bitmap (likely a browser rendering limitation). Use Live preview to view this HTML.'});",
+    "          throw new Error('all-black');",
+    "        }",
+    "      }catch(e){",
+    "        if(String(e&&e.message||e).indexOf('all-black')===-1){ /* ignore */ }",
+    "        return;",
+    "      }",
+    "      send({dataUrl});",
+    "    })();",
     "  }catch(err){",
     "    send({error: (err && err.message) ? err.message : String(err)});",
     "  }",

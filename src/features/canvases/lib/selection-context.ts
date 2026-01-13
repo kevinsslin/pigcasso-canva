@@ -1,4 +1,5 @@
 import { HTML_CARD_SHAPE_TYPE } from "@/features/canvases/tldraw/html-card";
+import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import type { TLAsset, TLAssetId, TLParentId, TLShape } from "tldraw";
 
 export type SelectionContext = {
@@ -15,6 +16,7 @@ export type SelectionContextEditor = {
 
 export const getSelectionContext = (editor: SelectionContextEditor, shapeId: string | null): SelectionContext | null => {
   if (!shapeId) return null;
+  const shortId = String(shapeId).split(":").pop() || "";
 
   try {
     const shape = editor.getShape(shapeId as any) as any;
@@ -36,8 +38,16 @@ export const getSelectionContext = (editor: SelectionContextEditor, shapeId: str
     if (type === "image") {
       const assetId = shape.props?.assetId;
       const asset = assetId ? ((editor.getAsset?.(assetId) as any) ?? null) : null;
-      const src = typeof asset?.props?.src === "string" ? asset.props.src : null;
-      return { shapeId, type, label: "Image", previewUrl: src };
+      const rawSrc =
+        (typeof asset?.meta?.originalSrc === "string" && asset.meta.originalSrc) ||
+        (typeof asset?.meta?.rawSrc === "string" && asset.meta.rawSrc) ||
+        (typeof asset?.props?.src === "string" && asset.props.src) ||
+        null;
+      const src = rawSrc ? toCanvasImageUrl(String(rawSrc)) : null;
+
+      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
+      const label = rawName && rawName !== "Image" ? rawName : shortId ? `Image • ${shortId}` : "Image";
+      return { shapeId, type, label, previewUrl: src };
     }
 
     if (type === "text") {

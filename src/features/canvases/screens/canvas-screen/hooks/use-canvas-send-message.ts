@@ -6,6 +6,7 @@ import type { Editor as TldrawEditor } from "tldraw";
 
 import { toNanoBananaApiProfile, type NanoBananaProfileOption } from "@/features/ai/lib/nano-banana-profile";
 import type { AiJobQueue } from "@/features/canvases/lib/ai-job-queue";
+import { buildCanvasChatContextAttachments } from "@/features/canvases/lib/chat-context-attachments";
 import { getSelectionContext } from "@/features/canvases/lib/selection-context";
 import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 import { toCanvasImageUrl, unwrapCanvasImageProxyUrl } from "@/features/canvases/lib/image-proxy";
@@ -88,12 +89,23 @@ export const useCanvasSendMessage = ({
 
       chatInputRef.current = "";
       setChatInput("");
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
+
+      const contextShapeIds = options?.shapeIds ?? [];
+      const contextAttachments = buildCanvasChatContextAttachments(editor as any, contextShapeIds, { max: 8 });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: trimmed,
+          attachments: contextAttachments.length ? contextAttachments : undefined,
+        },
+      ]);
 
       const queue = aiJobQueueRef.current;
       if (!queue) return;
 
-      const contextShapeIds = options?.shapeIds ?? [];
       const selectedShapeId =
         options?.shapeId !== undefined
           ? options.shapeId

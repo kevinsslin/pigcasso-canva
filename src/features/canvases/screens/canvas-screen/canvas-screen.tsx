@@ -2,30 +2,19 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   ArrowUp,
-  Bot,
-  ChevronLeft,
   Loader2,
-  Maximize2,
-  Minimize2,
-  PanelRightClose,
-  PanelRightOpen,
-  Redo2,
   RotateCcw,
-  Undo2,
   X,
 } from "lucide-react";
 import { createShapeId } from "@tldraw/tlschema";
-import { loadSnapshot, type Editor as TldrawEditor, useTldrawUser } from "tldraw";
+import { type Editor as TldrawEditor, useTldrawUser } from "tldraw";
 import { toast } from "sonner";
 
 import { useRequireAuth } from "@/features/auth/hooks/use-require-auth";
-import { UserButton } from "@/features/auth/components/user-button";
 import {
   NANO_BANANA_PROFILE_STORAGE_KEY,
   parseNanoBananaProfileOption,
@@ -47,10 +36,8 @@ import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { handleCanvasDeleteShortcut, isEditableKeyboardTarget } from "@/features/canvases/tldraw/delete-shortcut";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { findFirstImageShapeIdInGroup } from "@/features/canvases/tldraw/find-image-in-group";
-import { exportCanvasSelectionToPngDataUrl } from "@/features/canvases/tldraw/export-canvas-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { PigcassoTextShapeUtil } from "@/features/canvases/tldraw/pigcasso-text-shape-util";
-import { sanitizeTldrawStoreSnapshot } from "@/features/canvases/tldraw/sanitize-snapshot";
 import { getTabAnchor } from "@/features/canvases/tldraw/tab-anchor";
 import {
   handleCanvasKeyboardShortcuts,
@@ -65,17 +52,15 @@ import {
 } from "@/features/canvases/lib/ai-job-queue";
 import { getApiErrorStatus } from "@/lib/api-error";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 import { CanvasToolRail } from "@/features/canvases/components/canvas-tool-rail";
-import { EditableBoardTitle } from "@/features/canvases/components/editable-board-title";
-import { useBoardDisconnectGuard } from "@/features/canvases/hooks/use-board-disconnect-guard";
 import { CANVAS_TOOL_BUTTONS, toTldrawToolId, type CanvasTool } from "@/features/canvases/lib/canvas-tools";
 import { getCanvasChatSuggestions } from "@/features/canvases/lib/chat-suggestions";
 import { toCanvasImageUrl, unwrapCanvasImageProxyUrl } from "@/features/canvases/lib/image-proxy";
 import {
   clampCanvasTextScale,
   getCanvasTextSizePx,
+  buildTextFontFamilyMetaPatch,
   pickCanvasTextSizeAndScaleFromPx,
   PIGCASSO_TEXT_FONT_FAMILY_META_KEY,
   toRichTextValue,
@@ -84,8 +69,6 @@ import {
 import { applyAtMentionReplacement } from "@/features/canvases/lib/at-mentions";
 import { getPinEditTrigger, isClickWithinThreshold, type PinEditTrigger } from "@/features/canvases/lib/pin-edit";
 import { getSelectionContext, type SelectionContext } from "@/features/canvases/lib/selection-context";
-import { CanvasShareButton } from "@/features/canvases/components/canvas-share-button";
-import { CanvasPublishButton } from "@/features/canvases/components/canvas-publish-button";
 import { CanvasChatPanel } from "@/features/canvases/screens/canvas-screen/canvas-chat-panel";
 import { CanvasDebugPanel } from "@/features/canvases/screens/canvas-screen/canvas-debug-panel";
 import { CanvasDownloadsDialog } from "@/features/canvases/screens/canvas-screen/canvas-downloads-dialog";
@@ -110,7 +93,11 @@ import { useCanvasSelectedImageActions } from "@/features/canvases/screens/canva
 import { useCanvasSendMessage } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-send-message";
 import { useCanvasSnapshotPersistence } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-snapshot-persistence";
 import { useCanvasUploads } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-uploads";
+import { useCanvasSnapshotHydration } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-snapshot-hydration";
+import { useCanvasDisconnectRecovery } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-disconnect-recovery";
+import { useCanvasExportActions } from "@/features/canvases/screens/canvas-screen/hooks/use-canvas-export-actions";
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
+import { CanvasOverlayHeader } from "@/features/canvases/screens/canvas-screen/components/canvas-overlay-header";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -129,16 +116,6 @@ type PageProps = {
 
 const DOCK_BUTTONS: Array<{ tool: CanvasTool; label: string; icon: ComponentType<{ className?: string }> }> =
   CANVAS_TOOL_BUTTONS;
-
-const getExtensionForMime = (mime: string | null) => {
-  const type = (mime ?? "").toLowerCase();
-  if (type.includes("png")) return "png";
-  if (type.includes("jpeg") || type.includes("jpg")) return "jpg";
-  if (type.includes("webp")) return "webp";
-  if (type.includes("gif")) return "gif";
-  if (type.includes("svg")) return "svg";
-  return null;
-};
 
 export default function CanvasScreen({ params }: PageProps) {
   const router = useRouter();
@@ -617,82 +594,30 @@ export default function CanvasScreen({ params }: PageProps) {
     setBoardHydrated(false);
   }, [boardCrashMessage, boardHydrated, editor]);
 
-  const reloadBoard = useCallback(() => {
-    remountingRef.current = true;
-
-    if (typeof window !== "undefined") {
-      if (reloadTimeoutRef.current) {
-        window.clearTimeout(reloadTimeoutRef.current);
-      }
-      reloadTimeoutRef.current = window.setTimeout(() => {
-        reloadTimeoutRef.current = null;
-        remountingRef.current = false;
-        setBoardCrashMessage("Board disconnected. Reload to continue.");
-      }, 5000);
-    }
-
-    setBoardCrashMessage(null);
-    setBoardHydrated(false);
-    loadedSnapshotEditorRef.current = null;
-    hydratingRef.current = false;
-    lastKnownToolIdRef.current = null;
-    hasProxiedImageAssetsRef.current = false;
-    hasUserEditedRef.current = false;
-    hasShownRemoteSyncSkippedToastRef.current = false;
-    tabPointerDownRef.current = null;
-    setTabAnchor(null);
-    setActiveTool("select");
-    setTldrawMountKey((prev) => prev + 1);
-  }, []);
-
-  const handleBoardDisconnect = useCallback(() => {
-    const now = Date.now();
-    const windowMs = 20_000;
-
-    if (!disconnectStreakRef.current.startedAt || now - disconnectStreakRef.current.startedAt > windowMs) {
-      disconnectStreakRef.current = { startedAt: now, count: 0 };
-    }
-
-    disconnectStreakRef.current.count += 1;
-    autoRecoverAttemptsRef.current = disconnectStreakRef.current.count;
-
-    if (disconnectStreakRef.current.count <= 2) {
-      toast.message("Reconnecting board…", { duration: 1800 });
-      reloadBoard();
-      return;
-    }
-
-    setBoardCrashMessage(
-      "Board disconnected repeatedly. Reload to continue.\n\nTip: open this board with ?debug=1 and share the debug panel + browser console logs.",
-    );
-  }, [reloadBoard]);
-
-  useBoardDisconnectGuard({
+  const { reloadBoard } = useCanvasDisconnectRecovery({
     enabled: ready && authenticated && !tldrawLicenseMissing,
     editor,
     boardHydrated: hasEverHydratedRef.current,
     boardCrashMessage,
     hasMountedEditor: hasMountedEditorRef.current,
     remounting: remountingRef.current,
-    delayMs: 1200,
-    onDisconnect: handleBoardDisconnect,
+    remountingRef,
+    disconnectStreakRef,
+    autoRecoverAttemptsRef,
+    reloadTimeoutRef,
+    loadedSnapshotEditorRef,
+    hydratingRef,
+    hasProxiedImageAssetsRef,
+    hasUserEditedRef,
+    hasShownRemoteSyncSkippedToastRef,
+    tabPointerDownRef,
+    setTabAnchor,
+    setActiveTool,
+    setTldrawMountKey,
+    setBoardCrashMessage,
+    setBoardHydrated,
+    lastKnownToolIdRef,
   });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!editor) return;
-    if (!boardHydrated) return;
-    if (boardCrashMessage) return;
-
-    const handle = window.setTimeout(() => {
-      disconnectStreakRef.current = { startedAt: 0, count: 0 };
-      autoRecoverAttemptsRef.current = 0;
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(handle);
-    };
-  }, [boardCrashMessage, boardHydrated, editor]);
 
   useEffect(() => {
     const serverName = canvasQuery.data?.name;
@@ -700,124 +625,18 @@ export default function CanvasScreen({ params }: PageProps) {
     setCanvasName(serverName);
   }, [canvasQuery.data?.name]);
 
-  useEffect(() => {
-    if (!editor) return;
-
-    const tryLoad = (raw: string) => {
-      try {
-        const parsed = JSON.parse(raw) as any;
-        const snapshot = (() => {
-          const doc = parsed && typeof parsed === "object" ? parsed.document : null;
-          if (doc && typeof doc === "object" && "store" in doc) {
-            return doc;
-          }
-          return parsed;
-        })();
-        loadSnapshot(editor.store, sanitizeTldrawStoreSnapshot(snapshot) as any);
-        lastSavedSnapshotRef.current = raw;
-        try {
-          localStorage.setItem(localSnapshotKey, raw);
-        } catch {
-          // ignore
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    const tryProxyImageAssets = () => {
-      if (hasProxiedImageAssetsRef.current) return;
-      hasProxiedImageAssetsRef.current = true;
-
-      try {
-        const snapshot = editor.store.getStoreSnapshot() as any;
-        const records = snapshot?.store;
-        if (!records || typeof records !== "object") return;
-
-        const updates: any[] = [];
-        Object.values(records).forEach((record) => {
-          if (!record || typeof record !== "object") return;
-          if ((record as any).typeName !== "asset") return;
-          if ((record as any).type !== "image") return;
-          const src = (record as any).props?.src;
-          if (typeof src !== "string" || !src.trim()) return;
-          const proxied = toCanvasImageUrl(src);
-          if (proxied === src) return;
-          updates.push({ ...(record as any), props: { ...(record as any).props, src: proxied } });
-        });
-        if (updates.length) {
-          editor.updateAssets?.(updates);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const setHydrated = () => {
-      setBoardHydrated(true);
-    };
-
-    const maybeLoadLocal = () => {
-      try {
-        const local = localStorage.getItem(localSnapshotKey);
-        if (!local) return false;
-        hydratingRef.current = true;
-        loadedSnapshotEditorRef.current = editor;
-        const ok = tryLoad(local);
-        if (ok) {
-          tryProxyImageAssets();
-        }
-        hydratingRef.current = false;
-        return ok;
-      } catch {
-        hydratingRef.current = false;
-        return false;
-      }
-    };
-
-    const maybeLoadServer = (serverSnapshot: string) => {
-      hydratingRef.current = true;
-      loadedSnapshotEditorRef.current = editor;
-      const ok = tryLoad(serverSnapshot);
-      if (ok) {
-        tryProxyImageAssets();
-      }
-      hydratingRef.current = false;
-      return ok;
-    };
-
-    const serverSnapshot = canvasQuery.isSuccess ? (canvasQuery.data?.snapshot ?? null) : null;
-
-    if (loadedSnapshotEditorRef.current !== editor) {
-      const loadedLocal = maybeLoadLocal();
-      if (!loadedLocal && serverSnapshot && !hasUserEditedRef.current) {
-        maybeLoadServer(serverSnapshot);
-      }
-
-      if (!loadedLocal && !serverSnapshot && (canvasQuery.isError || canvasQuery.isSuccess) && !hydratingRef.current) {
-        loadedSnapshotEditorRef.current = editor;
-      }
-
-      setHydrated();
-      return;
-    }
-
-    if (serverSnapshot && serverSnapshot !== lastSavedSnapshotRef.current) {
-      if (hasUserEditedRef.current) {
-        if (!hasShownRemoteSyncSkippedToastRef.current) {
-          hasShownRemoteSyncSkippedToastRef.current = true;
-          toast.message("Board sync is taking longer—skipping remote snapshot to avoid overwriting your edits.", {
-            duration: 3500,
-          });
-        }
-      } else {
-        maybeLoadServer(serverSnapshot);
-      }
-    }
-
-    setHydrated();
-  }, [boardHydrated, canvasQuery.data, canvasQuery.isError, canvasQuery.isSuccess, editor, localSnapshotKey]);
+  useCanvasSnapshotHydration({
+    editor,
+    localSnapshotKey,
+    canvasQuery: { data: canvasQuery.data, isError: canvasQuery.isError, isSuccess: canvasQuery.isSuccess },
+    setBoardHydrated,
+    loadedSnapshotEditorRef,
+    hydratingRef,
+    lastSavedSnapshotRef,
+    hasProxiedImageAssetsRef,
+    hasUserEditedRef,
+    hasShownRemoteSyncSkippedToastRef,
+  });
 
   useEffect(() => {
     if (!editor) return;
@@ -1097,34 +916,26 @@ export default function CanvasScreen({ params }: PageProps) {
       if (!editor) return;
       if (!selectedTextShape) return;
       try {
-        const currentShape = editor.getShape?.(selectedTextShape.id as any) as any;
-        if (!currentShape || typeof currentShape !== "object") return;
-
-        const currentMeta = ((currentShape as any)?.meta ?? {}) as Record<string, unknown>;
-        const nextMeta = { ...currentMeta };
-        let metaTouched = false;
-
         const nextProps: Record<string, unknown> = {};
         const fontFamilyTouched = Object.prototype.hasOwnProperty.call(partial, "fontFamily");
+        let metaPatch: Record<string, unknown> | null = null;
 
         if (fontFamilyTouched) {
-          metaTouched = true;
           const raw = partial.fontFamily;
           if (typeof raw === "string" && raw.trim()) {
-            nextMeta[PIGCASSO_TEXT_FONT_FAMILY_META_KEY] = raw.trim();
+            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(raw) };
             if (partial.font === undefined) {
               nextProps.font = "sans";
             }
           } else {
-            delete nextMeta[PIGCASSO_TEXT_FONT_FAMILY_META_KEY];
+            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(null) };
           }
         }
 
         if (typeof partial.font === "string" && partial.font.trim()) {
           nextProps.font = partial.font;
-          if (!fontFamilyTouched && PIGCASSO_TEXT_FONT_FAMILY_META_KEY in nextMeta) {
-            metaTouched = true;
-            delete nextMeta[PIGCASSO_TEXT_FONT_FAMILY_META_KEY];
+          if (!fontFamilyTouched) {
+            metaPatch = { ...metaPatch, ...buildTextFontFamilyMetaPatch(null) };
           }
         }
 
@@ -1145,7 +956,7 @@ export default function CanvasScreen({ params }: PageProps) {
           id: selectedTextShape.id as any,
           type: "text",
           ...(Object.keys(nextProps).length ? { props: nextProps } : null),
-          ...(metaTouched ? { meta: nextMeta } : null),
+          ...(metaPatch ? { meta: metaPatch } : null),
         } as any);
       } catch {
         // ignore
@@ -1200,276 +1011,28 @@ export default function CanvasScreen({ params }: PageProps) {
     [focusChatInput, selectionContext],
   );
 
-  const downloadBlob = useCallback((blob: Blob, filename: string) => {
-    if (typeof window === "undefined") return;
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 1000);
-  }, []);
-
-  const downloadSelectedImage = useCallback(async () => {
-    const asset = selectedImageAsset as any;
-    if (!asset) {
-      toast.error("Select an image to download.");
-      return;
-    }
-
-    const url =
-      (typeof asset?.props?.src === "string" && asset.props.src.trim()) ||
-      (typeof asset?.meta?.rawSrc === "string" && toCanvasImageUrl(asset.meta.rawSrc)) ||
-      (typeof asset?.meta?.originalSrc === "string" && toCanvasImageUrl(asset.meta.originalSrc)) ||
-      null;
-
-    if (!url) {
-      toast.error("Selected image is missing a URL.");
-      return;
-    }
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to download image.");
-      }
-
-      const blob = await response.blob();
-      const ext = getExtensionForMime(blob.type) ?? "png";
-
-      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
-      const baseName = rawName || `IMG_${Date.now()}`;
-      const filename = /\.[a-z0-9]+$/i.test(baseName) ? baseName : `${baseName}.${ext}`;
-
-      downloadBlob(blob, filename);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to download image.";
-      toast.error(message, { duration: 3500 });
-    }
-  }, [downloadBlob, selectedImageAsset]);
-
-  const exportSelectedSelectionAsPng = useCallback(async () => {
-    if (!editor) {
-      toast.error("Canvas is still loading. Try again in a moment.");
-      return;
-    }
-    if (!boardHydrated || boardCrashMessage) {
-      toast.error("Canvas is still loading. Try again in a moment.");
-      return;
-    }
-    if (selectedShapeIds.length !== 1) {
-      toast.error("Select a single item to export.");
-      return;
-    }
-
-    const shapeId = String(selectedShapeIds[0]);
-    const toastId = toast.loading("Exporting PNG…");
-    try {
-      const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
-        shapeId,
-        targetPx: 2048,
-        padding: 32,
-        pixelRatio: 1,
-        background: true,
-      });
-
-      const response = await fetch(dataUrl);
-      if (!response.ok) {
-        throw new Error("Failed to export PNG.");
-      }
-      const blob = await response.blob();
-      downloadBlob(blob, `pigcasso_export_${Date.now()}.png`);
-      toast.success("PNG downloaded.", { id: toastId, duration: 1500 });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to export PNG.";
-      toast.error(message, { id: toastId, duration: 3500 });
-    }
-  }, [boardCrashMessage, boardHydrated, downloadBlob, editor, selectedShapeIds]);
-
-  const openExportNftForShapeId = useCallback(
-    async (shapeId: string) => {
-      if (!editor) {
-        toast.error("Canvas is still loading. Try again in a moment.");
-        return;
-      }
-
-      const shape = (() => {
-        try {
-          return editor.getShape?.(shapeId as any) as any;
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!shape || typeof shape !== "object" || shape.type !== "image" || !shape.props?.assetId) {
-        toast.error("Select an image to mint.");
-        return;
-      }
-
-      const asset = (() => {
-        try {
-          return editor.getAsset?.(shape.props.assetId as any) as any;
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!asset) {
-        toast.error("Select an image to mint.");
-        return;
-      }
-
-      const previewSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
-      const originalSrc = typeof asset?.meta?.originalSrc === "string" ? asset.meta.originalSrc.trim() : "";
-      const rawSrc = typeof asset?.meta?.rawSrc === "string" ? asset.meta.rawSrc.trim() : "";
-      const propsSrc = typeof asset?.props?.src === "string" ? asset.props.src.trim() : "";
-      const unwrapped = propsSrc ? unwrapCanvasImageProxyUrl(propsSrc) : "";
-
-      const imageUrl = originalSrc || rawSrc || unwrapped || "";
-
-      const rawName = typeof asset?.props?.name === "string" ? asset.props.name.trim() : "";
-      const fallbackPreviewUrl = previewSrc || (imageUrl ? toCanvasImageUrl(imageUrl) : "");
-      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
-
-      const toastId = toast.loading("Preparing PNG…");
-
-      const compositeUrl = await (async () => {
-        if (!boardHydrated) return null;
-        if (boardCrashMessage) return null;
-
-        try {
-          const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
-            shapeId,
-            targetPx: 2048,
-            padding: 32,
-            pixelRatio: 1,
-            background: true,
-          });
-
-          return await uploadImageDataUrl(
-            dataUrl,
-            `pigcasso_canvas_${params.canvasId}_${Date.now()}.png`,
-          );
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!compositeUrl) {
-        toast.error("Couldn’t export a combined PNG. Please try again.", {
-          id: toastId,
-          duration: 3500,
-        });
-        return;
-      }
-
-      toast.success("PNG ready.", { id: toastId, duration: 1200 });
-
-      const exportImageUrl = compositeUrl;
-      const previewUrl = compositeUrl || fallbackPreviewUrl || imageUrl;
-
-      setExportNftTarget({
-        canvasId: params.canvasId,
-        canvasName,
-        shapeId,
-        imageUrl: exportImageUrl,
-        previewUrl,
-        defaultName: rawName || contextLabel || canvasName,
-      });
-      setExportNftOpen(true);
-    },
-    [boardCrashMessage, boardHydrated, canvasName, editor, params.canvasId],
-  );
-
   const selectedGroupMintImageShapeId = useMemo(() => {
     if (!editor) return null;
     if (!selectedGroupShape) return null;
     return findFirstImageShapeIdInGroup(editor as any, String((selectedGroupShape as any).id));
   }, [editor, selectedGroupShape]);
 
-  const mintSelectionAsNft = useCallback(() => {
-    const shapeId = selectedImageShape
-      ? String((selectedImageShape as any).id)
-      : selectedGroupMintImageShapeId;
-    if (!shapeId) {
-      toast.error("Select an image to mint.");
-      return;
-    }
-
-    void openExportNftForShapeId(shapeId);
-  }, [openExportNftForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
-
-  const openPrintrLaunchForShapeId = useCallback(
-    async (shapeId: string) => {
-      if (!editor) {
-        toast.error("Canvas is still loading. Try again in a moment.");
-        return;
-      }
-      if (!boardHydrated || boardCrashMessage) {
-        toast.error("Canvas is still loading. Try again in a moment.");
-        return;
-      }
-
-      const shape = (() => {
-        try {
-          return editor.getShape?.(shapeId as any) as any;
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!shape || typeof shape !== "object" || shape.type !== "image") {
-        toast.error("Select an image to launch.");
-        return;
-      }
-
-      const contextLabel = getSelectionContext(editor as any, shapeId)?.label ?? null;
-      const toastId = toast.loading("Preparing token image…");
-
-      try {
-        const dataUrl = await exportCanvasSelectionToPngDataUrl(editor as any, {
-          shapeId,
-          targetPx: 1536,
-          padding: 32,
-          pixelRatio: 1,
-          background: true,
-        });
-
-        setPrintrTarget({
-          canvasId: params.canvasId,
-          canvasName,
-          shapeId,
-          imageDataUrl: dataUrl,
-          defaultName: contextLabel || canvasName,
-        });
-        setPrintrOpen(true);
-        toast.success("Ready to launch.", { id: toastId, duration: 1200 });
-      } catch (error) {
-        console.error("[printr] Failed to export token image", error);
-        toast.error("Couldn’t prepare the token image. Please try again.", {
-          id: toastId,
-          duration: 3500,
-        });
-      }
-    },
-    [boardCrashMessage, boardHydrated, canvasName, editor, params.canvasId],
-  );
-
-  const launchSelectionOnPrintr = useCallback(() => {
-    const shapeId = selectedImageShape
-      ? String((selectedImageShape as any).id)
-      : selectedGroupMintImageShapeId;
-    if (!shapeId) {
-      toast.error("Select an image to launch.");
-      return;
-    }
-    void openPrintrLaunchForShapeId(shapeId);
-  }, [openPrintrLaunchForShapeId, selectedGroupMintImageShapeId, selectedImageShape]);
+  const { downloadSelectedImage, exportSelectedSelectionAsPng, mintSelectionAsNft, launchSelectionOnPrintr } =
+    useCanvasExportActions({
+      editor,
+      boardHydrated,
+      boardCrashMessage,
+      canvasId: params.canvasId,
+      canvasName,
+      selectedShapeIds,
+      selectedImageShape,
+      selectedImageAsset,
+      selectedGroupMintImageShapeId,
+      setExportNftOpen,
+      setExportNftTarget,
+      setPrintrOpen,
+      setPrintrTarget,
+    });
 
   const viewSelectedHtmlCode = useCallback(() => {
     const shape = selectedHtmlShape as any;
@@ -1494,8 +1057,17 @@ export default function CanvasScreen({ params }: PageProps) {
 
     const srcDoc = createHtmlCardSrcDoc(html);
     const blob = new Blob([srcDoc], { type: "text/html;charset=utf-8" });
-    downloadBlob(blob, `pigcasso_html_${Date.now()}.html`);
-  }, [downloadBlob, selectedHtmlShape]);
+    if (typeof window === "undefined") return;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pigcasso_html_${Date.now()}.html`;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  }, [selectedHtmlShape]);
 
   const reorderSelectedShapes = useCallback(
     (mode: "front" | "forward" | "backward" | "back") => {
@@ -1614,28 +1186,20 @@ export default function CanvasScreen({ params }: PageProps) {
               onToolChange={applyTool}
             />
             <div className="flex-1 relative overflow-hidden">
-              <div className="absolute left-4 top-4 z-40 flex items-center gap-3">
-                <Link
-                  href="/app"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
-                  aria-label="Back to app"
-                >
-                  <span className="inline-flex items-center justify-center rounded-full border bg-card/80 backdrop-blur h-9 w-9 md:hidden">
-                    <ChevronLeft className="size-4" />
-                  </span>
-                  <span className="hidden md:inline-flex size-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 items-center justify-center overflow-hidden shadow-lg shadow-pink-500/20">
-                    <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} className="h-full w-full object-cover" />
-                  </span>
-                </Link>
-
-                <EditableBoardTitle name={canvasName} onRename={handleRenameBoard} />
-              </div>
-
-              <div className="absolute left-1/2 top-4 z-40 hidden -translate-x-1/2 md:flex items-center gap-1 rounded-full border bg-card/80 backdrop-blur px-2 py-1 shadow-soft">
-                <span className="px-3 py-1.5 text-xs font-semibold text-muted-foreground tabular-nums">
-                  {editor ? `${zoomPercent}%` : "—"}
-                </span>
-              </div>
+              <CanvasOverlayHeader
+                canvasId={params.canvasId}
+                canvasName={canvasName}
+                onRenameBoard={handleRenameBoard}
+                zoomPercent={zoomPercent}
+                editor={editor}
+                disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
+                desktopChatOpen={desktopChatOpen}
+                onToggleDesktopChat={() => setDesktopChatOpen((current) => !current)}
+                onOpenMobileChat={() => setMobileChatOpen(true)}
+                isPublished={Boolean(canvasQuery.data?.isPublished)}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => void toggleFullscreen()}
+              />
 
               {typeof document === "undefined" || selectionToolbarSuppressed
                 ? null
@@ -1664,76 +1228,6 @@ export default function CanvasScreen({ params }: PageProps) {
                     />,
                     document.body,
                   )}
-
-              <div className="absolute right-4 top-4 z-40 flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full hidden md:inline-flex"
-                  onClick={() => setDesktopChatOpen((current) => !current)}
-                  aria-label="Toggle chat panel"
-                >
-                  {desktopChatOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full hidden md:inline-flex"
-                  onClick={() => editor?.undo()}
-                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-                  aria-label="Undo"
-                >
-                  <Undo2 className="size-4" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full hidden md:inline-flex"
-                  onClick={() => editor?.redo()}
-                  disabled={!editor || !boardHydrated || Boolean(boardCrashMessage)}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="size-4" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="rounded-full md:hidden"
-                  onClick={() => setMobileChatOpen(true)}
-                  aria-label="Open chat"
-                >
-                  <Bot className="size-4" />
-                </Button>
-
-                <CanvasShareButton canvasId={params.canvasId} className="hidden md:inline-flex" compact />
-
-                <CanvasPublishButton
-                  canvasId={params.canvasId}
-                  isPublished={Boolean(canvasQuery.data?.isPublished)}
-                  disabled={!canvasQuery.data || !boardHydrated || Boolean(boardCrashMessage)}
-                  className="hidden md:inline-flex rounded-full"
-                />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full hidden md:inline-flex"
-                  onClick={() => void toggleFullscreen()}
-                  aria-label="Toggle fullscreen"
-                >
-                  {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-                </Button>
-
-                <UserButton />
-              </div>
 
                   <div
                     className="absolute inset-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0"

@@ -145,8 +145,6 @@ export const CanvasSelectionToolbar = ({
     if (anchor?.kind !== "text" || !textStyle) return "__none__";
     if (textStyle.fontFamily) {
       const preset = TEXT_FONT_FAMILY_PRESETS.find((opt) => opt.value === textStyle.fontFamily);
-      if (preset?.id === "serif") return "base:serif";
-      if (preset?.id === "mono") return "base:mono";
       return preset ? `preset:${preset.id}` : "__custom__";
     }
     return `base:${textStyle.font}`;
@@ -277,9 +275,7 @@ export const CanvasSelectionToolbar = ({
               <DropdownMenuContent align="center" className="w-72">
                 <DropdownMenuLabel>Font</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
-                  Recommended
-                </div>
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">Presets</div>
                 <DropdownMenuRadioGroup
                   value={resolvedFontValue}
                   onValueChange={(value) => {
@@ -298,7 +294,7 @@ export const CanvasSelectionToolbar = ({
                     }
                   }}
                 >
-                  {TEXT_FONT_FAMILY_PRESETS.filter((opt) => opt.id !== "serif" && opt.id !== "mono").map((opt) => (
+                  {TEXT_FONT_FAMILY_PRESETS.map((opt) => (
                     <DropdownMenuRadioItem key={opt.id} value={`preset:${opt.id}`}>
                       {opt.label}
                     </DropdownMenuRadioItem>
@@ -314,9 +310,7 @@ export const CanvasSelectionToolbar = ({
                 </DropdownMenuRadioGroup>
 
                 <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
-                  Built-in
-                </div>
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">Built-in styles</div>
                 <DropdownMenuRadioGroup
                   value={resolvedFontValue}
                   onValueChange={(value) => {

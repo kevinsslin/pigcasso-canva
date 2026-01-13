@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   exportCanvasSelectionToPngDataUrl,
+  exportCanvasShapeIdsToPngDataUrl,
   exportCurrentCanvasPageToPngDataUrl,
   getCanvasExportShapeIdsForSelection,
 } from "../tldraw/export-canvas-image";
@@ -68,6 +69,28 @@ describe("getCanvasExportShapeIdsForSelection", () => {
 
     expect(getCanvasExportShapeIdsForSelection(editor, "shape:img")).toEqual(["shape:img", "shape:txt"]);
   });
+
+  test("includes nearby shapes when no frame exists (adaptive padding)", () => {
+    const editor = {
+      getShape: (id: string) => {
+        if (id === "shape:img") return { id, type: "image", parentId: "page:one" };
+        if (id === "shape:txt") return { id, type: "text", parentId: "page:one" };
+        return null;
+      },
+      getCurrentPageId: () => "page:one",
+      getSortedChildIdsForParent: (id: string) => {
+        if (id === "page:one") return ["shape:img", "shape:txt"];
+        return [];
+      },
+      getShapePageBounds: (id: string) => {
+        if (id === "shape:img") return { x: 0, y: 0, w: 400, h: 400 };
+        if (id === "shape:txt") return { x: 10, y: -90, w: 220, h: 60 };
+        return { x: 0, y: 0, w: 1, h: 1 };
+      },
+    } as any;
+
+    expect(getCanvasExportShapeIdsForSelection(editor, "shape:img")).toEqual(["shape:img", "shape:txt"]);
+  });
 });
 
 describe("exportCanvasSelectionToPngDataUrl", () => {
@@ -113,5 +136,36 @@ describe("exportCanvasSelectionToPngDataUrl", () => {
     expect(calls[0].opts.padding).toBe(16);
     expect(calls[0].opts.pixelRatio).toBe(1);
     expect(calls[0].opts.background).toBe(false);
+  });
+});
+
+describe("exportCanvasShapeIdsToPngDataUrl", () => {
+  test("exports explicit shape ids", async () => {
+    const calls: Array<{ shapeIds: unknown[]; opts: Record<string, unknown> }> = [];
+
+    const editor = {
+      getShapePageBounds: (shapeId: string) => {
+        if (shapeId === "shape:a") return { x: 0, y: 0, w: 200, h: 200 };
+        return { x: 240, y: 0, w: 100, h: 100 };
+      },
+      toImageDataUrl: async (shapeIds: unknown[], opts: Record<string, unknown>) => {
+        calls.push({ shapeIds, opts });
+        return { url: "data:image/png;base64,explicit", width: 10, height: 10 };
+      },
+    } as any;
+
+    const dataUrl = await exportCanvasShapeIdsToPngDataUrl(editor, {
+      shapeIds: ["shape:a", "shape:b"],
+      targetPx: 512,
+      padding: 12,
+      pixelRatio: 1,
+      background: true,
+    });
+
+    expect(dataUrl).toBe("data:image/png;base64,explicit");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].shapeIds).toEqual(["shape:a", "shape:b"]);
+    expect(calls[0].opts.format).toBe("png");
+    expect(calls[0].opts.padding).toBe(12);
   });
 });
