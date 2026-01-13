@@ -236,6 +236,26 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         maxBlocks: 16,
       });
       const planLabel = `Plan: background + subject${blocks.length ? ` + ${blocks.length} text layer(s)` : ""}.`;
+      const extractProminentTextFromImage = async (dataUrl: string) => {
+        try {
+          const extraction = await params.extractText.mutateAsync({ image: dataUrl });
+          const nextRaw = (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
+          return filterProminentTextBlocks(nextRaw, {
+            imageWidth,
+            imageHeight,
+            minHeightPx: 20,
+            maxBlocks: 16,
+          });
+        } catch {
+          return [];
+        }
+      };
+      const formatTextPreview = (blocks: ExtractTextBlock[]) =>
+        blocks
+          .map((b) => (b.text ?? "").trim())
+          .filter(Boolean)
+          .slice(0, 4)
+          .join(" · ");
 
       let steps = initialSteps;
       const ignoredCount = Math.max(0, rawBlocks.length - blocks.length);
@@ -260,7 +280,35 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             profile: apiProfile,
           });
           noTextDataUrl = noText.data;
-          steps = setStep(steps, "removeText", { status: "done", detail: "Removed prominent text." });
+          let remaining = await extractProminentTextFromImage(noTextDataUrl);
+          if (remaining.length) {
+            try {
+              const preview = formatTextPreview(remaining);
+              setLabel("Removing remaining text…");
+              const noTextRetry = await params.editImage.mutateAsync({
+                image: noTextDataUrl,
+                instruction: [
+                  "Remove ALL remaining prominent text. Keep the scene intact and do not change composition.",
+                  preview ? `These text fragments are still visible: ${preview}.` : null,
+                  "Return an OPAQUE image (no transparency).",
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+                profile: apiProfile,
+              });
+              noTextDataUrl = noTextRetry.data;
+              remaining = await extractProminentTextFromImage(noTextDataUrl);
+            } catch {
+              // ignore retry failures
+            }
+          }
+
+          steps = setStep(steps, "removeText", {
+            status: remaining.length ? "warn" : "done",
+            detail: remaining.length
+              ? `Removed text, but ${remaining.length} prominent block(s) remain. (${formatTextPreview(remaining)})`
+              : "Removed prominent text.",
+          });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Failed to remove text.";
           noTextDataUrl = imageSrc;
@@ -276,6 +324,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       setLabel("Generating background-only…");
       let backgroundDataUrl: string | null = null;
       let backgroundDiffCandidate: { dataUrl: string; opaqueRatio: number } | null = null;
+      let backgroundSimilarity: number | null = null;
 
       const validateBackground = async (candidateDataUrl: string) => {
         const diff = await extractSubjectByBackgroundDiffDataUrl({
@@ -310,8 +359,16 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         ];
 
         const candidates = [backgroundInstructions.join(" "), retryInstructions.join(" ")];
+        const evaluated: Array<{
+          dataUrl: string;
+          diff: { dataUrl: string; opaqueRatio: number } | null;
+          similarity: number | null;
+          score: number;
+        }> = [];
+
         for (let i = 0; i < candidates.length; i += 1) {
           const instruction = candidates[i] ?? candidates[0]!;
+          setLabel(`Generating background-only… (${i + 1}/${candidates.length})`);
           const res = await params.editImage.mutateAsync({
             image: noTextDataUrl,
             instruction,
@@ -322,16 +379,22 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
           if (!next || !next.startsWith("data:")) continue;
 
           const validation = await validateBackground(next);
-          const MIN_BG_DIFF_OPAQUE_RATIO = 0.0008;
-          if (validation && validation.opaqueRatio >= MIN_BG_DIFF_OPAQUE_RATIO) {
-            backgroundDataUrl = next;
-            backgroundDiffCandidate = validation;
-            break;
-          }
+          const similarity = await computeImageSimilarityScore(noTextDataUrl, next, { size: 96 }).catch(() => null);
+          const diffScore =
+            validation && Number.isFinite(validation.opaqueRatio)
+              ? Math.min(1, Math.max(0, validation.opaqueRatio / 0.05))
+              : 0;
+          const simScore = typeof similarity === "number" && Number.isFinite(similarity) ? similarity : 0;
+          const score = diffScore * 2 + simScore;
+          evaluated.push({ dataUrl: next, diff: validation, similarity: typeof similarity === "number" ? similarity : null, score });
+        }
 
-          if (i === candidates.length - 1) {
-            backgroundDataUrl = next;
-          }
+        if (evaluated.length) {
+          evaluated.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+          const best = evaluated[0]!;
+          backgroundDataUrl = best.dataUrl;
+          backgroundDiffCandidate = best.diff;
+          backgroundSimilarity = best.similarity;
         }
       } catch {
         backgroundDataUrl = null;
@@ -353,7 +416,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         detail: backgroundWasFallback
           ? "Failed; using base image as background."
           : backgroundDiffCandidate
-            ? `Background-only ready. (diff cutout ${Math.round(backgroundDiffCandidate.opaqueRatio * 1000) / 10}% opaque)`
+            ? `Background-only ready. (diff cutout ${Math.round(backgroundDiffCandidate.opaqueRatio * 1000) / 10}% opaque${typeof backgroundSimilarity === "number" ? ` · match ${Math.round(backgroundSimilarity * 100)}%` : ""})`
             : "Background-only ready.",
       });
 
@@ -417,6 +480,39 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             subjectOriginalSrc = subjectForCanvas.originalSrc;
             subjectSrcForCanvas = subjectForCanvas.canvasUrl;
           }
+        }
+      }
+
+      const MIN_SUBJECT_PREFERRED_RATIO = 0.004;
+      if (!subjectCandidate || subjectCandidate.opaqueRatio < MIN_SUBJECT_PREFERRED_RATIO) {
+        try {
+          setLabel("Extracting subject (AI)…");
+          const aiCutout = await params.editImage.mutateAsync({
+            image: noTextDataUrl,
+            instruction: [
+              "Extract the main foreground subject(s) only.",
+              "Return a transparent PNG with alpha (background fully transparent).",
+              "Do not add new objects. Keep original colors and style.",
+            ].join("\n"),
+            profile: apiProfile,
+          });
+
+          const candidate = typeof aiCutout.data === "string" ? aiCutout.data : null;
+          if (candidate && candidate.startsWith("data:")) {
+            const normalized = await ensureTransparentPngDataUrl(candidate);
+            const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
+            if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
+              if (!subjectCandidate || opaqueRatio > subjectCandidate.opaqueRatio) {
+                subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
+                subjectDetail = `Cutout from AI extraction (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
+                const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate.dataUrl, `pigcasso_subject_${Date.now()}.png`);
+                subjectOriginalSrc = subjectForCanvas.originalSrc;
+                subjectSrcForCanvas = subjectForCanvas.canvasUrl;
+              }
+            }
+          }
+        } catch {
+          // ignore
         }
       }
 
