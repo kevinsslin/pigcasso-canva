@@ -25,7 +25,6 @@ import { BentoBadge } from "@/features/marketing/components/bento-badge";
 import { BentoCard } from "@/features/marketing/components/bento-card";
 import { FAQItem } from "@/features/marketing/components/faq-item";
 import { FeatureCard } from "@/features/marketing/components/feature-card";
-import { ScrollStory } from "@/features/marketing/components/scroll-story";
 import { SectionTitle } from "@/features/marketing/components/section-title";
 import { useOpenApp } from "@/features/marketing/hooks/use-open-app";
 
@@ -40,12 +39,7 @@ export default function LandingPage() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-cyan-400 p-0.5 shadow-lg shadow-pink-500/20 group-hover:rotate-6 transition-transform duration-300">
               <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                <Image
-                  src="/logo-pig.png"
-                  alt="Pigcasso"
-                  width={40}
-                  height={40}
-                />
+                <Image src="/logo-pig.png" alt="Pigcasso" width={40} height={40} />
               </div>
             </div>
             <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
@@ -93,9 +87,7 @@ export default function LandingPage() {
               disabled={opening}
               className="rounded-full px-6 bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30"
             >
-              {opening ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : null}
+              {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Start creating
               <ArrowRight className="ml-2 size-4" />
             </Button>
@@ -131,9 +123,8 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-muted-foreground font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 motion-safe:animate-[pigcasso-enter_780ms_ease-out_180ms_both]">
-                  Describe what you want, get drafts instantly, and iterate on a
-                  single board. Export as shareable assets — including NFTs and
-                  prints when you’re ready.
+                  Describe what you want, get drafts instantly, and iterate on a single board. Export as shareable
+                  assets — including NFTs and prints when you’re ready.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start motion-safe:animate-[pigcasso-enter_780ms_ease-out_240ms_both]">
@@ -144,11 +135,7 @@ export default function LandingPage() {
                     size="lg"
                     className="h-12 rounded-2xl px-8 text-base bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95 shadow-lg shadow-pink-500/30 hover:shadow-glow motion-safe:transition-transform hover:-translate-y-0.5"
                   >
-                    {opening ? (
-                      <Loader2 className="mr-2 size-5 animate-spin" />
-                    ) : (
-                      <Brush className="mr-2 size-5" />
-                    )}
+                    {opening ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Brush className="mr-2 size-5" />}
                     {opening ? "Opening…" : "Start creating"}
                     <ArrowRight className="ml-2 size-4" />
                   </Button>
@@ -193,11 +180,7 @@ export default function LandingPage() {
               </div>
 
               <div className="lg:col-span-6">
-                <Tilt
-                  className="relative motion-safe:animate-[pigcasso-fade_700ms_ease-out_140ms_both]"
-                  max={6}
-                  scale={1.01}
-                >
+                <Tilt className="relative motion-safe:animate-[pigcasso-fade_700ms_ease-out_140ms_both]" max={6} scale={1.01}>
                   <div className="relative rounded-[2.75rem] overflow-hidden border border-white/50 bg-white/70 backdrop-blur shadow-2xl aspect-[4/3] sm:aspect-[16/11] lg:aspect-[16/10]">
                     <Image
                       src="/pig-banner.png"
@@ -221,9 +204,7 @@ export default function LandingPage() {
                         </div>
                         <div>
                           <div className="text-sm font-bold">AI-powered</div>
-                          <div className="text-xs text-muted-foreground">
-                            Drafts + quick edits.
-                          </div>
+                          <div className="text-xs text-muted-foreground">Drafts + quick edits.</div>
                         </div>
                       </div>
                     </div>
@@ -234,56 +215,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <ScrollStory
-          id="story"
-          steps={[
-            {
-              id: "talk",
-              eyebrow: "Talk",
-              title: "Start with a prompt, not a blank file",
-              description:
-                "Tell Pigcasso what you’re making. It drafts visuals, layouts, and code — then keeps everything in one place for fast iteration.",
-              bullets: ["One input box to begin", "Works for design + code ideas", "No setup, no templates required"],
-              imageSrc: "/pig-banner.png",
-              imageAlt: "Pigcasso prompt-first workflow",
-            },
-            {
-              id: "tab",
-              eyebrow: "Place",
-              title: "Everything lands on your infinite canvas",
-              description:
-                "Generated outputs appear on the board immediately. Drag, reorder, and keep variants side-by-side so you never lose the good one.",
-              bullets: ["Pan/zoom whiteboard", "Variants don’t overwrite", "Add to chat with tiny previews"],
-              imageSrc: "/pig-banner.png",
-              imageAlt: "Infinite canvas boards",
-            },
-            {
-              id: "tune",
-              eyebrow: "Refine",
-              title: "Select anything and iterate in context",
-              description:
-                "Click an element, send it to chat, and refine without re-prompting from scratch. The canvas becomes your shared memory.",
-              bullets: ["Point-and-edit flow", "Separate layers for edits", "Undo stays clean"],
-              imageSrc: "/pig-banner.png",
-              imageAlt: "Refinement flow",
-            },
-            {
-              id: "ship",
-              eyebrow: "Ship",
-              title: "Canva ships files. We ship assets.",
-              description:
-                "Export the canvas, mint an NFT, or launch on Printr — with provenance baked in. Your work leaves as an asset, not just a file.",
-              bullets: ["Download PNG/SVG", "Export NFT metadata", "Launch on Printr"],
-              imageSrc: "/pig-banner.png",
-              imageAlt: "Export and publish assets",
-            },
-          ]}
-        />
-
-        <section
-          id="product"
-          className="py-20 bg-gradient-to-b from-white/55 via-background to-white/55 border-y border-white/50"
-        >
+        <section id="product" className="py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Product"
@@ -332,8 +264,7 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                    Start with a prompt, place outputs on a board, and keep
-                    everything in one workspace.
+                    Start with a prompt, place outputs on a board, and keep everything in one workspace.
                   </p>
 
                   <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
@@ -365,12 +296,8 @@ export default function LandingPage() {
                         <Blocks className="size-5 text-cyan-500" />
                       </div>
                       <div>
-                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          Space
-                        </div>
-                        <div className="text-xl font-extrabold tracking-tight">
-                          Shareable profile pages
-                        </div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Space</div>
+                        <div className="text-xl font-extrabold tracking-tight">Shareable profile pages</div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -380,8 +307,7 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Build a public gateway page — drag blocks, reorder, resize,
-                    and share in your bio.
+                    Build a public gateway page — drag blocks, reorder, resize, and share in your bio.
                   </p>
 
                   <div className="mt-auto pt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -403,12 +329,8 @@ export default function LandingPage() {
                         <Mic className="size-5 text-primary" />
                       </div>
                       <div>
-                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                          AI
-                        </div>
-                        <div className="text-xl font-extrabold tracking-tight">
-                          Pigcasso assistant
-                        </div>
+                        <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">AI</div>
+                        <div className="text-xl font-extrabold tracking-tight">Pigcasso assistant</div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -418,8 +340,7 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Generate images, edit visuals, and draft pages — always in a
-                    fast iterate loop.
+                    Generate images, edit visuals, and draft pages — always in a fast iterate loop.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-col gap-2 text-[11px] text-muted-foreground">
@@ -446,9 +367,7 @@ export default function LandingPage() {
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Repositories
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">
-                          Repository → Asset
-                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Repository → Asset</div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -458,24 +377,14 @@ export default function LandingPage() {
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-                    Connect GitHub, pick a repo, and turn your code into a
-                    visual you can share or mint.
+                    Connect GitHub, pick a repo, and turn your code into a visual you can share or mint.
                   </p>
 
                   <div className="mt-auto pt-6 flex flex-wrap gap-2">
                     {[
-                      {
-                        label: "Public + private repos",
-                        icon: <FolderOpen className="size-3.5 text-primary" />,
-                      },
-                      {
-                        label: "Org repos supported",
-                        icon: <Github className="size-3.5 text-gray-900" />,
-                      },
-                      {
-                        label: "Secure by default",
-                        icon: <BadgeCheck className="size-3.5 text-yellow-500" />,
-                      },
+                      { label: "Public + private repos", icon: <FolderOpen className="size-3.5 text-primary" /> },
+                      { label: "Org repos supported", icon: <Github className="size-3.5 text-gray-900" /> },
+                      { label: "Secure by default", icon: <BadgeCheck className="size-3.5 text-yellow-500" /> },
                     ].map((item) => (
                       <span
                         key={item.label}
@@ -500,9 +409,7 @@ export default function LandingPage() {
                         <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
                           Publish
                         </div>
-                        <div className="text-xl font-extrabold tracking-tight">
-                          Mint & share
-                        </div>
+                        <div className="text-xl font-extrabold tracking-tight">Mint & share</div>
                       </div>
                     </div>
                     <BentoBadge>
@@ -525,9 +432,7 @@ export default function LandingPage() {
             <div className="mt-10 rounded-3xl border border-white/60 bg-white/70 backdrop-blur px-6 py-6 shadow-soft">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">
-                    Try it
-                  </div>
+                  <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Try it</div>
                   <div className="mt-1 text-xl font-extrabold tracking-tight text-gray-900">
                     Start creating in minutes
                   </div>
@@ -542,9 +447,7 @@ export default function LandingPage() {
                     disabled={opening}
                     className="rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/25 hover:opacity-95"
                   >
-                    {opening ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : null}
+                    {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                     Start creating
                   </Button>
                   <Button
@@ -603,8 +506,7 @@ export default function LandingPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                    Describe what you want. Outputs land on your canvas as
-                    editable drafts.
+                    Describe what you want. Outputs land on your canvas as editable drafts.
                   </CardContent>
                 </Card>
               </Tilt>
@@ -638,10 +540,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section
-          id="pricing"
-          className="py-20 bg-white/60 border-y border-white/50"
-        >
+        <section id="pricing" className="py-20 bg-white/60 border-y border-white/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionTitle
               eyebrow="Plans"
@@ -655,76 +554,54 @@ export default function LandingPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center justify-between gap-4">
                       <span>Free</span>
-                      <span className="text-sm font-semibold text-muted-foreground">
-                        0 USD
-                      </span>
+                      <span className="text-sm font-semibold text-muted-foreground">0 USD</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-primary" />
-                      Infinite canvas workspace
+                      Start creating with basic limits
                     </div>
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-primary" />
-                      AI drafts (daily limits apply)
+                      <FolderOpen className="size-4 text-cyan-500" />
+                      Explore public gallery
                     </div>
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-primary" />
-                      GitHub repos + Space pages
+                      <Github className="size-4 text-foreground" />
+                      Connect GitHub (scoped access)
                     </div>
-                    <Button
-                      type="button"
-                      onClick={startCreating}
-                      disabled={opening}
-                      className="w-full rounded-2xl mt-3"
-                    >
-                      {opening ? (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      ) : null}
-                      Start creating
-                      <ArrowRight className="ml-2 size-4" />
-                    </Button>
                   </CardContent>
                 </Card>
               </Tilt>
 
               <Tilt className="h-full">
-                <Card className="h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl transition-shadow duration-300 hover:shadow-neon">
-                  <div className="absolute inset-0 opacity-35">
-                    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500 via-purple-900 to-transparent" />
-                    <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-500 via-blue-900 to-transparent" />
-                  </div>
-                  <CardHeader className="relative pb-2">
+                <Card className="h-full bg-white/70 backdrop-blur border-white/50 shadow-soft transition-shadow duration-300 hover:shadow-glow">
+                  <CardHeader className="pb-2">
                     <CardTitle className="flex items-center justify-between gap-4">
                       <span>Pro</span>
-                      <span className="text-sm font-semibold text-white/80">
-                        Unlock with PIG
-                      </span>
+                      <span className="text-sm font-semibold text-muted-foreground">Token gated</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="relative space-y-3 text-sm text-white/80">
+                  <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      More models + higher limits
+                      <BadgeCheck className="size-4 text-primary" />
+                      Higher daily limits
                     </div>
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      Unlock with your wallet (hold PIG threshold)
+                      <Coins className="size-4 text-yellow-500" />
+                      Onchain export tools
                     </div>
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-white" />
-                      More soon: template tokens + attribution
+                      <Wand2 className="size-4 text-cyan-500" />
+                      Advanced edits and workflows
                     </div>
                     <Button
                       type="button"
                       onClick={startCreating}
                       disabled={opening}
-                      className="w-full rounded-2xl bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.18)]"
+                      className="mt-4 w-full rounded-full bg-gradient-to-r from-primary via-pink-500 to-purple-600 text-white hover:opacity-95"
                     >
-                      {opening ? (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      ) : null}
+                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                       Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -785,8 +662,7 @@ export default function LandingPage() {
                     Ready to turn ideas into assets?
                   </h2>
                   <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl mx-auto">
-                    Start a board, generate drafts, and ship shareable assets in
-                    one workflow.
+                    Start a board, generate drafts, and ship shareable assets in one workflow.
                   </p>
                   <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                     <Button
@@ -796,9 +672,7 @@ export default function LandingPage() {
                       size="lg"
                       className="h-12 rounded-full px-10 text-base bg-white text-slate-900 hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
                     >
-                      {opening ? (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      ) : null}
+                      {opening ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                       Start creating
                       <ArrowRight className="ml-2 size-4 text-primary" />
                     </Button>
@@ -839,19 +713,12 @@ export default function LandingPage() {
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-cyan-400 p-0.5 shadow-lg shadow-pink-500/20">
                   <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                    <Image
-                      src="/logo-pig.png"
-                      alt="Pigcasso"
-                      width={36}
-                      height={36}
-                    />
+                    <Image src="/logo-pig.png" alt="Pigcasso" width={36} height={36} />
                   </div>
                 </div>
                 <div>
                   <div className="font-bold">Pigcasso Canvas</div>
-                  <div className="text-xs text-muted-foreground">
-                    Canva ship file, we ship asset
-                  </div>
+                  <div className="text-xs text-muted-foreground">Canva ship file, we ship asset</div>
                 </div>
               </div>
 
@@ -869,10 +736,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-muted-foreground">
-              <div>
-                © {new Date().getFullYear()} Pigcasso Canvas. All rights
-                reserved.
-              </div>
+              <div>© {new Date().getFullYear()} Pigcasso Canvas. All rights reserved.</div>
               <div className="flex items-center gap-4">
                 <Link href="/app" className="hover:underline">
                   Open app
@@ -891,3 +755,4 @@ export default function LandingPage() {
     </div>
   );
 }
+
