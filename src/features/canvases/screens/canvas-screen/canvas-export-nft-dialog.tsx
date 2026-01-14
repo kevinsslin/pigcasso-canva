@@ -487,259 +487,259 @@ export const CanvasExportNftDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Mint as NFT</DialogTitle>
-          <DialogDescription>
-            Export this canvas item to IPFS, then mint it onchain.
-          </DialogDescription>
-      </DialogHeader>
+          <DialogDescription>Export this canvas item to IPFS, then mint it onchain.</DialogDescription>
+        </DialogHeader>
 
-      {!target ? (
-        <div className="text-sm text-muted-foreground">Select an image on the canvas to mint.</div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-          <div className="md:col-span-2">
-              <div className="rounded-xl border bg-muted/30 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewUrl} alt="" className="h-44 w-full object-cover" />
-              </div>
-
-	              {exported ? (
-	                <div className="mt-3 space-y-2 text-xs">
-	                  <div className="rounded-lg border bg-background/60 p-3">
-	                    <div className="font-medium">Metadata URL (tokenURI)</div>
-	                    <div className="mt-1 space-y-1 font-mono break-all">
-	                      <div className={cn(tokenUriMode === "ipfs" ? "text-foreground" : "text-muted-foreground")}>
-	                        {exported.metadataUri}
-	                      </div>
-	                      <div className={cn(tokenUriMode === "https" ? "text-foreground" : "text-muted-foreground")}>
-	                        {exported.metadataUrl}
-	                      </div>
-	                    </div>
-	                  </div>
-	                  <div className="rounded-lg border bg-background/60 p-3">
-	                    <div className="font-medium">Image URL</div>
-	                    <div className="mt-1 space-y-1 font-mono break-all">
-	                      <div>{exported.imageUri}</div>
-	                      <div className="text-muted-foreground">{exported.imageUrl}</div>
-	                    </div>
-	                  </div>
-	                </div>
-	              ) : null}
-	            </div>
-
-	            <div className="md:col-span-3 space-y-4">
-	              <div className="space-y-2">
-	                <div className="text-sm font-medium">Token URI format</div>
-	                <div className="flex flex-wrap gap-2">
-	                  <Button
-	                    type="button"
-	                    variant={tokenUriMode === "https" ? "default" : "secondary"}
-	                    className="rounded-full"
-	                    disabled={busy}
-	                    onClick={() => setTokenUriMode("https")}
-	                  >
-	                    Gateway URL (recommended)
-	                  </Button>
-	                  <Button
-	                    type="button"
-	                    variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
-	                    className="rounded-full"
-	                    disabled={busy}
-	                    onClick={() => setTokenUriMode("ipfs")}
-	                  >
-	                    IPFS URI (advanced)
-	                  </Button>
-	                </div>
-	                <div className="text-xs text-muted-foreground">
-	                  Default uses an HTTPS gateway for best preview compatibility. Switch to IPFS URI if you specifically
-	                  want an ipfs:// tokenURI.
-	                </div>
-	              </div>
-
-	              <div className="space-y-2">
-	                <div className="text-sm font-medium">Name</div>
-	                <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
-	              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Description</div>
-                <Textarea
-                  value={tokenDescription}
-                  onChange={(e) => setTokenDescription(e.target.value)}
-                  placeholder="Created with Pigcasso Canvas."
-                  disabled={busy}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Collection</div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={collectionMode === "existing" ? "default" : "secondary"}
-                    className="rounded-full"
-                    disabled={busy || !collectionsList.length}
-                    onClick={() => setCollectionMode("existing")}
-                  >
-                    Use existing
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={collectionMode === "new" ? "default" : "secondary"}
-                    className="rounded-full"
-                    disabled={busy}
-                    onClick={() => setCollectionMode("new")}
-                  >
-                    Deploy new
-                  </Button>
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {!target ? (
+            <div className="text-sm text-muted-foreground">Select an image on the canvas to mint.</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+              <div className="md:col-span-2">
+                <div className="rounded-xl border bg-muted/30 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewUrl} alt="" className="h-44 w-full object-cover" />
                 </div>
 
-                {collectionMode === "existing" ? (
-                  collectionsList.filter((collection) => isEvmAddress(collection.address ?? "")).length ? (
-                    <div className="grid gap-2">
-                      {collectionsList
-                        .filter((collection) => isEvmAddress(collection.address ?? ""))
-                        .map((collection) => {
-                          const address = (collection.address ?? "").trim();
-                          const selected = address.toLowerCase() === selectedCollectionAddress.trim().toLowerCase();
-                          return (
-                            <button
-                              key={collection.id}
-                              type="button"
-                              className={cn(
-                                "w-full rounded-xl border px-3 py-2 text-left transition",
-                                selected ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/30",
-                              )}
-                              disabled={busy}
-                              onClick={() => setSelectedCollectionAddress(address)}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="text-sm font-semibold truncate">{collection.name}</div>
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {collection.symbol} · {formatAddress(address)}
-                                  </div>
-                                </div>
-                                <span
-                                  className={cn(
-                                    "shrink-0 inline-flex items-center justify-center rounded-full border px-2 py-1 text-[10px] font-semibold",
-                                    selected ? "border-primary text-primary" : "border-border/60 text-muted-foreground",
-                                  )}
-                                >
-                                  {selected ? "Selected" : "Select"}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      No collections found yet. Deploy a new one to get started.
-                    </div>
-                  )
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 rounded-xl border bg-background/60 p-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-muted-foreground">Name</div>
-                        <Input
-                          value={newCollectionName}
-                          onChange={(e) => setNewCollectionName(e.target.value)}
-                          disabled={busy}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-muted-foreground">Symbol</div>
-                        <Input
-                          value={newCollectionSymbol}
-                          onChange={(e) => setNewCollectionSymbol(e.target.value.toUpperCase())}
-                          disabled={busy}
-                        />
+                {exported ? (
+                  <div className="mt-3 space-y-2 text-xs">
+                    <div className="rounded-lg border bg-background/60 p-3">
+                      <div className="font-medium">Metadata URL (tokenURI)</div>
+                      <div className="mt-1 space-y-1 font-mono break-all">
+                        <div className={cn(tokenUriMode === "ipfs" ? "text-foreground" : "text-muted-foreground")}>
+                          {exported.metadataUri}
+                        </div>
+                        <div className={cn(tokenUriMode === "https" ? "text-foreground" : "text-muted-foreground")}>
+                          {exported.metadataUrl}
+                        </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-muted-foreground">Max supply</div>
-                        <Input
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={newCollectionMaxSupply}
-                          onChange={(e) => setNewCollectionMaxSupply(e.target.value)}
-                          disabled={busy}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-muted-foreground">Contract URI (optional)</div>
-                        <Input
-                          value={newCollectionContractUri}
-                          onChange={(e) => setNewCollectionContractUri(e.target.value)}
-                          disabled={busy}
-                          placeholder="ipfs://…"
-                        />
+                    <div className="rounded-lg border bg-background/60 p-3">
+                      <div className="font-medium">Image URL</div>
+                      <div className="mt-1 space-y-1 font-mono break-all">
+                        <div>{exported.imageUri}</div>
+                        <div className="text-muted-foreground">{exported.imageUrl}</div>
                       </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Deploying creates a new onchain ERC-721 collection and saves it to your account for future mints.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-xl border bg-background/60 p-4 space-y-2 text-sm">
-                <div className="font-medium">Mint status</div>
-                {(["ipfs", "collection", "mint"] as const).map((key, idx) => {
-                  const step = mintSteps[key];
-                  const icon =
-                    step.status === "done" ? (
-                      <CheckCircle2 className="size-4 text-emerald-500" />
-                    ) : step.status === "error" ? (
-                      <AlertTriangle className="size-4 text-rose-500" />
-                    ) : step.status === "active" ? (
-                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-muted-foreground">
-                        {idx + 1}
-                      </span>
-                    );
-
-                  const label = key === "ipfs" ? "Export" : key === "collection" ? "Collection" : "Mint";
-
-                  return (
-                    <div key={key} className="flex items-start gap-3">
-                      <div className="mt-0.5">{icon}</div>
-                      <div className="min-w-0">
-                        <div className="font-semibold">{label}</div>
-                        <div className="text-xs text-muted-foreground">{step.detail ?? "Pending"}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {mintError ? (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
-                    {mintError}
                   </div>
                 ) : null}
+              </div>
 
-	                {mintResult ? (
-	                  <div className="rounded-lg border bg-background p-3 text-xs space-y-1">
-	                    <div className="font-medium">Mint result</div>
-	                    <div className="font-mono break-all">Collection: {mintResult.collectionAddress}</div>
-	                    <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
-	                    {mintResult.tokenId ? <div className="font-mono break-all">Token ID: {mintResult.tokenId}</div> : null}
-	                    <div className="font-mono break-all">Token URI: {mintResult.tokenUri}</div>
-	                  </div>
-	                ) : null}
+              <div className="md:col-span-3 space-y-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Token URI format</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={tokenUriMode === "https" ? "default" : "secondary"}
+                      className="rounded-full"
+                      disabled={busy}
+                      onClick={() => setTokenUriMode("https")}
+                    >
+                      Gateway URL (recommended)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={tokenUriMode === "ipfs" ? "default" : "secondary"}
+                      className="rounded-full"
+                      disabled={busy}
+                      onClick={() => setTokenUriMode("ipfs")}
+                    >
+                      IPFS URI (advanced)
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Default uses an HTTPS gateway for best preview compatibility. Switch to IPFS URI if you specifically
+                    want an ipfs:// tokenURI.
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Name</div>
+                  <Input value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={busy} />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Description</div>
+                  <Textarea
+                    value={tokenDescription}
+                    onChange={(e) => setTokenDescription(e.target.value)}
+                    placeholder="Created with Pigcasso Canvas."
+                    disabled={busy}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Collection</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={collectionMode === "existing" ? "default" : "secondary"}
+                      className="rounded-full"
+                      disabled={busy || !collectionsList.length}
+                      onClick={() => setCollectionMode("existing")}
+                    >
+                      Use existing
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={collectionMode === "new" ? "default" : "secondary"}
+                      className="rounded-full"
+                      disabled={busy}
+                      onClick={() => setCollectionMode("new")}
+                    >
+                      Deploy new
+                    </Button>
+                  </div>
+
+                  {collectionMode === "existing" ? (
+                    collectionsList.filter((collection) => isEvmAddress(collection.address ?? "")).length ? (
+                      <div className="grid gap-2">
+                        {collectionsList
+                          .filter((collection) => isEvmAddress(collection.address ?? ""))
+                          .map((collection) => {
+                            const address = (collection.address ?? "").trim();
+                            const selected = address.toLowerCase() === selectedCollectionAddress.trim().toLowerCase();
+                            return (
+                              <button
+                                key={collection.id}
+                                type="button"
+                                className={cn(
+                                  "w-full rounded-xl border px-3 py-2 text-left transition",
+                                  selected ? "border-primary bg-primary/5" : "border-border/60 hover:bg-muted/30",
+                                )}
+                                disabled={busy}
+                                onClick={() => setSelectedCollectionAddress(address)}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold truncate">{collection.name}</div>
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {collection.symbol} · {formatAddress(address)}
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={cn(
+                                      "shrink-0 inline-flex items-center justify-center rounded-full border px-2 py-1 text-[10px] font-semibold",
+                                      selected ? "border-primary text-primary" : "border-border/60 text-muted-foreground",
+                                    )}
+                                  >
+                                    {selected ? "Selected" : "Select"}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        No collections found yet. Deploy a new one to get started.
+                      </div>
+                    )
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 rounded-xl border bg-background/60 p-4">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground">Name</div>
+                          <Input
+                            value={newCollectionName}
+                            onChange={(e) => setNewCollectionName(e.target.value)}
+                            disabled={busy}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground">Symbol</div>
+                          <Input
+                            value={newCollectionSymbol}
+                            onChange={(e) => setNewCollectionSymbol(e.target.value.toUpperCase())}
+                            disabled={busy}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground">Max supply</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={newCollectionMaxSupply}
+                            onChange={(e) => setNewCollectionMaxSupply(e.target.value)}
+                            disabled={busy}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground">Contract URI (optional)</div>
+                          <Input
+                            value={newCollectionContractUri}
+                            onChange={(e) => setNewCollectionContractUri(e.target.value)}
+                            disabled={busy}
+                            placeholder="ipfs://…"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Deploying creates a new onchain ERC-721 collection and saves it to your account for future mints.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border bg-background/60 p-4 space-y-2 text-sm">
+                  <div className="font-medium">Mint status</div>
+                  {(["ipfs", "collection", "mint"] as const).map((key, idx) => {
+                    const step = mintSteps[key];
+                    const icon =
+                      step.status === "done" ? (
+                        <CheckCircle2 className="size-4 text-emerald-500" />
+                      ) : step.status === "error" ? (
+                        <AlertTriangle className="size-4 text-rose-500" />
+                      ) : step.status === "active" ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-muted-foreground">
+                          {idx + 1}
+                        </span>
+                      );
+
+                    const label = key === "ipfs" ? "Export" : key === "collection" ? "Collection" : "Mint";
+
+                    return (
+                      <div key={key} className="flex items-start gap-3">
+                        <div className="mt-0.5">{icon}</div>
+                        <div className="min-w-0">
+                          <div className="font-semibold">{label}</div>
+                          <div className="text-xs text-muted-foreground">{step.detail ?? "Pending"}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {mintError ? (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                      {mintError}
+                    </div>
+                  ) : null}
+
+                  {mintResult ? (
+                    <div className="rounded-lg border bg-background p-3 text-xs space-y-1">
+                      <div className="font-medium">Mint result</div>
+                      <div className="font-mono break-all">Collection: {mintResult.collectionAddress}</div>
+                      <div className="font-mono break-all">Tx: {mintResult.txHash}</div>
+                      {mintResult.tokenId ? <div className="font-mono break-all">Token ID: {mintResult.tokenId}</div> : null}
+                      <div className="font-mono break-all">Token URI: {mintResult.tokenUri}</div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="gap-2 sm:gap-2 shrink-0">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isMinting}>
             Close
           </Button>

@@ -301,178 +301,180 @@ export const CanvasPrintrLaunchDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (busy ? null : onOpenChange(next))}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Launch on Printr</DialogTitle>
-          <DialogDescription>
-            Turn this canvas into a tradable token. (Pro required)
-          </DialogDescription>
+          <DialogDescription>Turn this canvas into a tradable token. (Pro required)</DialogDescription>
         </DialogHeader>
 
-        {!ready ? (
-          <div className="text-sm text-muted-foreground">Select an image on the canvas to launch.</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-            <div className="md:col-span-2 space-y-3">
-              <div className="rounded-xl border bg-muted/30 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={target?.imageDataUrl ?? ""} alt="" className="h-44 w-full object-cover" />
-              </div>
-
-              {!printrConfigured ? (
-                <div className="rounded-lg border p-3 text-xs text-muted-foreground">
-                  Printr is not configured. Set `PRINTR_API_TOKEN` and redeploy.
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {!ready ? (
+            <div className="text-sm text-muted-foreground">Select an image on the canvas to launch.</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+              <div className="md:col-span-2 space-y-3">
+                <div className="rounded-xl border bg-muted/30 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={target?.imageDataUrl ?? ""} alt="" className="h-44 w-full object-cover" />
                 </div>
-              ) : null}
 
-              {printrConfigured && !isPro ? (
-                <div className="rounded-lg border p-3 text-xs text-muted-foreground">
-                  Pro required to launch tokens. Hold 100,000 PIGCASSO on Mantle to unlock Pro.
-                </div>
-              ) : null}
-
-              {ipfsConfigured ? null : (
-                <div className="rounded-lg border p-3 text-xs text-muted-foreground">
-                  Tip: Configure IPFS to mint NFTs from this board too.
-                </div>
-              )}
-            </div>
-
-            <div className="md:col-span-3 space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>Chain</Label>
-                  <span className="text-[11px] text-muted-foreground font-mono">{selectedChain}</span>
-                </div>
-                <select
-                  className={cn("w-full h-10 rounded-md border bg-background px-3 text-sm", !canLaunch && "opacity-60")}
-                  value={selectedChain}
-                  onChange={(e) => setChainCaip2(e.target.value)}
-                  disabled={!canLaunch || busy || Boolean(tokenResult)}
-                >
-                  {PRINTR_EVM_CHAIN_OPTIONS.map((option) => (
-                    <option key={option.caip2} value={option.caip2}>
-                      {option.label} ({option.caip2})
-                    </option>
-                  ))}
-                </select>
-                {tokenResult ? (
-                  <div className="text-xs text-muted-foreground">
-                    Chain is locked after token creation.
+                {!printrConfigured ? (
+                  <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                    Printr is not configured. Set `PRINTR_API_TOKEN` and redeploy.
                   </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    Choose the chain where this token will be deployed.
+                ) : null}
+
+                {printrConfigured && !isPro ? (
+                  <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                    Pro required to launch tokens. Hold 100,000 PIGCASSO on Mantle to unlock Pro.
+                  </div>
+                ) : null}
+
+                {ipfsConfigured ? null : (
+                  <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                    Tip: Configure IPFS to mint NFTs from this board too.
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Name</div>
-                <Input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-3 space-y-4">
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Symbol</div>
-                  <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} disabled={busy} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Initial buy (% supply)</div>
-                  <Input
-                    value={supplyPercent}
-                    onChange={(e) => setSupplyPercent(e.target.value)}
-                    disabled={busy}
-                    inputMode="numeric"
-                    placeholder="0"
-                  />
-                  <div className="text-[11px] text-muted-foreground">0–69 (higher = more upfront liquidity)</div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Description</div>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={busy}
-                  className="min-h-[96px]"
-                />
-              </div>
-
-              <div className="rounded-xl border bg-muted/30 p-4">
-                <div className="text-sm font-medium">Chain</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {getPrintrEvmChainOption(selectedChain)?.label ?? selectedChain} ({selectedChain})
-                </div>
-              </div>
-
-              {tokenResult ? (
-                <div className="rounded-xl border bg-background/60 p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">Token</div>
-                    <a
-                      href={buildPrintrTokenUrl(tokenResult.token_id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
-                    >
-                      View on Printr <ExternalLink className="ml-1 size-3" />
-                    </a>
+                    <Label>Chain</Label>
+                    <span className="text-[11px] text-muted-foreground font-mono">{selectedChain}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono break-all">
-                    {tokenResult.token_id}
-                  </div>
-
-                  {txHash ? (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Submitted: <span className="font-mono">{shortHash(txHash)}</span>
-                      {chainExplorer ? (
-                        <a
-                          className="ml-2 inline-flex items-center text-primary hover:underline"
-                          href={`${chainExplorer.replace(/\/$/, "")}/tx/${encodeURIComponent(txHash)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Explorer <ExternalLink className="ml-1 size-3" />
-                        </a>
-                      ) : null}
+                  <select
+                    className={cn("w-full h-10 rounded-md border bg-background px-3 text-sm", !canLaunch && "opacity-60")}
+                    value={selectedChain}
+                    onChange={(e) => setChainCaip2(e.target.value)}
+                    disabled={!canLaunch || busy || Boolean(tokenResult)}
+                  >
+                    {PRINTR_EVM_CHAIN_OPTIONS.map((option) => (
+                      <option key={option.caip2} value={option.caip2}>
+                        {option.label} ({option.caip2})
+                      </option>
+                    ))}
+                  </select>
+                  {tokenResult ? (
+                    <div className="text-xs text-muted-foreground">
+                      Chain is locked after token creation.
                     </div>
-                  ) : null}
-
-                  {deployments.isFetching && deployments.data?.deployments?.length ? (
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      Checking deployments…
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      Choose the chain where this token will be deployed.
                     </div>
-                  ) : null}
-
-                  {chainDeployment ? (
-                    <div
-                      className={cn(
-                        "mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
-                        chainDeployment.status === "live" ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background",
-                      )}
-                    >
-                      {chainDeployment.status === "live" ? (
-                        <CheckCircle2 className="size-4 text-emerald-600" />
-                      ) : chainDeployment.status === "failed" ? (
-                        <AlertTriangle className="size-4 text-red-500" />
-                      ) : (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      )}
-                      <span className="font-medium">
-                        {getPrintrEvmChainOption(selectedChain)?.label ?? "Chain"}:
-                      </span>
-                      <span className="text-muted-foreground">{chainDeployment.status}</span>
-                    </div>
-                  ) : null}
+                  )}
                 </div>
-              ) : null}
-            </div>
-          </div>
-        )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Name</div>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Symbol</div>
+                    <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} disabled={busy} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Initial buy (% supply)</div>
+                    <Input
+                      value={supplyPercent}
+                      onChange={(e) => setSupplyPercent(e.target.value)}
+                      disabled={busy}
+                      inputMode="numeric"
+                      placeholder="0"
+                    />
+                    <div className="text-[11px] text-muted-foreground">0–69 (higher = more upfront liquidity)</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Description</div>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={busy}
+                    className="min-h-[96px]"
+                  />
+                </div>
+
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <div className="text-sm font-medium">Chain</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    {getPrintrEvmChainOption(selectedChain)?.label ?? selectedChain} ({selectedChain})
+                  </div>
+                </div>
+
+                {tokenResult ? (
+                  <div className="rounded-xl border bg-background/60 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-medium">Token</div>
+                      <a
+                        href={buildPrintrTokenUrl(tokenResult.token_id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
+                      >
+                        View on Printr <ExternalLink className="ml-1 size-3" />
+                      </a>
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono break-all">
+                      {tokenResult.token_id}
+                    </div>
+
+                    {txHash ? (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Submitted: <span className="font-mono">{shortHash(txHash)}</span>
+                        {chainExplorer ? (
+                          <a
+                            className="ml-2 inline-flex items-center text-primary hover:underline"
+                            href={`${chainExplorer.replace(/\/$/, "")}/tx/${encodeURIComponent(txHash)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Explorer <ExternalLink className="ml-1 size-3" />
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {deployments.isFetching && deployments.data?.deployments?.length ? (
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Checking deployments…
+                      </div>
+                    ) : null}
+
+                    {chainDeployment ? (
+                      <div
+                        className={cn(
+                          "mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                          chainDeployment.status === "live"
+                            ? "border-emerald-200 bg-emerald-50/50"
+                            : "border-border bg-background",
+                        )}
+                      >
+                        {chainDeployment.status === "live" ? (
+                          <CheckCircle2 className="size-4 text-emerald-600" />
+                        ) : chainDeployment.status === "failed" ? (
+                          <AlertTriangle className="size-4 text-red-500" />
+                        ) : (
+                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        )}
+                        <span className="font-medium">
+                          {getPrintrEvmChainOption(selectedChain)?.label ?? "Chain"}:
+                        </span>
+                        <span className="text-muted-foreground">{chainDeployment.status}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0 shrink-0">
           <Button
             type="button"
             variant="secondary"

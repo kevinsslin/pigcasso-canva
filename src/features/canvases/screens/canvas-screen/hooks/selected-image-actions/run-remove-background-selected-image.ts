@@ -1,7 +1,11 @@
 import { toast } from "sonner";
 
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
-import { ensureTransparentPngDataUrl, repairTransparentCutoutDataUrl } from "@/features/canvases/lib/transparent-png";
+import {
+  ensureTransparentPngDataUrl,
+  DEFAULT_CUTOUT_REPAIR_OPTIONS,
+  repairTransparentCutoutDataUrl,
+} from "@/features/canvases/lib/transparent-png";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
@@ -42,7 +46,7 @@ export const runRemoveBackgroundFromSelectedImage = async (params: {
     const repaired = await repairTransparentCutoutDataUrl({
       cutoutDataUrl: normalized.dataUrl,
       originalSrc: imageSrc,
-      closeRadius: 2,
+      ...DEFAULT_CUTOUT_REPAIR_OPTIONS,
     }).catch(() => null);
     const outputDataUrl = repaired?.dataUrl ?? normalized.dataUrl;
 

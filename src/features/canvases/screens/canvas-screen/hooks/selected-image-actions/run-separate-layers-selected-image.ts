@@ -21,6 +21,7 @@ import {
 import {
   ensureTransparentPngDataUrl,
   getOpaquePixelRatioFromDataUrl,
+  DEFAULT_CUTOUT_REPAIR_OPTIONS,
   repairTransparentCutoutDataUrl,
 } from "@/features/canvases/lib/transparent-png";
 import { extractSubjectByBackgroundDiffDataUrl } from "@/features/canvases/lib/subject-matte";
@@ -449,7 +450,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         const repaired = await repairTransparentCutoutDataUrl({
           cutoutDataUrl: normalized.dataUrl,
           originalSrc: noTextDataUrl,
-          closeRadius: 2,
+          ...DEFAULT_CUTOUT_REPAIR_OPTIONS,
         }).catch(() => null);
         const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
         const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);
@@ -491,7 +492,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
           const repaired = await repairTransparentCutoutDataUrl({
             cutoutDataUrl: normalized.dataUrl,
             originalSrc: noTextDataUrl,
-            closeRadius: 2,
+            ...DEFAULT_CUTOUT_REPAIR_OPTIONS,
           }).catch(() => null);
           const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
           const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);
@@ -518,6 +519,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             instruction: [
               "Extract the main foreground subject(s) only.",
               "Return a transparent PNG with alpha (background fully transparent).",
+              "Keep the subject fully opaque; do not leave internal transparent gaps.",
               "Do not add new objects. Keep original colors and style.",
             ].join("\n"),
             profile: apiProfile,
@@ -529,7 +531,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             const repaired = await repairTransparentCutoutDataUrl({
               cutoutDataUrl: normalized.dataUrl,
               originalSrc: noTextDataUrl,
-              closeRadius: 2,
+              ...DEFAULT_CUTOUT_REPAIR_OPTIONS,
             }).catch(() => null);
             const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
             const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);

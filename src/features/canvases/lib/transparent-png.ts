@@ -245,6 +245,13 @@ export const ensureTransparentPngDataUrl = async (dataUrl: string) => {
 
 type BinaryMask = Uint8Array;
 
+export const DEFAULT_CUTOUT_REPAIR_OPTIONS = {
+  closeRadius: 2,
+  envelopeRadius: 6,
+  neighborRadius: 3,
+  backgroundColorTolerance: 24,
+} as const;
+
 const createNeighborOffsets = (radius: number) => {
   const r = Math.max(0, Math.floor(radius));
   const offsets: Array<{ dx: number; dy: number }> = [];
