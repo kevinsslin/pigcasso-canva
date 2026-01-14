@@ -14,6 +14,7 @@ import { useListNftCollections } from "@/features/nfts/api/use-list-collections"
 import { useCreateNftCollection } from "@/features/nfts/api/use-create-collection";
 import { useExportCanvasNft } from "@/features/canvases/api/use-export-canvas-nft";
 import { MANTLE_EXPLORER_BASE_URL } from "@/features/printr/constants";
+import { isUserRejectedWalletAction } from "@/lib/wallet-errors";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,32 +25,6 @@ import { cn } from "@/lib/utils";
 const getFactoryAddress = () => process.env.NEXT_PUBLIC_NFT_FACTORY_ADDRESS?.trim() ?? "";
 
 const isEvmAddress = (value: string) => /^0x[0-9a-fA-F]{40}$/.test(value);
-
-const isUserRejectedWalletAction = (error: unknown) => {
-  let current: any = error;
-  for (let depth = 0; depth < 6 && current; depth += 1) {
-    const code = (current as any)?.code;
-    if (code === 4001 || code === "ACTION_REJECTED") return true;
-
-    const messageRaw =
-      (typeof (current as any)?.shortMessage === "string" && (current as any).shortMessage) ||
-      (typeof (current as any)?.message === "string" && (current as any).message) ||
-      "";
-    const message = messageRaw.toLowerCase();
-    if (
-      message.includes("user rejected") ||
-      message.includes("rejected the request") ||
-      message.includes("user denied") ||
-      message.includes("denied transaction") ||
-      message.includes("denied signature")
-    ) {
-      return true;
-    }
-
-    current = (current as any)?.cause;
-  }
-  return false;
-};
 
 type MintStepKey = "ipfs" | "collection" | "mint";
 type MintStepStatus = "pending" | "active" | "done" | "error";
@@ -478,7 +453,11 @@ export const CanvasExportNftDialog = ({
     createCollectionRecord.isPending ||
     isMinting;
 
-  const previewUrl = exported?.imageUrl ? exported.imageUrl : target?.previewUrl ?? "";
+  const previewUrl = useMemo(() => {
+    const raw = exported?.imageUrl ?? target?.previewUrl ?? "";
+    if (!raw) return "";
+    return ipfsToHttpUrl(raw) ?? raw;
+  }, [exported?.imageUrl, target?.previewUrl]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && isMinting) return;
@@ -499,10 +478,16 @@ export const CanvasExportNftDialog = ({
           ) : (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
               <div className="md:col-span-2">
-                <div className="rounded-xl border bg-muted/30 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div className="rounded-xl border bg-muted/30 overflow-hidden">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={previewUrl} alt="" className="h-44 w-full object-cover" />
-                </div>
+                ) : (
+                  <div className="flex h-44 items-center justify-center text-xs text-muted-foreground">
+                    Preview unavailable
+                  </div>
+                )}
+              </div>
 
                 {exported ? (
                   <div className="mt-3 space-y-2 text-xs">

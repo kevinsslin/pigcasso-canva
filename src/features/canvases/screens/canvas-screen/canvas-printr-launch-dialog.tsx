@@ -19,6 +19,7 @@ import { PRINTR_EVM_CHAIN_OPTIONS, getPrintrEvmChainOption } from "@/features/pr
 import { readApiResponse } from "@/lib/api-response";
 import { client } from "@/lib/hono";
 import { cn } from "@/lib/utils";
+import { isUserRejectedWalletAction } from "@/lib/wallet-errors";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,32 +47,6 @@ const deriveSymbol = (value: string) => {
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 10);
   return cleaned || "PIG";
-};
-
-const isUserRejectedWalletAction = (error: unknown) => {
-  let current: any = error;
-  for (let depth = 0; depth < 6 && current; depth += 1) {
-    const code = (current as any)?.code;
-    if (code === 4001 || code === "ACTION_REJECTED") return true;
-
-    const messageRaw =
-      (typeof (current as any)?.shortMessage === "string" && (current as any).shortMessage) ||
-      (typeof (current as any)?.message === "string" && (current as any).message) ||
-      "";
-    const message = messageRaw.toLowerCase();
-    if (
-      message.includes("user rejected") ||
-      message.includes("rejected the request") ||
-      message.includes("user denied") ||
-      message.includes("denied transaction") ||
-      message.includes("denied signature")
-    ) {
-      return true;
-    }
-
-    current = (current as any)?.cause;
-  }
-  return false;
 };
 
 const getBase64FromDataUrl = (dataUrl: string) => {
@@ -150,7 +125,10 @@ export const CanvasPrintrLaunchDialog = ({
   });
 
   const canLaunch = Boolean(printrConfigured) && Boolean(isPro);
-  const selectedChain = chainCaip2 || MANTLE_CAIP2;
+  const resolvedChain = useMemo(() => {
+    return getPrintrEvmChainOption(chainCaip2)?.caip2 ?? MANTLE_CAIP2;
+  }, [chainCaip2]);
+  const selectedChain = resolvedChain;
   const chainDeployment = deployments.data?.deployments?.find((deployment) => deployment.chain_id === selectedChain) ?? null;
   const chainExplorer = getPrintrEvmChainOption(selectedChain)?.explorerBaseUrl ?? null;
 
