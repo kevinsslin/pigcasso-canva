@@ -250,6 +250,7 @@ export const DEFAULT_CUTOUT_REPAIR_OPTIONS = {
   envelopeRadius: 6,
   neighborRadius: 3,
   backgroundColorTolerance: 24,
+  edgeFeatherRadius: 2,
 } as const;
 
 const createNeighborOffsets = (radius: number) => {
@@ -430,6 +431,7 @@ export const repairTransparentCutoutDataUrl = async (params: {
   envelopeRadius?: number;
   neighborRadius?: number;
   backgroundColorTolerance?: number;
+  edgeFeatherRadius?: number;
 }) => {
   if (typeof document === "undefined") {
     return { dataUrl: params.cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
@@ -444,6 +446,7 @@ export const repairTransparentCutoutDataUrl = async (params: {
   const envelopeRadius = Math.max(closeRadius, Math.floor(params.envelopeRadius ?? 4));
   const neighborRadius = Math.max(1, Math.floor(params.neighborRadius ?? 2));
   const backgroundColorTolerance = Math.max(1, Math.floor(params.backgroundColorTolerance ?? 26));
+  const edgeFeatherRadius = Math.max(0, Math.floor(params.edgeFeatherRadius ?? 0));
 
   const cutoutImg = await loadImageFromDataUrl(cutoutDataUrl);
   const width = cutoutImg.naturalWidth || cutoutImg.width;
@@ -668,7 +671,72 @@ export const repairTransparentCutoutDataUrl = async (params: {
     if (!filledThisPass) break;
   }
 
-  if (!filledPixels) {
+  let smoothedPixels = 0;
+  if (edgeFeatherRadius > 0) {
+    const alpha = new Uint8ClampedArray(total);
+    for (let i = 0; i < total; i += 1) {
+      alpha[i] = next[i * 4 + 3] ?? 0;
+    }
+
+    const offsets = createNeighborOffsets(edgeFeatherRadius);
+
+    for (let y = subMinY; y <= subMaxY; y += 1) {
+      for (let x = subMinX; x <= subMaxX; x += 1) {
+        const idx = y * width + x;
+        const subIdx = (y - subMinY) * subWidth + (x - subMinX);
+        if (!envelopeMask[subIdx]) continue;
+
+        const a = alpha[idx] ?? 0;
+        let hasOpaqueNeighbor = false;
+        let hasTransparentNeighbor = false;
+        let sumAlpha = 0;
+        let count = 0;
+
+        for (const { dx, dy } of offsets) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const nIdx = ny * width + nx;
+          const nAlpha = alpha[nIdx] ?? 0;
+          if (nAlpha >= alphaThreshold) hasOpaqueNeighbor = true;
+          if (nAlpha < alphaThreshold) hasTransparentNeighbor = true;
+          sumAlpha += nAlpha;
+          count += 1;
+        }
+
+        const isEdge = (a < alphaThreshold && hasOpaqueNeighbor) || (a >= alphaThreshold && hasTransparentNeighbor);
+        if (!isEdge || count <= 0) continue;
+
+        const avgAlpha = sumAlpha / count;
+        const blendedAlpha =
+          a < alphaThreshold ? avgAlpha : a * 0.6 + avgAlpha * 0.4;
+        const nextAlpha = clampByte(blendedAlpha);
+        if (Math.abs(nextAlpha - a) < 6) continue;
+
+        if (a < alphaThreshold && nextAlpha >= alphaThreshold) {
+          const o = idx * 4;
+          if (originalData && !isBackgroundLikeOriginal(idx)) {
+            next[o] = originalData[o] ?? next[o] ?? 0;
+            next[o + 1] = originalData[o + 1] ?? next[o + 1] ?? 0;
+            next[o + 2] = originalData[o + 2] ?? next[o + 2] ?? 0;
+          } else if (!originalData) {
+            const neighborStats = sampleNeighborStats(x, y);
+            if (neighborStats) {
+              next[o] = clampByte(neighborStats.r);
+              next[o + 1] = clampByte(neighborStats.g);
+              next[o + 2] = clampByte(neighborStats.b);
+            }
+          }
+        }
+
+        next[idx * 4 + 3] = nextAlpha;
+        smoothedPixels += 1;
+      }
+    }
+  }
+
+  const repairedPixels = filledPixels + smoothedPixels;
+  if (!repairedPixels) {
     return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
   }
 
@@ -676,7 +744,7 @@ export const repairTransparentCutoutDataUrl = async (params: {
   return {
     dataUrl: canvas.toDataURL("image/png"),
     changed: true,
-    filledPixels,
-    filledRatio: filledPixels / Math.max(1, total),
+    filledPixels: repairedPixels,
+    filledRatio: repairedPixels / Math.max(1, total),
   };
 };

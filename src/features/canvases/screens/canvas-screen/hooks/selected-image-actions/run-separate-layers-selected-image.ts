@@ -520,6 +520,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
               "Extract the main foreground subject(s) only.",
               "Return a transparent PNG with alpha (background fully transparent).",
               "Keep the subject fully opaque; do not leave internal transparent gaps.",
+              "Include any attached support elements or props connected to the subject.",
               "Do not add new objects. Keep original colors and style.",
             ].join("\n"),
             profile: apiProfile,
