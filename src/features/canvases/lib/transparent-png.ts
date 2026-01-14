@@ -420,6 +420,9 @@ export const repairTransparentCutoutDataUrl = async (params: {
   originalSrc?: string;
   alphaThreshold?: number;
   closeRadius?: number;
+  envelopeRadius?: number;
+  neighborRadius?: number;
+  backgroundColorTolerance?: number;
 }) => {
   if (typeof document === "undefined") {
     return { dataUrl: params.cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
@@ -431,6 +434,9 @@ export const repairTransparentCutoutDataUrl = async (params: {
 
   const alphaThreshold = Math.max(1, Math.min(254, Math.floor(params.alphaThreshold ?? 20)));
   const closeRadius = Math.max(0, Math.floor(params.closeRadius ?? 2));
+  const envelopeRadius = Math.max(closeRadius, Math.floor(params.envelopeRadius ?? 4));
+  const neighborRadius = Math.max(1, Math.floor(params.neighborRadius ?? 2));
+  const backgroundColorTolerance = Math.max(1, Math.floor(params.backgroundColorTolerance ?? 26));
 
   const cutoutImg = await loadImageFromDataUrl(cutoutDataUrl);
   const width = cutoutImg.naturalWidth || cutoutImg.width;
@@ -476,35 +482,183 @@ export const repairTransparentCutoutDataUrl = async (params: {
   const bounds = getBinaryMaskBoundingBox(baseMask, width, height);
   if (!bounds) return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
 
-  const closed = closeBinaryMask(baseMask, width, height, closeRadius);
-  const { mask: filledMask } = fillBinaryMaskHoles(closed, width, height);
+  const margin = Math.min(96, Math.max(closeRadius, envelopeRadius, neighborRadius) + 2);
+  const subMinX = Math.max(0, bounds.minX - margin);
+  const subMinY = Math.max(0, bounds.minY - margin);
+  const subMaxX = Math.min(width - 1, bounds.maxX + margin);
+  const subMaxY = Math.min(height - 1, bounds.maxY + margin);
+  const subWidth = subMaxX - subMinX + 1;
+  const subHeight = subMaxY - subMinY + 1;
+
+  const subTotal = subWidth * subHeight;
+  const baseSubMask = new Uint8Array(subTotal);
+  for (let y = subMinY; y <= subMaxY; y += 1) {
+    for (let x = subMinX; x <= subMaxX; x += 1) {
+      const idx = y * width + x;
+      const subIdx = (y - subMinY) * subWidth + (x - subMinX);
+      baseSubMask[subIdx] = baseMask[idx] ?? 0;
+    }
+  }
+
+  const closed = closeBinaryMask(baseSubMask, subWidth, subHeight, closeRadius);
+  const { mask: filledMask } = fillBinaryMaskHoles(closed, subWidth, subHeight);
+  const envelopeMask = dilateBinaryMask(filledMask, subWidth, subHeight, envelopeRadius);
+
+  const pickBackgroundColorsFromBorderMasked = () => {
+    if (!originalData) return null;
+    const clusters: ColorCluster[] = [];
+
+    const step = Math.max(1, Math.floor(Math.min(width, height) / 48));
+    const addSample = (x: number, y: number) => {
+      const idx = y * width + x;
+      if (baseMask[idx]) return;
+      addToClusters(clusters, getPixel(originalData!, idx), 12);
+    };
+
+    for (let x = 0; x < width; x += step) {
+      addSample(x, 0);
+      addSample(x, height - 1);
+    }
+    for (let y = 0; y < height; y += step) {
+      addSample(0, y);
+      addSample(width - 1, y);
+    }
+
+    if (!clusters.length) {
+      return pickBackgroundColorsFromBorder({ data: originalData, width, height });
+    }
+
+    clusters.sort((a, b) => b.count - a.count);
+    return clusters.slice(0, 3).map((c) => ({
+      r: clampByte(c.mean.r),
+      g: clampByte(c.mean.g),
+      b: clampByte(c.mean.b),
+      count: c.count,
+    }));
+  };
+
+  const backgroundClusters = pickBackgroundColorsFromBorderMasked();
+  const backgroundColors = backgroundClusters
+    ? backgroundClusters.slice(0, 2).map((c) => ({ r: c.r, g: c.g, b: c.b }))
+    : null;
+  const isBackgroundLikeOriginal = (idx: number) => {
+    if (!originalData || !backgroundColors?.length) return false;
+    const color = getPixel(originalData, idx);
+    return backgroundColors.some((bg) => colorDistance(color, bg) <= backgroundColorTolerance);
+  };
 
   const next = new Uint8ClampedArray(cutoutData);
   let filledPixels = 0;
 
-  for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
-    for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
-      const idx = y * width + x;
-      if (baseMask[idx]) continue;
-      if (!filledMask[idx]) continue;
-      const o = idx * 4;
+  const sampleNeighborStats = (x: number, y: number) => {
+    let sumR = 0;
+    let sumG = 0;
+    let sumB = 0;
+    let sumA = 0;
+    let maxA = 0;
+    let weight = 0;
+    let count = 0;
 
-      if (!originalData) {
-        const r = next[o] ?? 0;
-        const g = next[o + 1] ?? 0;
-        const b = next[o + 2] ?? 0;
-        const hasSignal = r + g + b > 0;
-        if (!hasSignal) continue;
+    for (let dy = -neighborRadius; dy <= neighborRadius; dy += 1) {
+      for (let dx = -neighborRadius; dx <= neighborRadius; dx += 1) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const idx = ny * width + nx;
+        const o = idx * 4;
+        const a = next[o + 3] ?? 0;
+        if (a <= 0) continue;
+        const w = a / 255;
+        sumR += (next[o] ?? 0) * w;
+        sumG += (next[o + 1] ?? 0) * w;
+        sumB += (next[o + 2] ?? 0) * w;
+        sumA += a;
+        weight += w;
+        count += 1;
+        if (a > maxA) maxA = a;
       }
-
-      if (originalData) {
-        next[o] = originalData[o] ?? next[o] ?? 0;
-        next[o + 1] = originalData[o + 1] ?? next[o + 1] ?? 0;
-        next[o + 2] = originalData[o + 2] ?? next[o + 2] ?? 0;
-      }
-      next[o + 3] = 255;
-      filledPixels += 1;
     }
+
+    if (!count || weight <= 0) return null;
+    return {
+      r: sumR / weight,
+      g: sumG / weight,
+      b: sumB / weight,
+      avgA: sumA / count,
+      maxA,
+      count,
+    };
+  };
+
+  const estimateFillAlpha = (stats: { avgA: number; maxA: number } | null) => {
+    if (!stats) return 255;
+    const blended = stats.maxA * 0.65 + stats.avgA * 0.35;
+    return clampByte(Math.max(alphaThreshold, blended));
+  };
+
+  const supportThreshold = originalData ? 1 : 3;
+  const countOpaqueNeighbors = (x: number, y: number) => {
+    let count = 0;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const idx = ny * width + nx;
+        const a = next[idx * 4 + 3] ?? 0;
+        if (a >= alphaThreshold) count += 1;
+      }
+    }
+    return count;
+  };
+
+  const maxPasses = 2;
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    let filledThisPass = 0;
+
+    for (let y = subMinY; y <= subMaxY; y += 1) {
+      for (let x = subMinX; x <= subMaxX; x += 1) {
+        const idx = y * width + x;
+        if (baseMask[idx]) continue;
+
+        const subIdx = (y - subMinY) * subWidth + (x - subMinX);
+        if (!envelopeMask[subIdx]) continue;
+
+        if (originalData && isBackgroundLikeOriginal(idx)) continue;
+
+        const isEnclosedHole = filledMask[subIdx] === 1;
+        if (!isEnclosedHole && supportThreshold > 0) {
+          const support = countOpaqueNeighbors(x, y);
+          if (support < supportThreshold) continue;
+        }
+
+        const o = idx * 4;
+        const existingAlpha = next[o + 3] ?? 0;
+        if (existingAlpha >= alphaThreshold) continue;
+
+        const neighborStats = sampleNeighborStats(x, y);
+        const fillAlpha = estimateFillAlpha(neighborStats);
+
+        if (!originalData) {
+          if (!neighborStats) continue;
+          next[o] = clampByte(neighborStats.r);
+          next[o + 1] = clampByte(neighborStats.g);
+          next[o + 2] = clampByte(neighborStats.b);
+        } else {
+          next[o] = originalData[o] ?? next[o] ?? 0;
+          next[o + 1] = originalData[o + 1] ?? next[o + 1] ?? 0;
+          next[o + 2] = originalData[o + 2] ?? next[o + 2] ?? 0;
+        }
+
+        next[o + 3] = fillAlpha;
+        filledPixels += 1;
+        filledThisPass += 1;
+      }
+    }
+
+    if (!filledThisPass) break;
   }
 
   if (!filledPixels) {
