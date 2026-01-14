@@ -669,6 +669,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             const angleDegrees = typeof block.angle === "number" ? block.angle : 0;
             const rotation = (angleDegrees * Math.PI) / 180;
             const fontFamilyMeta = pickFontFamilyPresetForExtractedText({ text: block.text, font });
+            const meta = fontFamilyMeta ? { [fontFamilyMeta.metaKey]: fontFamilyMeta.fontFamily } : {};
 
             params.editor.createShape?.({
               id,
@@ -676,7 +677,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
               x,
               y,
               rotation,
-              meta: fontFamilyMeta ? { [fontFamilyMeta.metaKey]: fontFamilyMeta.fontFamily } : undefined,
+              meta,
               props: {
                 color,
                 size,

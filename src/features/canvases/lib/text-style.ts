@@ -52,7 +52,7 @@ export const buildTextFontFamilyMetaPatch = (fontFamily: string | null) => {
   if (typeof fontFamily === "string" && fontFamily.trim()) {
     return { [PIGCASSO_TEXT_FONT_FAMILY_META_KEY]: fontFamily.trim() } as const;
   }
-  return { [PIGCASSO_TEXT_FONT_FAMILY_META_KEY]: undefined } as const;
+  return { [PIGCASSO_TEXT_FONT_FAMILY_META_KEY]: null } as const;
 };
 
 export const TEXT_SIZE_BASE_PX: Record<CanvasTextSize, number> = {

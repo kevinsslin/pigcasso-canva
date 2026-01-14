@@ -5,10 +5,10 @@ import { describe, expect, test } from "bun:test";
 import { buildTextFontFamilyMetaPatch, PIGCASSO_TEXT_FONT_FAMILY_META_KEY } from "@/features/canvases/lib/text-style";
 
 describe("Text style meta patches", () => {
-  test("clearing font family sets meta key to undefined (so tldraw merge removes effect)", () => {
+  test("clearing font family sets meta key to null (JSON-serializable)", () => {
     const patch = buildTextFontFamilyMetaPatch(null) as any;
     expect(Object.prototype.hasOwnProperty.call(patch, PIGCASSO_TEXT_FONT_FAMILY_META_KEY)).toBe(true);
-    expect(patch[PIGCASSO_TEXT_FONT_FAMILY_META_KEY]).toBeUndefined();
+    expect(patch[PIGCASSO_TEXT_FONT_FAMILY_META_KEY]).toBeNull();
   });
 
   test("setting font family trims and sets meta key", () => {
@@ -16,4 +16,3 @@ describe("Text style meta patches", () => {
     expect(patch[PIGCASSO_TEXT_FONT_FAMILY_META_KEY]).toBe("ui-sans-serif, system-ui");
   });
 });
-
