@@ -18,7 +18,11 @@ import {
   loadImagePixels,
   pickFontFamilyPresetForExtractedText,
 } from "@/features/canvases/lib/extracted-text-style";
-import { ensureTransparentPngDataUrl, getOpaquePixelRatioFromDataUrl } from "@/features/canvases/lib/transparent-png";
+import {
+  ensureTransparentPngDataUrl,
+  getOpaquePixelRatioFromDataUrl,
+  repairTransparentCutoutDataUrl,
+} from "@/features/canvases/lib/transparent-png";
 import { extractSubjectByBackgroundDiffDataUrl } from "@/features/canvases/lib/subject-matte";
 import { compareOcrTextBlocks } from "@/features/canvases/lib/ocr-review";
 import { computeImageSimilarityScore } from "@/features/canvases/lib/image-similarity";
@@ -442,10 +446,20 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       let subjectCandidate: { dataUrl: string; opaqueRatio: number } | null = null;
       if (typeof subjectFromRemoveBg === "string" && subjectFromRemoveBg.startsWith("data:")) {
         const normalized = await ensureTransparentPngDataUrl(subjectFromRemoveBg);
-        const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
+        const repaired = await repairTransparentCutoutDataUrl({
+          cutoutDataUrl: normalized.dataUrl,
+          originalSrc: noTextDataUrl,
+          closeRadius: 2,
+        }).catch(() => null);
+        const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
+        const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);
         if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
-          subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
-          subjectDetail = `Cutout from remove-bg (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
+          subjectCandidate = { dataUrl: repairedUrl, opaqueRatio };
+          const repairedDetail =
+            repaired && repaired.changed
+              ? ` · repaired ${Math.round((repaired.filledRatio ?? 0) * 1000) / 10}%`
+              : "";
+          subjectDetail = `Cutout from remove-bg (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque${repairedDetail}).`;
         }
       }
 
@@ -474,10 +488,20 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
 
         if (typeof retry === "string" && retry.startsWith("data:")) {
           const normalized = await ensureTransparentPngDataUrl(retry);
-          const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
+          const repaired = await repairTransparentCutoutDataUrl({
+            cutoutDataUrl: normalized.dataUrl,
+            originalSrc: noTextDataUrl,
+            closeRadius: 2,
+          }).catch(() => null);
+          const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
+          const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);
           if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
-            subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
-            subjectDetail = `Cutout from remove-bg (retry on original image, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
+            subjectCandidate = { dataUrl: repairedUrl, opaqueRatio };
+            const repairedDetail =
+              repaired && repaired.changed
+                ? ` · repaired ${Math.round((repaired.filledRatio ?? 0) * 1000) / 10}%`
+                : "";
+            subjectDetail = `Cutout from remove-bg (retry on original image, ${Math.round(opaqueRatio * 1000) / 10}% opaque${repairedDetail}).`;
             const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate.dataUrl, `pigcasso_subject_${Date.now()}.png`);
             subjectOriginalSrc = subjectForCanvas.originalSrc;
             subjectSrcForCanvas = subjectForCanvas.canvasUrl;
@@ -502,11 +526,21 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
           const candidate = typeof aiCutout.data === "string" ? aiCutout.data : null;
           if (candidate && candidate.startsWith("data:")) {
             const normalized = await ensureTransparentPngDataUrl(candidate);
-            const opaqueRatio = await getOpaquePixelRatioFromDataUrl(normalized.dataUrl).catch(() => null);
+            const repaired = await repairTransparentCutoutDataUrl({
+              cutoutDataUrl: normalized.dataUrl,
+              originalSrc: noTextDataUrl,
+              closeRadius: 2,
+            }).catch(() => null);
+            const repairedUrl = repaired?.dataUrl ?? normalized.dataUrl;
+            const opaqueRatio = await getOpaquePixelRatioFromDataUrl(repairedUrl).catch(() => null);
             if (opaqueRatio !== null && opaqueRatio >= MIN_SUBJECT_OPAQUE_RATIO) {
               if (!subjectCandidate || opaqueRatio > subjectCandidate.opaqueRatio) {
-                subjectCandidate = { dataUrl: normalized.dataUrl, opaqueRatio };
-                subjectDetail = `Cutout from AI extraction (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque).`;
+                subjectCandidate = { dataUrl: repairedUrl, opaqueRatio };
+                const repairedDetail =
+                  repaired && repaired.changed
+                    ? ` · repaired ${Math.round((repaired.filledRatio ?? 0) * 1000) / 10}%`
+                    : "";
+                subjectDetail = `Cutout from AI extraction (transparent PNG, ${Math.round(opaqueRatio * 1000) / 10}% opaque${repairedDetail}).`;
                 const subjectForCanvas = await ensureCanvasImageSource(subjectCandidate.dataUrl, `pigcasso_subject_${Date.now()}.png`);
                 subjectOriginalSrc = subjectForCanvas.originalSrc;
                 subjectSrcForCanvas = subjectForCanvas.canvasUrl;

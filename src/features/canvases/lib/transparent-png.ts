@@ -242,3 +242,280 @@ export const ensureTransparentPngDataUrl = async (dataUrl: string) => {
   ctx.putImageData(new ImageData(stripped.data, width, height), 0, 0);
   return { dataUrl: canvas.toDataURL("image/png"), changed: true };
 };
+
+type BinaryMask = Uint8Array;
+
+const createNeighborOffsets = (radius: number) => {
+  const r = Math.max(0, Math.floor(radius));
+  const offsets: Array<{ dx: number; dy: number }> = [];
+  for (let dy = -r; dy <= r; dy += 1) {
+    for (let dx = -r; dx <= r; dx += 1) {
+      offsets.push({ dx, dy });
+    }
+  }
+  return offsets;
+};
+
+const dilateBinaryMask = (mask: BinaryMask, width: number, height: number, radius: number) => {
+  const offsets = createNeighborOffsets(radius);
+  const total = width * height;
+  const next = new Uint8Array(total);
+  if (!total) return next;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = y * width + x;
+      if (mask[idx]) {
+        next[idx] = 1;
+        continue;
+      }
+
+      let found = false;
+      for (const { dx, dy } of offsets) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        if (mask[ny * width + nx]) {
+          found = true;
+          break;
+        }
+      }
+      next[idx] = found ? 1 : 0;
+    }
+  }
+  return next;
+};
+
+const erodeBinaryMask = (mask: BinaryMask, width: number, height: number, radius: number) => {
+  const offsets = createNeighborOffsets(radius);
+  const total = width * height;
+  const next = new Uint8Array(total);
+  if (!total) return next;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = y * width + x;
+      if (!mask[idx]) {
+        next[idx] = 0;
+        continue;
+      }
+
+      let ok = true;
+      for (const { dx, dy } of offsets) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+          ok = false;
+          break;
+        }
+        if (!mask[ny * width + nx]) {
+          ok = false;
+          break;
+        }
+      }
+      next[idx] = ok ? 1 : 0;
+    }
+  }
+  return next;
+};
+
+export const closeBinaryMask = (mask: BinaryMask, width: number, height: number, radius: number) => {
+  const r = Math.max(0, Math.floor(radius));
+  if (r <= 0) return new Uint8Array(mask);
+  const dilated = dilateBinaryMask(mask, width, height, r);
+  return erodeBinaryMask(dilated, width, height, r);
+};
+
+export const fillBinaryMaskHoles = (mask: BinaryMask, width: number, height: number) => {
+  const total = width * height;
+  const next = new Uint8Array(mask);
+  if (!total) return { mask: next, filled: 0 };
+
+  const visited = new Uint8Array(total);
+  const queue: number[] = [];
+  const push = (idx: number) => {
+    visited[idx] = 1;
+    queue.push(idx);
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    const top = x;
+    const bottom = (height - 1) * width + x;
+    if (!next[top] && !visited[top]) push(top);
+    if (!next[bottom] && !visited[bottom]) push(bottom);
+  }
+  for (let y = 0; y < height; y += 1) {
+    const left = y * width;
+    const right = y * width + (width - 1);
+    if (!next[left] && !visited[left]) push(left);
+    if (!next[right] && !visited[right]) push(right);
+  }
+
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++] ?? 0;
+    const x = idx % width;
+    const y = (idx / width) | 0;
+
+    if (x > 0) {
+      const n = idx - 1;
+      if (!next[n] && !visited[n]) push(n);
+    }
+    if (x < width - 1) {
+      const n = idx + 1;
+      if (!next[n] && !visited[n]) push(n);
+    }
+    if (y > 0) {
+      const n = idx - width;
+      if (!next[n] && !visited[n]) push(n);
+    }
+    if (y < height - 1) {
+      const n = idx + width;
+      if (!next[n] && !visited[n]) push(n);
+    }
+  }
+
+  let filled = 0;
+  for (let i = 0; i < total; i += 1) {
+    if (next[i]) continue;
+    if (visited[i]) continue;
+    next[i] = 1;
+    filled += 1;
+  }
+  return { mask: next, filled };
+};
+
+export const getBinaryMaskBoundingBox = (mask: BinaryMask, width: number, height: number) => {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = y * width + x;
+      if (!mask[idx]) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < 0 || maxY < 0) return null;
+  return { minX, minY, maxX, maxY };
+};
+
+const loadImageFromSrc = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.crossOrigin = "anonymous";
+    img.src = src;
+  });
+
+export const repairTransparentCutoutDataUrl = async (params: {
+  cutoutDataUrl: string;
+  originalSrc?: string;
+  alphaThreshold?: number;
+  closeRadius?: number;
+}) => {
+  if (typeof document === "undefined") {
+    return { dataUrl: params.cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+  }
+  const cutoutDataUrl = params.cutoutDataUrl;
+  if (typeof cutoutDataUrl !== "string" || !cutoutDataUrl.startsWith("data:")) {
+    return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+  }
+
+  const alphaThreshold = Math.max(1, Math.min(254, Math.floor(params.alphaThreshold ?? 20)));
+  const closeRadius = Math.max(0, Math.floor(params.closeRadius ?? 2));
+
+  const cutoutImg = await loadImageFromDataUrl(cutoutDataUrl);
+  const width = cutoutImg.naturalWidth || cutoutImg.width;
+  const height = cutoutImg.naturalHeight || cutoutImg.height;
+  if (!width || !height) return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(cutoutImg, 0, 0, width, height);
+  const cutoutImageData = ctx.getImageData(0, 0, width, height);
+  const cutoutData = cutoutImageData.data;
+
+  let originalData: Uint8ClampedArray | null = null;
+  if (typeof params.originalSrc === "string" && params.originalSrc.trim()) {
+    try {
+      const originalImg = await loadImageFromSrc(params.originalSrc.trim());
+      const originalCanvas = document.createElement("canvas");
+      originalCanvas.width = width;
+      originalCanvas.height = height;
+      const originalCtx = originalCanvas.getContext("2d");
+      if (originalCtx) {
+        originalCtx.clearRect(0, 0, width, height);
+        originalCtx.drawImage(originalImg, 0, 0, width, height);
+        originalData = originalCtx.getImageData(0, 0, width, height).data;
+      }
+    } catch {
+      originalData = null;
+    }
+  }
+
+  const total = width * height;
+  const baseMask = new Uint8Array(total);
+  for (let i = 0; i < total; i += 1) {
+    const a = cutoutData[i * 4 + 3] ?? 0;
+    baseMask[i] = a >= alphaThreshold ? 1 : 0;
+  }
+
+  const bounds = getBinaryMaskBoundingBox(baseMask, width, height);
+  if (!bounds) return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+
+  const closed = closeBinaryMask(baseMask, width, height, closeRadius);
+  const { mask: filledMask } = fillBinaryMaskHoles(closed, width, height);
+
+  const next = new Uint8ClampedArray(cutoutData);
+  let filledPixels = 0;
+
+  for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+    for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+      const idx = y * width + x;
+      if (baseMask[idx]) continue;
+      if (!filledMask[idx]) continue;
+      const o = idx * 4;
+
+      if (!originalData) {
+        const r = next[o] ?? 0;
+        const g = next[o + 1] ?? 0;
+        const b = next[o + 2] ?? 0;
+        const hasSignal = r + g + b > 0;
+        if (!hasSignal) continue;
+      }
+
+      if (originalData) {
+        next[o] = originalData[o] ?? next[o] ?? 0;
+        next[o + 1] = originalData[o + 1] ?? next[o + 1] ?? 0;
+        next[o + 2] = originalData[o + 2] ?? next[o + 2] ?? 0;
+      }
+      next[o + 3] = 255;
+      filledPixels += 1;
+    }
+  }
+
+  if (!filledPixels) {
+    return { dataUrl: cutoutDataUrl, changed: false, filledPixels: 0, filledRatio: 0 };
+  }
+
+  ctx.putImageData(new ImageData(next, width, height), 0, 0);
+  return {
+    dataUrl: canvas.toDataURL("image/png"),
+    changed: true,
+    filledPixels,
+    filledRatio: filledPixels / Math.max(1, total),
+  };
+};

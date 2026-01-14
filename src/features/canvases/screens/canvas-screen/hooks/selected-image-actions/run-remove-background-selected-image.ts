@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
-import { ensureTransparentPngDataUrl } from "@/features/canvases/lib/transparent-png";
+import { ensureTransparentPngDataUrl, repairTransparentCutoutDataUrl } from "@/features/canvases/lib/transparent-png";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
@@ -38,8 +38,16 @@ export const runRemoveBackgroundFromSelectedImage = async (params: {
     setLabel("Ensuring true transparency…");
     const normalized = await ensureTransparentPngDataUrl(result.data);
 
+    setLabel("Repairing cutout…");
+    const repaired = await repairTransparentCutoutDataUrl({
+      cutoutDataUrl: normalized.dataUrl,
+      originalSrc: imageSrc,
+      closeRadius: 2,
+    }).catch(() => null);
+    const outputDataUrl = repaired?.dataUrl ?? normalized.dataUrl;
+
     setLabel("Uploading image…");
-    const uploadedUrl = await uploadImageDataUrl(normalized.dataUrl, `pigcasso_remove_bg_${Date.now()}.png`);
+    const uploadedUrl = await uploadImageDataUrl(outputDataUrl, `pigcasso_remove_bg_${Date.now()}.png`);
     const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
     const point = (() => {
@@ -102,12 +110,14 @@ export const runRemoveBackgroundFromSelectedImage = async (params: {
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: normalized.changed
-          ? "Added a cut-out version (transparent PNG)."
-          : "Added a cut-out version (transparent PNG). If you see a checkerboard, that’s just the transparency indicator in some viewers.",
+        content:
+          repaired && repaired.changed
+            ? "Added a cut-out version (transparent PNG). Repaired internal transparency."
+            : normalized.changed
+              ? "Added a cut-out version (transparent PNG)."
+              : "Added a cut-out version (transparent PNG). If you see a checkerboard, that’s just the transparency indicator in some viewers.",
         attachments: [attachment],
       },
     ]);
   });
 };
-
