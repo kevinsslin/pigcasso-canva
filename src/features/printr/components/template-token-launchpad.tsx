@@ -85,9 +85,9 @@ export const TemplateTokenLaunchpad = () => {
     <div className="max-w-screen-lg mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Template Token Launchpad</h1>
+          <h1 className="text-2xl font-semibold">Printr Launchpad</h1>
           <p className="text-sm text-muted-foreground">
-            Launch a token for your template on Printr.
+            Launch a token for your template via Printr Launchpad.
           </p>
         </div>
         <Button asChild variant="secondary" className="rounded-full">
@@ -142,7 +142,7 @@ export const TemplateTokenLaunchpad = () => {
               Launch a Template Token
             </CardTitle>
             <CardDescription>
-              Create an ERC20 template token via Printr. Select one or more chains (first chain is the home chain you sign on).
+              Create an ERC20 template token via Printr Launchpad. Select one or more chains (first chain is the home chain you sign on).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -553,7 +553,7 @@ export const TemplateTokenLaunchpad = () => {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    View on Printr <ExternalLink className="size-4 ml-2" />
+                    View on Printr Launchpad <ExternalLink className="size-4 ml-2" />
                   </a>
                 </Button>
               </div>

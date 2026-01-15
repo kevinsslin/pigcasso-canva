@@ -998,7 +998,7 @@ export const MyTemplatesSection = () => {
                         asChild
                       >
                         <a href={buildPrintrTokenUrl(tokenId)} target="_blank" rel="noreferrer">
-                          View on Printr
+                          View on Printr Launchpad
                         </a>
                       </Button>
                     )}

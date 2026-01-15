@@ -6,13 +6,8 @@ Pigcasso Canvas is an AI-native design workspace where prompts become assets on 
 - ChatCanvas (infinite canvas) powered by tldraw (`/canvas/*`).
 - Classic editor powered by Fabric.js (`/editor/*`).
 - AI generation: image, edit, HTML, and ideation chat.
-- Web3 publishing: IPFS/NFT export and Printr launch.
+- Web3 publishing: IPFS/NFT export and Printr Launchpad.
 - Repository -> Asset: connect GitHub and generate assets from code.
-
-## Docs
-- `docs/PRD.md` - product scope and goals.
-- `docs/STATUS.md` - current progress, risks, and setup checklist.
-- `docs/ENV_SETUP.md` - environment variables and deployment notes.
 
 ## Architecture
 
@@ -26,7 +21,7 @@ flowchart LR
   H --> DB[(Postgres + Drizzle)]
   H --> AI[Gemini]
   H --> IPFS[Pinata/IPFS]
-  H --> P[Printr]
+  H --> P[Printr Launchpad]
   H --> GH[GitHub]
 ```
 
@@ -54,7 +49,7 @@ Open `http://localhost:3000`.
 - `NEXT_PUBLIC_PRIVY_APP_ID`
 - `PRIVY_APP_SECRET`
 
-See `docs/ENV_SETUP.md` for optional integrations.
+See `.env.example` for optional integrations.
 
 ## Key routes
 - `/` - Landing

@@ -194,7 +194,7 @@ export const CanvasPrintrLaunchDialog = ({
         id: toastId,
         duration: 4500,
         action: {
-          label: "Open Printr",
+          label: "Open Printr Launchpad",
           onClick: () => window.open(printrUrl, "_blank", "noreferrer"),
         },
       });
@@ -257,7 +257,7 @@ export const CanvasPrintrLaunchDialog = ({
             }
           : undefined,
         cancel: {
-          label: "Open Printr",
+          label: "Open Printr Launchpad",
           onClick: () => window.open(printrUrl, "_blank", "noreferrer"),
         },
       });
@@ -281,8 +281,8 @@ export const CanvasPrintrLaunchDialog = ({
     <Dialog open={open} onOpenChange={(next) => (busy ? null : onOpenChange(next))}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
-          <DialogTitle>Launch on Printr</DialogTitle>
-          <DialogDescription>Turn this canvas into a tradable token. (Pro required)</DialogDescription>
+          <DialogTitle>Printr Launchpad</DialogTitle>
+          <DialogDescription>Launch a tradable token via Printr Launchpad. (Pro required)</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
@@ -394,7 +394,7 @@ export const CanvasPrintrLaunchDialog = ({
                         rel="noreferrer"
                         className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
                       >
-                        View on Printr <ExternalLink className="ml-1 size-3" />
+                        View on Printr Launchpad <ExternalLink className="ml-1 size-3" />
                       </a>
                     </div>
                     <div className="text-xs text-muted-foreground font-mono break-all">

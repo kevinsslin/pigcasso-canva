@@ -75,7 +75,7 @@ export const CanvasSelectionToolbar = ({
   onMintNft,
   onLaunchPrintr,
   showLaunchPrintr = true,
-  launchPrintrLabel = "Launch on Printr",
+  launchPrintrLabel = "Launch on Printr (Launchpad)",
   showMintNft = true,
   mintNftLabel = "Export NFT",
   onRegenerate,

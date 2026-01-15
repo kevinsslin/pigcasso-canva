@@ -209,7 +209,7 @@ export default function TemplatePage({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  View on Printr
+                  View on Printr Launchpad
                 </a>
               </Button>
               {mantleDeployment?.contract_address ? (
