@@ -1,117 +1,84 @@
 # Pigcasso Canvas
 
-Pigcasso Canvas is an **AI-native design workspace** with Web3 primitives:
+Pigcasso Canvas is an AI-native design workspace where prompts become assets on an infinite canvas, ready to export, mint, or publish. Slogan: "Canva ships files, we ship assets."
 
-- **ChatCanvas (infinite canvas)** powered by `tldraw` (`/canvas/*`)
-- **Canva-like editor** powered by Fabric.js (`/editor/*`)
-- **Web3-native**: Privy auth, token-gated Pro, IPFS/NFT export, Printr publishing
-- **Repository → Asset**: connect GitHub and generate/mint/share assets from code
+## What it does
+- ChatCanvas (infinite canvas) powered by tldraw (`/canvas/*`).
+- Classic editor powered by Fabric.js (`/editor/*`).
+- AI generation: image, edit, HTML, and ideation chat.
+- Web3 publishing: IPFS/NFT export and Printr launch.
+- Repository -> Asset: connect GitHub and generate assets from code.
 
-Product scope and implementation notes:
-- `docs/PRD.md`
-- `docs/STATUS.md` (progress + unblock checklist)
-- `docs/ENV_SETUP.md` (env setup, Vercel checklist)
-- `docs/LANDING_PAGE.md` (landing messaging + structure)
-- `docs/foundamental.md` (architecture + flows)
-- `docs/integrations/project-hubs.md`
-- `docs/integrations/printr.md`
-- `docs/integrations/github.md`
-- `docs/integrations/nft-export.md`
-- Open questions / decisions: `docs/QUESTIONS.md`
+## Docs
+- `docs/PRD.md` - product scope and goals.
+- `docs/STATUS.md` - current progress, risks, and setup checklist.
+- `docs/ENV_SETUP.md` - environment variables and deployment notes.
 
-## Tech Stack
+## Architecture
 
-- Next.js 14 (App Router) + TypeScript
-- Privy (Auth + embedded wallet)
-- Hono API mounted at `/api/*` (`src/app/api/[[...route]]/route.ts`) + typed client (`src/lib/hono.ts`)
-- Drizzle ORM + Postgres (Neon serverless driver)
-- Tailwind CSS + shadcn/ui + Radix UI
-- TanStack React Query
-- Fabric.js editor + tldraw infinite canvas
-- Integrations: UploadThing, Unsplash, Gemini, Pinata IPFS, GitHub, Printr
+### System overview
+```mermaid
+flowchart LR
+  U[User] --> W[Next.js App]
+  W --> C[Tldraw Canvas]
+  W --> F[Fabric Editor]
+  W -->|API| H[Hono API]
+  H --> DB[(Postgres + Drizzle)]
+  H --> AI[Gemini]
+  H --> IPFS[Pinata/IPFS]
+  H --> P[Printr]
+  H --> GH[GitHub]
+```
 
-## Quickstart (Local)
+### Canvas generation flow
+```mermaid
+flowchart LR
+  P1[Prompt] --> A1[AI Tool]
+  A1 --> U1[Upload/Store]
+  U1 --> C1[Canvas Object]
+  C1 --> E1[Export / Mint / Publish]
+```
 
+## Quickstart (local)
 ```bash
 bun install
 cp .env.example .env.local
 DATABASE_URL=postgres://... bun run db:migrate
 bun dev
 ```
-
 Open `http://localhost:3000`.
 
-- Public landing page: `/`
-- App home (requires Privy auth): `/app` (prompt → opens a new `/canvas/:id`)
-- Canvases list (requires Privy auth): `/canvases`
-- ChatCanvas (requires Privy auth): `/canvas/new`
-- Fabric editor (requires Privy auth): `/editor/:projectId`
-- Repositories (requires Privy auth): `/repositories`
+### Minimal env for login + app
+- `NEXT_PUBLIC_APP_URL`
+- `DATABASE_URL`
+- `NEXT_PUBLIC_PRIVY_APP_ID`
+- `PRIVY_APP_SECRET`
 
-### Minimal `.env.local`
+See `docs/ENV_SETUP.md` for optional integrations.
 
-To get the basic flow working (Privy login → dashboard), start with:
+## Key routes
+- `/` - Landing
+- `/app` - AI-native Home (prompt -> new canvas)
+- `/canvases` - Canvas list
+- `/canvas/new` - New canvas
+- `/editor/:projectId` - Classic editor
+- `/repositories` - GitHub repo to asset
 
-- `NEXT_PUBLIC_APP_URL=http://localhost:3000`
-- `DATABASE_URL=postgres://...` (required for Drizzle)
-- `NEXT_PUBLIC_PRIVY_APP_ID=...`
-- `PRIVY_APP_SECRET=...`
+## Project structure
+- `src/app/` - Next.js routes and layouts
+- `src/features/` - domain modules (canvas, editor, projects)
+- `src/components/` - shared UI
+- `src/db/` - Drizzle schema and DB client
 
-Optional features require additional keys (see `.env.example`):
-
-- ChatCanvas (tldraw license for deployments): `NEXT_PUBLIC_TLDRAW_LICENSE_KEY=...`
-- Pro gating (Mantle): `MANTLE_RPC_URL=...`
-- Uploads: `UPLOADTHING_TOKEN=...`
-- AI (Gemini): `GEMINI_API_KEY=...`
-- GitHub → Asset: `GITHUB_OAUTH_ENCRYPTION_KEY=...`
-- IPFS pinning (NFT export): `PINATA_JWT=...` (or legacy Pinata keys)
-
-### Unsplash setup
-
-Unsplash is used only for stock image browsing in the editor. Set:
-
-- `UNSPLASH_ACCESS_KEY=...` (or `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY`)
-
-You do not need to add your Unsplash Secret key for this feature.
-
-### Project hubs (B2B onboarding)
-
-Project hubs are **curated** (created by the team after a B2B partnership) and are used to group templates into categories like avatar frames, stickers, and seasonal campaign assets.
-
-- Set `PROJECT_HUB_ADMIN_TOKEN=...` in your server env vars.
-- Use `x-admin-token: $PROJECT_HUB_ADMIN_TOKEN` when calling the admin endpoints.
-
-See `docs/integrations/project-hubs.md`.
-
-## Database (Drizzle)
-
+## Development commands
 ```bash
-bun run db:generate # generate migration from src/db/schema.ts
-bun run db:migrate  # apply migrations
-bun run db:studio   # open Drizzle Studio
+bun run lint
+bun run typecheck
+bun test
+bun run build
 ```
 
-### Vercel deployments
-
-- This repo includes `vercel.json` to force Bun:
-  - `installCommand`: `bun install --frozen-lockfile`
-  - `buildCommand`: `bun run build`
-- `bun run build` runs `node scripts/build.mjs`, which:
-  - runs `drizzle-kit migrate` only if `DATABASE_URL` is set and `SKIP_DB_MIGRATE !== "1"`
-  - then runs `next build`
-
-## Troubleshooting
-
-- `column "bio" does not exist` (or similar schema errors): verify `DATABASE_URL` points to the DB you expect, then run `bun run db:migrate` to apply the latest Drizzle migrations.
-
-## Useful Commands
-
-- `bun dev`: start dev server
-- `bun run build` / `bun run start`: production build + server
-- `bun run lint`: run `next lint`
-- `bun test`: run unit tests (fast)
-- `bun run check`: lint + typecheck + unit tests
-
-### Tests
-
-- Unit tests live in `src/**/__tests__/*.test.ts` and should stay fast (no DB / no network).
+## Deployment notes
+- `vercel.json` forces Bun (`bun install --frozen-lockfile`, `bun run build`).
+- `bun run build` runs `scripts/build.mjs`, which can apply migrations if `DATABASE_URL` is set.
+- Production tldraw requires `NEXT_PUBLIC_TLDRAW_LICENSE_KEY`.
