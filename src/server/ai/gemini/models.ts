@@ -5,15 +5,20 @@ export const GEMINI_ASSISTANT_MODEL =
   normalizeModelName(process.env.GEMINI_ASSISTANT_MODEL ?? "") ||
   "gemini-3-pro-preview";
 
-const DEFAULT_GEMINI_IMAGE_MODEL = "imagen-3.0-generate-002";
-const DEPRECATED_GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image-preview";
+const DEFAULT_GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+const DEFAULT_IMAGEN_MODEL = "imagen-4.0-generate-001";
+const DEPRECATED_IMAGE_MODELS = new Map<string, string>([
+  ["gemini-2.5-flash-image-preview", DEFAULT_GEMINI_IMAGE_MODEL],
+  ["imagen-3.0-generate-002", DEFAULT_IMAGEN_MODEL],
+]);
 
 const normalizeImageModelName = (model: string) => {
   const normalized = normalizeModelName(model);
   if (!normalized) return "";
   const stripped = normalized.replace(/^models\//, "");
-  if (stripped === DEPRECATED_GEMINI_IMAGE_MODEL) {
-    return DEFAULT_GEMINI_IMAGE_MODEL;
+  const replacement = DEPRECATED_IMAGE_MODELS.get(stripped);
+  if (replacement) {
+    return replacement;
   }
   return normalized;
 };
