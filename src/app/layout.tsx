@@ -20,9 +20,18 @@ const notoSansTc = Noto_Sans_TC({
 
 export const dynamic = "force-dynamic";
 
+const ICON_VERSION = "20260129";
+
 export const metadata: Metadata = {
   title: "Pigcasso Canvas",
   description: "Web3-native design editor with token-gated Pro on Mantle.",
+  icons: {
+    icon: [
+      { url: `/favicon.ico?v=${ICON_VERSION}` },
+      { url: `/icon.png?v=${ICON_VERSION}`, type: "image/png" },
+    ],
+    apple: [{ url: `/apple-icon.png?v=${ICON_VERSION}` }],
+  },
 };
 
 export default function RootLayout({
