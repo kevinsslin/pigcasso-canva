@@ -105,7 +105,7 @@ export const useCanvasChatStorage = ({
     const serialized = serializeCanvasChatMessages(messages);
     if (serialized === lastSavedChatRef.current) return;
 
-    if (serialized.length > MAX_CANVAS_CHAT_CHARS) {
+    if ((serialized?.length ?? 0) > MAX_CANVAS_CHAT_CHARS) {
       if (!oversizeChatRef.current) {
         oversizeChatRef.current = true;
         toast.error("Chat history is too large to auto-save. Consider clearing older messages.", {
