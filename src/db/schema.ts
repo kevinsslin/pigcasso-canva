@@ -425,6 +425,38 @@ export const aiDailyUsage = pgTable(
   }),
 );
 
+export const aiIpDailyUsage = pgTable(
+  "ai_ip_daily_usage",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    ip: text("ip").notNull(),
+    date: text("date").notNull(),
+    imageCount: integer("imageCount").notNull().default(0),
+    separateLayersCount: integer("separateLayersCount").notNull().default(0),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    ipDateUnique: uniqueIndex("ai_ip_daily_usage_ip_date_unique").on(table.ip, table.date),
+  }),
+);
+
+export const aiIpWorkflowUsage = pgTable(
+  "ai_ip_workflow_usage",
+  {
+    workflowId: text("workflowId").primaryKey(),
+    ip: text("ip").notNull(),
+    date: text("date").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    ipDateIdx: index("ai_ip_workflow_usage_ip_date_idx").on(table.ip, table.date),
+  }),
+);
+
 export const templateTokens = pgTable(
   "template_token",
   {

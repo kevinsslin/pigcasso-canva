@@ -17,8 +17,11 @@ import {
   listGithubRepos,
 } from "@/server/github";
 import { buildRepositoryMemePrompt } from "@/server/repository-to-asset";
-import { generateImage, getAiAccessDecision, getAiLimitErrorBody } from "@/server/ai";
+import { generateImage } from "@/server/ai";
+import { requireAiAccess, requireAiIpUsage } from "@/server/ai/usage-guards";
 import { incrementAiUsage } from "@/server/ai-usage";
+import { incrementAiIpUsage } from "@/server/ai-ip-usage";
+import { getRequestIp } from "@/server/request-ip";
 
 const app = new Hono()
   .get("/connection", requireAuth, async (c) => {
@@ -204,17 +207,24 @@ const app = new Hono()
         readme,
       });
 
-      const { decision } = await getAiAccessDecision({
+      const ip = getRequestIp(c);
+      const ipDecisionResult = await requireAiIpUsage({ ip, action: "image" });
+      if (!ipDecisionResult.ok) {
+        return c.json(ipDecisionResult.error, 429);
+      }
+
+      const access = await requireAiAccess({
         authUser: auth,
         action: "generate",
       });
 
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await generateImage({ prompt });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiIpUsage({ decision: ipDecisionResult.decision, action: "image", ip });
 
       return c.json({
         data: {

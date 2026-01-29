@@ -10,12 +10,20 @@ import {
   extractTextBlocks,
   generateHtml,
   generateImage,
-  getAiAccessDecision,
-  getAiLimitErrorBody,
   getEffectiveNanoBananaProfile,
   removeBackground,
 } from "@/server/ai";
+import { requireAiAccess, requireAiIpUsage } from "@/server/ai/usage-guards";
 import { incrementAiUsage } from "@/server/ai-usage";
+import { incrementAiIpUsage } from "@/server/ai-ip-usage";
+import { getRequestIp } from "@/server/request-ip";
+
+const workflowSchema = z
+  .object({
+    id: z.string().uuid(),
+    type: z.enum(["separate-layers"]),
+  })
+  .optional();
 
 const app = new Hono()
   .post(
@@ -39,13 +47,9 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { prompt, context, selection } = c.req.valid("json");
 
-      const { decision } = await getAiAccessDecision({
-        authUser,
-        action: "generate",
-      });
-
-      if (!decision.allowed) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      const access = await requireAiAccess({ authUser, action: "generate" });
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await analyzeCanvasPrompt({
@@ -70,17 +74,13 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { prompt } = c.req.valid("json");
 
-      const { decision } = await getAiAccessDecision({
-        authUser,
-        action: "generate",
-      });
-
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      const access = await requireAiAccess({ authUser, action: "generate" });
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await chatAssistant({ prompt });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
 
       return c.json({ data: { text: result.text }, meta: { provider: result.provider } });
     },
@@ -92,23 +92,39 @@ const app = new Hono()
       "json",
       z.object({
         image: z.string(),
+        workflow: workflowSchema,
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { image } = c.req.valid("json");
+      const { image, workflow } = c.req.valid("json");
+      const ip = getRequestIp(c);
+      const ipAction = workflow?.type === "separate-layers" ? "separate-layers" : "image";
+      const ipDecisionResult = await requireAiIpUsage({
+        ip,
+        action: ipAction,
+        workflowId: workflow?.id,
+      });
+      if (!ipDecisionResult.ok) {
+        return c.json(ipDecisionResult.error, 429);
+      }
 
-      const { decision } = await getAiAccessDecision({
+      const access = await requireAiAccess({
         authUser,
         action: "remove-bg",
       });
-
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await removeBackground({ image });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "remove-bg" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "remove-bg" });
+      await incrementAiIpUsage({
+        decision: ipDecisionResult.decision,
+        action: ipAction,
+        ip,
+        workflowId: workflow?.id,
+      });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
     },
@@ -129,22 +145,32 @@ const app = new Hono()
             height: z.number().positive(),
           })
           .optional(),
+        workflow: workflowSchema,
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { image, instruction, referenceImages, canvas, profile } = c.req.valid("json");
+      const { image, instruction, referenceImages, canvas, profile, workflow } = c.req.valid("json");
+      const ip = getRequestIp(c);
+      const ipAction = workflow?.type === "separate-layers" ? "separate-layers" : "image";
+      const ipDecisionResult = await requireAiIpUsage({
+        ip,
+        action: ipAction,
+        workflowId: workflow?.id,
+      });
+      if (!ipDecisionResult.ok) {
+        return c.json(ipDecisionResult.error, 429);
+      }
 
-      const { proStatus, decision } = await getAiAccessDecision({
+      const access = await requireAiAccess({
         authUser,
         action: "generate",
       });
-
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
-      const effectiveProfile = getEffectiveNanoBananaProfile(profile, proStatus.isPro);
+      const effectiveProfile = getEffectiveNanoBananaProfile(profile, access.proStatus.isPro);
 
       const result = await editImage({
         image,
@@ -153,7 +179,13 @@ const app = new Hono()
         canvas,
         profile: effectiveProfile,
       });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiIpUsage({
+        decision: ipDecisionResult.decision,
+        action: ipAction,
+        ip,
+        workflowId: workflow?.id,
+      });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
     },
@@ -171,17 +203,13 @@ const app = new Hono()
       const authUser = c.get("authUser");
       const { prompt } = c.req.valid("json");
 
-      const { decision } = await getAiAccessDecision({
-        authUser,
-        action: "generate",
-      });
-
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      const access = await requireAiAccess({ authUser, action: "generate" });
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await generateHtml({ prompt });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
 
       return c.json({ data: { html: result.html }, meta: { provider: result.provider } });
     },
@@ -193,23 +221,41 @@ const app = new Hono()
       "json",
       z.object({
         image: z.string().min(1),
+        workflow: workflowSchema,
       }),
     ),
     async (c) => {
       const authUser = c.get("authUser");
-      const { image } = c.req.valid("json");
+      const { image, workflow } = c.req.valid("json");
+      const ip = getRequestIp(c);
+      const ipDecisionResult =
+        workflow?.type === "separate-layers"
+          ? await requireAiIpUsage({
+              ip,
+              action: "separate-layers",
+              workflowId: workflow?.id,
+            })
+          : null;
 
-      const { decision } = await getAiAccessDecision({
-        authUser,
-        action: "generate",
-      });
+      if (ipDecisionResult && !ipDecisionResult.ok) {
+        return c.json(ipDecisionResult.error, 429);
+      }
 
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      const access = await requireAiAccess({ authUser, action: "generate" });
+      if (!access.ok) {
+        return c.json(access.error, 429);
       }
 
       const result = await extractTextBlocks({ image });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      if (ipDecisionResult && ipDecisionResult.ok) {
+        await incrementAiIpUsage({
+          decision: ipDecisionResult.decision,
+          action: "separate-layers",
+          ip,
+          workflowId: workflow?.id,
+        });
+      }
 
       return c.json({ data: { blocks: result.blocks }, meta: { provider: result.provider } });
     },
@@ -233,20 +279,22 @@ const app = new Hono()
     async (c) => {
       const authUser = c.get("authUser");
       const { prompt, canvas, profile } = c.req.valid("json");
-
-      const { proStatus, decision } = await getAiAccessDecision({
-        authUser,
-        action: "generate",
-      });
-
-      if (!decision.allowed || !decision.usageRow) {
-        return c.json(getAiLimitErrorBody(decision), 429);
+      const ip = getRequestIp(c);
+      const ipDecisionResult = await requireAiIpUsage({ ip, action: "image" });
+      if (!ipDecisionResult.ok) {
+        return c.json(ipDecisionResult.error, 429);
       }
 
-      const effectiveProfile = getEffectiveNanoBananaProfile(profile, proStatus.isPro);
+      const access = await requireAiAccess({ authUser, action: "generate" });
+      if (!access.ok) {
+        return c.json(access.error, 429);
+      }
+
+      const effectiveProfile = getEffectiveNanoBananaProfile(profile, access.proStatus.isPro);
 
       const result = await generateImage({ prompt, canvas, profile: effectiveProfile });
-      await incrementAiUsage({ usageRow: decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiIpUsage({ decision: ipDecisionResult.decision, action: "image", ip });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });
     },
