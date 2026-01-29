@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { MessageCircle, Send, Twitter, Wallet } from "lucide-react";
 
 import { getAvatarFallbackText, getUserDisplayLabel, shortenWalletAddress } from "@/features/auth/lib/user-display";
-import { getPublicSpaceData } from "@/server/space";
+import { getPublicSpaceDataCached } from "@/server/space";
 import { getPublishedSpaceDocumentForUserId } from "@/server/space-documents";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,7 +24,7 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   noStore();
-  const data = await getPublicSpaceData(params.handle);
+  const data = await getPublicSpaceDataCached(params.handle);
   if (!data) {
     return {
       title: "Pigcasso Space",
@@ -98,7 +98,7 @@ const SocialLink = ({
 
 export default async function SpacePage({ params }: PageProps) {
   noStore();
-  const data = await getPublicSpaceData(params.handle);
+  const data = await getPublicSpaceDataCached(params.handle);
   if (!data) {
     notFound();
   }

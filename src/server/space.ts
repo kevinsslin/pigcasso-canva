@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
@@ -285,3 +286,5 @@ export const getPublicSpaceData = async (input: string): Promise<PublicSpaceData
     },
   };
 };
+
+export const getPublicSpaceDataCached = cache(getPublicSpaceData);
