@@ -223,7 +223,7 @@ const app = new Hono()
       }
 
       const result = await generateImage({ prompt });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
       await incrementAiIpUsage({ decision: ipDecisionResult.decision, action: "image", ip });
 
       return c.json({

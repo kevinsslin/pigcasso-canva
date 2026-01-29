@@ -80,7 +80,7 @@ const app = new Hono()
       }
 
       const result = await chatAssistant({ prompt });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
 
       return c.json({ data: { text: result.text }, meta: { provider: result.provider } });
     },
@@ -118,7 +118,7 @@ const app = new Hono()
       }
 
       const result = await removeBackground({ image });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "remove-bg" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "remove-bg" });
       await incrementAiIpUsage({
         decision: ipDecisionResult.decision,
         action: ipAction,
@@ -179,7 +179,7 @@ const app = new Hono()
         canvas,
         profile: effectiveProfile,
       });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
       await incrementAiIpUsage({
         decision: ipDecisionResult.decision,
         action: ipAction,
@@ -209,7 +209,7 @@ const app = new Hono()
       }
 
       const result = await generateHtml({ prompt });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
 
       return c.json({ data: { html: result.html }, meta: { provider: result.provider } });
     },
@@ -247,7 +247,7 @@ const app = new Hono()
       }
 
       const result = await extractTextBlocks({ image });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
       if (ipDecisionResult && ipDecisionResult.ok) {
         await incrementAiIpUsage({
           decision: ipDecisionResult.decision,
@@ -293,7 +293,7 @@ const app = new Hono()
       const effectiveProfile = getEffectiveNanoBananaProfile(profile, access.proStatus.isPro);
 
       const result = await generateImage({ prompt, canvas, profile: effectiveProfile });
-      await incrementAiUsage({ usageRow: access.decision.usageRow, action: "generate" });
+      await incrementAiUsage({ usageRow: access.usageRow, action: "generate" });
       await incrementAiIpUsage({ decision: ipDecisionResult.decision, action: "image", ip });
 
       return c.json({ data: result.imageUrl, meta: { provider: result.provider } });

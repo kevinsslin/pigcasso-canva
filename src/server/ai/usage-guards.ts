@@ -3,8 +3,9 @@ import { checkAiIpUsage, getAiIpLimitErrorBody, type AiIpAction } from "@/server
 import type { AuthUser } from "@/server/auth";
 
 type AiAccessDecisionResult = Awaited<ReturnType<typeof getAiAccessDecision>>;
+type AiAccessUsageRow = NonNullable<AiAccessDecisionResult["decision"]["usageRow"]>;
 type AiAccessResult =
-  | { ok: true; decision: AiAccessDecisionResult["decision"]; proStatus: AiAccessDecisionResult["proStatus"] }
+  | { ok: true; decision: AiAccessDecisionResult["decision"]; proStatus: AiAccessDecisionResult["proStatus"]; usageRow: AiAccessUsageRow }
   | { ok: false; error: ReturnType<typeof getAiLimitErrorBody> };
 
 type AiIpDecisionResult = Awaited<ReturnType<typeof checkAiIpUsage>>;
@@ -20,7 +21,7 @@ export const requireAiAccess = async (params: { authUser: AuthUser; action: "gen
     return { ok: false, error: getAiLimitErrorBody(decision) };
   }
 
-  return { ok: true, decision, proStatus };
+  return { ok: true, decision, proStatus, usageRow: decision.usageRow };
 };
 
 export const requireAiIpUsage = async (params: {
