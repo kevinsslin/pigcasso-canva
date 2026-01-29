@@ -180,7 +180,7 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
-      const pages = await db
+      const pagesPromise = db
         .select({
           id: projectPages.id,
           projectId: projectPages.projectId,
@@ -197,7 +197,7 @@ const app = new Hono()
         .where(eq(projectPages.projectId, id))
         .orderBy(asc(projectPages.index));
 
-      const [token] = await db
+      const tokenPromise = db
         .select({
           printrTokenId: templateTokens.printrTokenId,
           status: templateTokens.status,
@@ -205,14 +205,21 @@ const app = new Hono()
         .from(templateTokens)
         .where(eq(templateTokens.templateProjectId, id));
 
-      const pro = template.isPro
-        ? await getProStatusForUser({
+      const proPromise = template.isPro
+        ? getProStatusForUser({
             userId: auth.id,
             embeddedWalletAddress: auth.embeddedWalletAddress,
             externalWalletAddresses: auth.externalWalletAddresses,
             externalWalletAddress: auth.externalWalletAddress,
           })
-        : { isPro: true };
+        : Promise.resolve({ isPro: true });
+
+      const [pages, tokenRows, pro] = await Promise.all([
+        pagesPromise,
+        tokenPromise,
+        proPromise,
+      ]);
+      const token = tokenRows[0];
 
       const locked = template.isPro && !pro.isPro;
 

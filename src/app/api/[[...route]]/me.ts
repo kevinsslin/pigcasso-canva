@@ -30,29 +30,30 @@ const app = new Hono()
   .get("/", requireAuth, async (c) => {
     const authUser = c.get("authUser");
 
-    const [dbUser] = await db
-      .select({
-        name: users.name,
-        image: users.image,
-        bio: users.bio,
-        twitterSubject: users.twitterSubject,
-        twitterUsername: users.twitterUsername,
-        discordSubject: users.discordSubject,
-        discordUsername: users.discordUsername,
-        telegramUserId: users.telegramUserId,
-        telegramUsername: users.telegramUsername,
-      })
-      .from(users)
-      .where(eq(users.id, authUser.id));
-
-    const pro = await getProStatusForUser({
-      userId: authUser.id,
-      embeddedWalletAddress: authUser.embeddedWalletAddress,
-      externalWalletAddresses: authUser.externalWalletAddresses,
-      externalWalletAddress: authUser.externalWalletAddress,
-    });
-
-    const usage = await getAiUsageRowForToday(authUser.id);
+    const [dbUserRows, pro, usage] = await Promise.all([
+      db
+        .select({
+          name: users.name,
+          image: users.image,
+          bio: users.bio,
+          twitterSubject: users.twitterSubject,
+          twitterUsername: users.twitterUsername,
+          discordSubject: users.discordSubject,
+          discordUsername: users.discordUsername,
+          telegramUserId: users.telegramUserId,
+          telegramUsername: users.telegramUsername,
+        })
+        .from(users)
+        .where(eq(users.id, authUser.id)),
+      getProStatusForUser({
+        userId: authUser.id,
+        embeddedWalletAddress: authUser.embeddedWalletAddress,
+        externalWalletAddresses: authUser.externalWalletAddresses,
+        externalWalletAddress: authUser.externalWalletAddress,
+      }),
+      getAiUsageRowForToday(authUser.id),
+    ]);
+    const dbUser = dbUserRows[0];
     const limits = getAiLimitsForUser(pro.isPro);
 
     const aiConfigured = Boolean(process.env.GEMINI_API_KEY);

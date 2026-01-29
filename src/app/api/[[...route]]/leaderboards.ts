@@ -14,86 +14,86 @@ const querySchema = z.object({
 const app = new Hono().get("/", requireAuth, zValidator("query", querySchema), async (c) => {
   const { limit } = c.req.valid("query");
 
-  const topProjects = await db
-    .select({
-      id: projectHubs.id,
-      slug: projectHubs.slug,
-      name: projectHubs.name,
-      logoUrl: projectHubs.logoUrl,
-      templatesCount: sql<number>`count(distinct ${projects.id})`.mapWith(Number),
-      remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
-    })
-    .from(projectHubs)
-    .leftJoin(
-      projects,
-      and(
-        eq(projects.projectHubId, projectHubs.id),
-        eq(projects.isTemplate, true),
-        eq(projects.isPublicTemplate, true),
-      ),
-    )
-    .leftJoin(
-      templateUsageEvents,
-      and(
-        eq(templateUsageEvents.templateProjectId, projects.id),
-        eq(templateUsageEvents.type, "remix"),
-      ),
-    )
-    .groupBy(projectHubs.id)
-    .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
-    .limit(limit);
-
-  const topCreators = await db
-    .select({
-      userId: users.id,
-      name: users.name,
-      image: users.image,
-      remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
-    })
-    .from(templateUsageEvents)
-    .innerJoin(projects, eq(templateUsageEvents.templateProjectId, projects.id))
-    .innerJoin(users, eq(templateUsageEvents.userId, users.id))
-    .where(
-      and(
-        eq(templateUsageEvents.type, "remix"),
-        eq(projects.isTemplate, true),
-        eq(projects.isPublicTemplate, true),
-        isNotNull(projects.projectHubId),
-      ),
-    )
-    .groupBy(users.id)
-    .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
-    .limit(limit);
-
-  const topTemplates = await db
-    .select({
-      templateId: projects.id,
-      name: projects.name,
-      thumbnailUrl: projects.thumbnailUrl,
-      remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
-      projectHubId: projects.projectHubId,
-      projectHubSlug: projectHubs.slug,
-      projectHubName: projectHubs.name,
-    })
-    .from(projects)
-    .innerJoin(projectHubs, eq(projects.projectHubId, projectHubs.id))
-    .leftJoin(
-      templateUsageEvents,
-      and(
-        eq(templateUsageEvents.templateProjectId, projects.id),
-        eq(templateUsageEvents.type, "remix"),
-      ),
-    )
-    .where(
-      and(
-        eq(projects.isTemplate, true),
-        eq(projects.isPublicTemplate, true),
-        isNotNull(projects.projectHubId),
-      ),
-    )
-    .groupBy(projects.id, projectHubs.id)
-    .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
-    .limit(limit);
+  const [topProjects, topCreators, topTemplates] = await Promise.all([
+    db
+      .select({
+        id: projectHubs.id,
+        slug: projectHubs.slug,
+        name: projectHubs.name,
+        logoUrl: projectHubs.logoUrl,
+        templatesCount: sql<number>`count(distinct ${projects.id})`.mapWith(Number),
+        remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
+      })
+      .from(projectHubs)
+      .leftJoin(
+        projects,
+        and(
+          eq(projects.projectHubId, projectHubs.id),
+          eq(projects.isTemplate, true),
+          eq(projects.isPublicTemplate, true),
+        ),
+      )
+      .leftJoin(
+        templateUsageEvents,
+        and(
+          eq(templateUsageEvents.templateProjectId, projects.id),
+          eq(templateUsageEvents.type, "remix"),
+        ),
+      )
+      .groupBy(projectHubs.id)
+      .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
+      .limit(limit),
+    db
+      .select({
+        userId: users.id,
+        name: users.name,
+        image: users.image,
+        remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
+      })
+      .from(templateUsageEvents)
+      .innerJoin(projects, eq(templateUsageEvents.templateProjectId, projects.id))
+      .innerJoin(users, eq(templateUsageEvents.userId, users.id))
+      .where(
+        and(
+          eq(templateUsageEvents.type, "remix"),
+          eq(projects.isTemplate, true),
+          eq(projects.isPublicTemplate, true),
+          isNotNull(projects.projectHubId),
+        ),
+      )
+      .groupBy(users.id)
+      .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
+      .limit(limit),
+    db
+      .select({
+        templateId: projects.id,
+        name: projects.name,
+        thumbnailUrl: projects.thumbnailUrl,
+        remixCount: sql<number>`count(${templateUsageEvents.id})`.mapWith(Number),
+        projectHubId: projects.projectHubId,
+        projectHubSlug: projectHubs.slug,
+        projectHubName: projectHubs.name,
+      })
+      .from(projects)
+      .innerJoin(projectHubs, eq(projects.projectHubId, projectHubs.id))
+      .leftJoin(
+        templateUsageEvents,
+        and(
+          eq(templateUsageEvents.templateProjectId, projects.id),
+          eq(templateUsageEvents.type, "remix"),
+        ),
+      )
+      .where(
+        and(
+          eq(projects.isTemplate, true),
+          eq(projects.isPublicTemplate, true),
+          isNotNull(projects.projectHubId),
+        ),
+      )
+      .groupBy(projects.id, projectHubs.id)
+      .orderBy(desc(sql<number>`count(${templateUsageEvents.id})`))
+      .limit(limit),
+  ]);
 
   return c.json({
     data: {
