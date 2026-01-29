@@ -4,13 +4,11 @@ import { db } from "@/db/drizzle";
 import { canvasDocuments } from "@/db/schema";
 import { normalizeDbError } from "@/server/db-errors";
 import { HttpError } from "@/server/http-error";
-
-const MAX_SNAPSHOT_CHARS = 4_000_000;
-const MAX_CHAT_CHARS = 1_000_000;
+import { MAX_CANVAS_CHAT_CHARS, MAX_CANVAS_SNAPSHOT_CHARS } from "@/lib/canvas-limits";
 
 const assertSnapshotSize = (snapshot: string | null | undefined) => {
   if (!snapshot) return;
-  if (snapshot.length <= MAX_SNAPSHOT_CHARS) return;
+  if (snapshot.length <= MAX_CANVAS_SNAPSHOT_CHARS) return;
   throw new HttpError(413, "Canvas snapshot is too large.", {
     code: "CANVAS_SNAPSHOT_TOO_LARGE",
     expose: true,
@@ -19,7 +17,7 @@ const assertSnapshotSize = (snapshot: string | null | undefined) => {
 
 const assertChatSize = (chatJson: string | null | undefined) => {
   if (!chatJson) return;
-  if (chatJson.length <= MAX_CHAT_CHARS) return;
+  if (chatJson.length <= MAX_CANVAS_CHAT_CHARS) return;
   throw new HttpError(413, "Canvas chat history is too large.", {
     code: "CANVAS_CHAT_TOO_LARGE",
     expose: true,

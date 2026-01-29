@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import debounce from "lodash.debounce";
 import type { Editor as TldrawEditor } from "tldraw";
+import { toast } from "sonner";
 
 import { DEFAULT_CANVAS_COVER_TARGET_PX, getCanvasCoverScale } from "@/features/canvases/lib/canvas-cover";
 import { sanitizeTldrawStoreSnapshot } from "@/features/canvases/tldraw/sanitize-snapshot";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
+import { MAX_CANVAS_SNAPSHOT_CHARS } from "@/lib/canvas-limits";
 
 type UpdateCanvasMutation = {
   mutate: (args: { param: { id: string }; json: { snapshot?: string | null; coverImageUrl?: string | null } }) => void;
@@ -52,6 +54,7 @@ export const useCanvasSnapshotPersistence = ({
   coverGenerationRerunRequestedRef,
 }: UseCanvasSnapshotPersistenceParams) => {
   const coverUpdateRef = useRef<ReturnType<typeof debounce> | null>(null);
+  const oversizeSnapshotRef = useRef(false);
 
   const updateBoardCover = useMemo(
     () =>
@@ -198,6 +201,17 @@ export const useCanvasSnapshotPersistence = ({
           return;
         }
 
+        if (snapshotJson.length > MAX_CANVAS_SNAPSHOT_CHARS) {
+          if (!oversizeSnapshotRef.current) {
+            oversizeSnapshotRef.current = true;
+            toast.error("Canvas is too large to auto-save. Consider removing layers or exporting.", {
+              duration: 3500,
+            });
+          }
+          return;
+        }
+        oversizeSnapshotRef.current = false;
+
         if (snapshotJson === lastSavedSnapshotRef.current) return;
         lastSavedSnapshotRef.current = snapshotJson;
         pendingCoverSnapshotRef.current = snapshotJson;
@@ -288,4 +302,3 @@ export const useCanvasSnapshotPersistence = ({
     }
   }, [boardCrashMessage, boardHydrated, canvasQuery.data, editor, lastSavedSnapshotRef, pendingCoverSnapshotRef, updateBoardCover]);
 };
-

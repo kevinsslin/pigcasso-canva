@@ -1,0 +1,2 @@
+export const MAX_CANVAS_SNAPSHOT_CHARS = 4_000_000;
+export const MAX_CANVAS_CHAT_CHARS = 1_000_000;

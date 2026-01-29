@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import debounce from "lodash.debounce";
+import { toast } from "sonner";
 
 import { parseCanvasChatMessages, serializeCanvasChatMessages } from "@/features/canvases/lib/chat-history";
 import type { CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
+import { MAX_CANVAS_CHAT_CHARS } from "@/lib/canvas-limits";
 
 type UseCanvasChatStorageParams = {
   canvasId: string;
@@ -38,6 +40,7 @@ export const useCanvasChatStorage = ({
   const hasLoadedChatRef = useRef(false);
   const chatHydratingRef = useRef(false);
   const lastSavedChatRef = useRef<string | null>(null);
+  const oversizeChatRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -101,6 +104,18 @@ export const useCanvasChatStorage = ({
 
     const serialized = serializeCanvasChatMessages(messages);
     if (serialized === lastSavedChatRef.current) return;
+
+    if (serialized.length > MAX_CANVAS_CHAT_CHARS) {
+      if (!oversizeChatRef.current) {
+        oversizeChatRef.current = true;
+        toast.error("Chat history is too large to auto-save. Consider clearing older messages.", {
+          duration: 3500,
+        });
+      }
+      return;
+    }
+    oversizeChatRef.current = false;
+
     lastSavedChatRef.current = serialized;
 
     try {
@@ -116,4 +131,3 @@ export const useCanvasChatStorage = ({
     saveChat(serialized);
   }, [authenticated, boardCrashMessage, localChatKey, messages, ready, saveChat]);
 };
-
