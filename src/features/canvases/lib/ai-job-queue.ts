@@ -6,6 +6,7 @@ export type AiJobQueueCounts = {
 export type AiJobQueue = {
   enqueue: <T>(job: () => Promise<T>) => Promise<T>;
   getCounts: () => AiJobQueueCounts;
+  clearQueued: () => number;
 };
 
 export function createAiJobQueue(options?: {
@@ -54,6 +55,13 @@ export function createAiJobQueue(options?: {
         pump();
       }),
     getCounts: () => ({ active, queued: queue.length }),
+    clearQueued: () => {
+      if (!queue.length) return 0;
+      const cleared = queue.splice(0, queue.length);
+      cleared.forEach((item) => item.resolve(undefined));
+      notify();
+      return cleared.length;
+    },
   };
 }
 
@@ -76,4 +84,3 @@ export function createAiJobMutex(): AiJobMutex {
     },
   };
 }
-

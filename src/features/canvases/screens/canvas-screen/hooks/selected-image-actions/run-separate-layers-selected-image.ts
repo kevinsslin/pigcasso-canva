@@ -7,6 +7,12 @@ import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvase
 import { filterProminentTextBlocks } from "@/features/canvases/lib/extract-text-blocks";
 import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import {
+  getMaxShapeDimension,
+  getSelectedImagePlacement,
+  resolveImageSize,
+  updateAssetOriginalSrc,
+} from "@/features/canvases/lib/ai-image-helpers";
+import {
   clampCanvasTextScale,
   pickCanvasTextSizeAndScaleFromPx,
   TEXT_COLOR_OPTIONS,
@@ -96,6 +102,8 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
     return;
   }
 
+  const workflow = { id: crypto.randomUUID(), type: "separate-layers" as const };
+
   await params.runAiAction(toastIdPrefix, "Separating layers…", async ({ setLabel }) => {
     const workflowMessageId = crypto.randomUUID();
     const startedAt = Date.now();
@@ -184,21 +192,15 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       return next;
     };
 
-    const bounds = (() => {
-      try {
-        return params.editor.getShapePageBounds?.(targetShape.id as any) as any;
-      } catch {
-        return null;
-      }
-    })();
+    const placement = getSelectedImagePlacement(params.editor as any, targetShape);
+    const bounds = placement.bounds;
     if (!bounds || typeof bounds !== "object") {
       throw new Error("Could not read image bounds.");
     }
 
-    const point = {
-      x: bounds.x + bounds.w + Math.max(96, bounds.w * 0.25),
-      y: bounds.y + bounds.h * 0.5,
-    };
+    const point = placement.point;
+    const targetSize = resolveImageSize(targetShape, targetAsset);
+    const maxShapeDimension = getMaxShapeDimension(targetSize);
 
     const apiProfile = toNanoBananaApiProfile(params.aiProfile);
 
@@ -229,7 +231,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       let rawBlocks: ExtractTextBlock[] = [];
       let extractionError: string | null = null;
       try {
-        const extraction = await params.extractText.mutateAsync({ image: imageSrc });
+        const extraction = await params.extractText.mutateAsync({ image: imageSrc, workflow });
         rawBlocks = (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
       } catch (error) {
         extractionError = error instanceof Error ? error.message : "Failed to extract text.";
@@ -245,7 +247,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       const planLabel = `Plan: background + subject${blocks.length ? ` + ${blocks.length} text layer(s)` : ""}.`;
       const extractProminentTextFromImage = async (dataUrl: string) => {
         try {
-          const extraction = await params.extractText.mutateAsync({ image: dataUrl });
+          const extraction = await params.extractText.mutateAsync({ image: dataUrl, workflow });
           const nextRaw = (extraction.data?.blocks ?? []).filter((b) => b.text?.trim());
           return filterProminentTextBlocks(nextRaw, {
             imageWidth,
@@ -285,6 +287,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             instruction:
               "Remove all prominent text (titles, headings, big lettering). Ignore tiny decorative text. Keep the scene intact. Return an OPAQUE image (no transparency).",
             profile: apiProfile,
+            workflow,
           });
           noTextDataUrl = noText.data;
           let remaining = await extractProminentTextFromImage(noTextDataUrl);
@@ -302,6 +305,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
                   .filter(Boolean)
                   .join("\n"),
                 profile: apiProfile,
+                workflow,
               });
               noTextDataUrl = noTextRetry.data;
               remaining = await extractProminentTextFromImage(noTextDataUrl);
@@ -381,6 +385,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             instruction,
             profile: apiProfile,
             referenceImages: undefined,
+            workflow,
           });
           const next = typeof res.data === "string" ? res.data : null;
           if (!next || !next.startsWith("data:")) continue;
@@ -437,7 +442,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
 
       const subjectFromRemoveBg = await (async () => {
         try {
-          const cutout = await params.removeBg.mutateAsync({ image: noTextDataUrl });
+          const cutout = await params.removeBg.mutateAsync({ image: noTextDataUrl, workflow });
           return cutout.data;
         } catch {
           return null;
@@ -480,7 +485,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
       if (!subjectCandidate) {
         const retry = await (async () => {
           try {
-            const cutout = await params.removeBg.mutateAsync({ image: imageSrc });
+            const cutout = await params.removeBg.mutateAsync({ image: imageSrc, workflow });
             return cutout.data;
           } catch {
             return null;
@@ -524,6 +529,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
               "Do not add new objects. Keep original colors and style.",
             ].join("\n"),
             profile: apiProfile,
+            workflow,
           });
 
           const candidate = typeof aiCutout.data === "string" ? aiCutout.data : null;
@@ -570,33 +576,20 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             src: backgroundSrcForCanvas,
             point,
             name: `pigcasso_background_${Date.now()}.png`,
-            size: { w: Number(targetAsset?.props?.w) || 1024, h: Number(targetAsset?.props?.h) || 1024 },
+            size: targetSize,
+            maxShapeDimension,
           });
 
           const cutoutInserted = await insertImageToCanvas(params.editor as any, {
             src: subjectSrcForCanvas,
             point,
             name: `pigcasso_subject_${Date.now()}.png`,
-            size: { w: Number(targetAsset?.props?.w) || 1024, h: Number(targetAsset?.props?.h) || 1024 },
+            size: targetSize,
+            maxShapeDimension,
           });
 
-          try {
-            const bgAsset = params.editor.getAsset?.(backgroundInserted.assetId as any) as any;
-            if (bgAsset) {
-              params.editor.updateAssets?.([{ ...bgAsset, meta: { ...(bgAsset.meta ?? {}), originalSrc: backgroundOriginalSrc } }]);
-            }
-          } catch {
-            // ignore
-          }
-
-          try {
-            const subjectAsset = params.editor.getAsset?.(cutoutInserted.assetId as any) as any;
-            if (subjectAsset) {
-              params.editor.updateAssets?.([{ ...subjectAsset, meta: { ...(subjectAsset.meta ?? {}), originalSrc: subjectOriginalSrc } }]);
-            }
-          } catch {
-            // ignore
-          }
+          updateAssetOriginalSrc(params.editor as any, backgroundInserted.assetId, backgroundOriginalSrc);
+          updateAssetOriginalSrc(params.editor as any, cutoutInserted.assetId, subjectOriginalSrc);
 
           const insertedBounds = (() => {
             try {
@@ -761,7 +754,12 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
             // ignore
           }
 
-          return { insertedShapeId: backgroundInserted.shapeId, url: backgroundSrcForCanvas, createdShapeIds };
+          return {
+            insertedShapeId: backgroundInserted.shapeId,
+            subjectShapeId: cutoutInserted.shapeId,
+            url: backgroundSrcForCanvas,
+            createdShapeIds,
+          };
         }),
       );
 
@@ -789,7 +787,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
 
           const visualMatch = await computeImageSimilarityScore(imageSrc, compositeDataUrl, { size: 96 }).catch(() => null);
 
-          const compositeExtraction = await params.extractText.mutateAsync({ image: compositeDataUrl });
+          const compositeExtraction = await params.extractText.mutateAsync({ image: compositeDataUrl, workflow });
           const compositeBlocks = filterProminentTextBlocks(compositeExtraction.data?.blocks ?? [], {
             imageWidth,
             imageHeight,
@@ -822,14 +820,25 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
         steps = setStep(steps, "review", { status: "warn", detail: `Review failed; continuing. (${message})` });
       }
 
-      const attachment: CanvasChatAttachment = {
-        id: crypto.randomUUID(),
-        type: "image",
-        label: `IMG_${String(params.outputCounterRef.current).padStart(4, "0")}`,
-        shapeId: created.insertedShapeId,
-        url: backgroundSrcForCanvas,
-      };
+      const outputIndex = params.outputCounterRef.current;
       params.outputCounterRef.current += 1;
+      const labelPrefix = `IMG_${String(outputIndex).padStart(4, "0")}`;
+      const attachments: CanvasChatAttachment[] = [
+        {
+          id: crypto.randomUUID(),
+          type: "image",
+          label: `${labelPrefix}_BG`,
+          shapeId: created.insertedShapeId,
+          url: backgroundSrcForCanvas,
+        },
+        {
+          id: crypto.randomUUID(),
+          type: "image",
+          label: `${labelPrefix}_SUB`,
+          shapeId: created.subjectShapeId ?? created.insertedShapeId,
+          url: subjectSrcForCanvas,
+        },
+      ];
 
       params.setMessages((prev) => [
         ...prev,
@@ -839,7 +848,7 @@ export const runSeparateLayersFromSelectedImage = async (params: SeparateLayersD
           content: blocks.length
             ? "Added background, subject, and editable text layers next to the original."
             : "Added background and subject layers next to the original.",
-          attachments: [attachment],
+          attachments,
         },
       ]);
     } finally {

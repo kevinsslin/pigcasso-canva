@@ -6,9 +6,14 @@ import {
   DEFAULT_CUTOUT_REPAIR_OPTIONS,
   repairTransparentCutoutDataUrl,
 } from "@/features/canvases/lib/transparent-png";
+import {
+  getMaxShapeDimension,
+  getSelectedImagePlacement,
+  resolveImageSize,
+  updateAssetOriginalSrc,
+} from "@/features/canvases/lib/ai-image-helpers";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
-import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
@@ -36,6 +41,10 @@ export const runRemoveBackgroundFromSelectedImage = async (params: {
   }
 
   await params.runAiAction(params.toastIdPrefix, "Removing background…", async ({ setLabel }) => {
+    const placement = getSelectedImagePlacement(editor as any, selectedImageShape);
+    const resolvedSize = resolveImageSize(selectedImageShape, selectedImageAsset);
+    const maxShapeDimension = getMaxShapeDimension(resolvedSize);
+
     setLabel("Cutting out the subject…");
     const result = await params.removeBg.mutateAsync({ image: imageSrc });
 
@@ -54,46 +63,17 @@ export const runRemoveBackgroundFromSelectedImage = async (params: {
     const uploadedUrl = await uploadImageDataUrl(outputDataUrl, `pigcasso_remove_bg_${Date.now()}.png`);
     const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-    const point = (() => {
-      try {
-        const bounds = editor.getShapePageBounds?.(selectedImageShape.id as any) as any;
-        if (bounds && typeof bounds === "object") {
-          return {
-            x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-            y: bounds.y + bounds.h * 0.5,
-          };
-        }
-      } catch {
-        // ignore
-      }
-      return getAiInsertPoint(editor as any);
-    })();
-
     const inserted = await params.withAiCommit(() =>
       withHistorySquash(editor as any, "ai:remove-bg", async () => {
         const created = await insertImageToCanvas(editor as any, {
           src: canvasUrl,
-          point,
+          point: placement.point,
           name: `pigcasso_remove_bg_${Date.now()}.png`,
-          size: {
-            w: Number(selectedImageAsset?.props?.w) || 1024,
-            h: Number(selectedImageAsset?.props?.h) || 1024,
-          },
+          size: resolvedSize,
+          maxShapeDimension,
         });
 
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
-          }
-        } catch {
-          // ignore
-        }
+        updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
 
         return created;
       }),

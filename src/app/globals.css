@@ -95,11 +95,24 @@ body {
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
+
+    --paper-line-color: hsl(var(--foreground) / 0.06);
+    --paper-line-spacing: 28px;
   }
 
   .pigcasso-paper-tldraw.tl-theme__light,
   .pigcasso-paper-tldraw.tl-theme__dark {
     --tl-color-background: #F3F4F5;
+  }
+
+  .pigcasso-paper-lines {
+    background-image: linear-gradient(
+      to bottom,
+      var(--paper-line-color, hsl(var(--foreground) / 0.05)) 1px,
+      transparent 1px
+    );
+    background-size: 100% var(--paper-line-spacing, 28px);
+    background-position: 0 0;
   }
 }
 

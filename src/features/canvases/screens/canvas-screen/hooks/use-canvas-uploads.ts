@@ -12,6 +12,7 @@ import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { createHtmlCardSrcDoc, upsertHtmlCard } from "@/features/canvases/tldraw/html-card";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
 import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
+import { updateAssetOriginalSrc } from "@/features/canvases/lib/ai-image-helpers";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
 const MAX_INSERTED_TEXT_CHARS = 20_000;
@@ -114,19 +115,7 @@ export const useCanvasUploads = ({ editor, boardHydrated, boardCrashMessage }: U
           fileSize: Math.max(1, Math.floor(file.size || 1)),
         });
 
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
-          }
-        } catch {
-          // ignore
-        }
+        updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
 
         return created;
       });
@@ -282,4 +271,3 @@ export const useCanvasUploads = ({ editor, boardHydrated, boardCrashMessage }: U
     downloadHtml,
   };
 };
-

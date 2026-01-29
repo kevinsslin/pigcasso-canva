@@ -193,7 +193,7 @@ export const CanvasDownloadsDialog = ({
                       role="button"
                       tabIndex={0}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl border bg-background/60 p-3 transition hover:bg-background",
+                        "flex items-center gap-3 rounded-xl border bg-background/60 p-3 transition hover:bg-background cursor-pointer",
                         checked ? "border-primary/40" : "border-border/60",
                       )}
                       onClick={() => toggleSelection(att.id)}
@@ -276,4 +276,3 @@ export const CanvasDownloadsDialog = ({
     </Dialog>
   );
 };
-

@@ -2,9 +2,14 @@ import { toast } from "sonner";
 
 import { toNanoBananaApiProfile, type NanoBananaProfileOption } from "@/features/ai/lib/nano-banana-profile";
 import type { CanvasChatAttachment, CanvasChatMessage } from "@/features/canvases/screens/canvas-screen/types";
+import {
+  getMaxShapeDimension,
+  getSelectedImagePlacement,
+  resolveImageSize,
+  updateAssetOriginalSrc,
+} from "@/features/canvases/lib/ai-image-helpers";
 import { withHistorySquash } from "@/features/canvases/tldraw/history";
 import { insertImageToCanvas } from "@/features/canvases/tldraw/insert-image";
-import { getAiInsertPoint } from "@/features/canvases/tldraw/insert-point";
 import { toCanvasImageUrl } from "@/features/canvases/lib/image-proxy";
 import { uploadImageDataUrl } from "@/lib/upload-data-url";
 
@@ -33,6 +38,10 @@ export const runRegenerateSelectedImage = async (params: {
   }
 
   await params.runAiAction(params.toastIdPrefix, "Generating a variation…", async () => {
+    const placement = getSelectedImagePlacement(editor as any, selectedImageShape);
+    const resolvedSize = resolveImageSize(selectedImageShape, selectedImageAsset);
+    const maxShapeDimension = getMaxShapeDimension(resolvedSize);
+
     const apiProfile = toNanoBananaApiProfile(params.aiProfile);
     const instruction = "Create a refined variation of this image. Keep layout and composition consistent.";
     const result = await params.editImage.mutateAsync({
@@ -44,46 +53,17 @@ export const runRegenerateSelectedImage = async (params: {
     const uploadedUrl = await uploadImageDataUrl(result.data, `pigcasso_variation_${Date.now()}.png`);
     const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-    const point = (() => {
-      try {
-        const bounds = editor.getShapePageBounds?.(selectedImageShape.id as any) as any;
-        if (bounds && typeof bounds === "object") {
-          return {
-            x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-            y: bounds.y + bounds.h * 0.5,
-          };
-        }
-      } catch {
-        // ignore
-      }
-      return getAiInsertPoint(editor as any);
-    })();
-
     const inserted = await params.withAiCommit(() =>
       withHistorySquash(editor as any, "ai:variation", async () => {
         const created = await insertImageToCanvas(editor as any, {
           src: canvasUrl,
-          point,
+          point: placement.point,
           name: `pigcasso_variation_${Date.now()}.png`,
-          size: {
-            w: Number(selectedImageAsset?.props?.w) || 1024,
-            h: Number(selectedImageAsset?.props?.h) || 1024,
-          },
+          size: resolvedSize,
+          maxShapeDimension,
         });
 
-        try {
-          const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-          if (createdAsset) {
-            editor.updateAssets?.([
-              {
-                ...createdAsset,
-                meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-              },
-            ]);
-          }
-        } catch {
-          // ignore
-        }
+        updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
 
         return created;
       }),
@@ -105,4 +85,3 @@ export const runRegenerateSelectedImage = async (params: {
     ]);
   });
 };
-

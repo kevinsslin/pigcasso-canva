@@ -62,6 +62,7 @@ export const CanvasChatPanel = ({
   onOpenMentionPicker,
   onDesktopMentionButtonClick,
   onMobileMentionButtonClick,
+  onClearQueuedJobs,
 }: {
   desktopOpen: boolean;
   onDesktopOpenChange: (open: boolean) => void;
@@ -105,6 +106,7 @@ export const CanvasChatPanel = ({
   onOpenMentionPicker: (input: HTMLTextAreaElement) => void;
   onDesktopMentionButtonClick: () => void;
   onMobileMentionButtonClick: () => void;
+  onClearQueuedJobs?: () => void;
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const openFilePicker = () => fileInputRef.current?.click();
@@ -140,6 +142,9 @@ export const CanvasChatPanel = ({
     return `${active} running`;
   }, [busyCounts]);
 
+  const queuedCount = Math.max(0, Math.floor(busyCounts?.queued ?? 0));
+  const canClearQueued = queuedCount > 0 && typeof onClearQueuedJobs === "function";
+
   return (
     <>
       <input
@@ -157,7 +162,7 @@ export const CanvasChatPanel = ({
       />
 
       {desktopOpen ? (
-        <aside className="hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[520px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
+        <aside className="pigcasso-paper-lines hidden md:flex absolute right-4 top-16 bottom-4 z-40 w-[520px] max-w-[calc(100vw-24px)] rounded-2xl border border-border/60 bg-card/90 backdrop-blur shadow-soft overflow-hidden flex-col">
           <div className="p-4 border-b border-border/60 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -340,7 +345,21 @@ export const CanvasChatPanel = ({
                         {elapsedLabel ? <span className="text-xs tabular-nums">{elapsedLabel}</span> : null}
                       </div>
                       {countsLabel ? (
-                        <div className="mt-1 text-[11px] text-muted-foreground">{countsLabel}</div>
+                        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span>{countsLabel}</span>
+                          {canClearQueued ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={onClearQueuedJobs}
+                              disabled={disabled}
+                            >
+                              Clear queued
+                            </Button>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -485,7 +504,7 @@ export const CanvasChatPanel = ({
 
     <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
       <DialogContent className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-0 gap-0">
-        <div className="flex h-full flex-col bg-background">
+        <div className="pigcasso-paper-lines flex h-full flex-col bg-background">
           <div className="shrink-0 border-b border-border/60 bg-background/80 backdrop-blur p-4 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -688,7 +707,21 @@ export const CanvasChatPanel = ({
                           {elapsedLabel ? <span className="text-xs tabular-nums">{elapsedLabel}</span> : null}
                         </div>
                         {countsLabel ? (
-                          <div className="mt-1 text-[11px] text-muted-foreground">{countsLabel}</div>
+                          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                            <span>{countsLabel}</span>
+                            {canClearQueued ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={onClearQueuedJobs}
+                                disabled={disabled}
+                              >
+                                Clear queued
+                              </Button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     </div>

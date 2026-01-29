@@ -347,14 +347,27 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
   }, [open]);
 
   useEffect(() => {
-    if (!open) {
+    if (!open && !position) {
       return;
     }
-    const onResize = () => applyPanelPositionToDom();
+    const onResize = () => {
+      if (open) {
+        applyPanelPositionToDom();
+      }
+      if (!position || !containerRef.current) {
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      setPosition((prev) => {
+        if (!prev) return prev;
+        return clampToViewport(prev, { w: rect.width, h: rect.height });
+      });
+    };
+
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, position]);
 
   useEffect(() => {
     if (!open || typeof window === "undefined" || !("ResizeObserver" in window)) {
@@ -371,26 +384,6 @@ export const PigcassoAssistant = ({ editor }: { editor: Editor | undefined }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  useEffect(() => {
-    if (!position) {
-      return;
-    }
-
-    const onResize = () => {
-      if (!containerRef.current) {
-        return;
-      }
-      const rect = containerRef.current.getBoundingClientRect();
-      setPosition((prev) => {
-        if (!prev) return prev;
-        return clampToViewport(prev, { w: rect.width, h: rect.height });
-      });
-    };
-
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position]);
 
   const DRAG_THRESHOLD_PX = 6;
 

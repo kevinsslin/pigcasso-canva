@@ -7,6 +7,12 @@ import type { Editor as TldrawEditor } from "tldraw";
 import { toNanoBananaApiProfile, type NanoBananaProfileOption } from "@/features/ai/lib/nano-banana-profile";
 import type { AiJobQueue } from "@/features/canvases/lib/ai-job-queue";
 import { buildCanvasChatContextAttachments } from "@/features/canvases/lib/chat-context-attachments";
+import {
+  getMaxShapeDimension,
+  getSelectedImagePlacement,
+  resolveImageSize,
+  updateAssetOriginalSrc,
+} from "@/features/canvases/lib/ai-image-helpers";
 import { getSelectionContext } from "@/features/canvases/lib/selection-context";
 import { isImageVariationPrompt, stripImageVariationPrompt } from "@/features/canvases/lib/prompt-intent";
 import { toCanvasImageUrl, unwrapCanvasImageProxyUrl } from "@/features/canvases/lib/image-proxy";
@@ -276,47 +282,24 @@ export const useCanvasSendMessage = ({
               const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_variation_${Date.now()}.png`);
               const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-              const point = (() => {
-                try {
-                  const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-                  if (bounds && typeof bounds === "object") {
-                    return {
-                      x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-                      y: bounds.y + bounds.h * 0.5,
-                    };
-                  }
-                } catch {
-                  // ignore
-                }
-                return options?.point ?? getAiInsertPoint(editor as any);
-              })();
+              const placement = getSelectedImagePlacement(editor as any, selectedShape, {
+                fallbackPoint: options?.point,
+              });
+              const resolvedSize = resolveImageSize(selectedShape, asset);
+              const maxShapeDimension = getMaxShapeDimension(resolvedSize);
 
               updateAiUiJobLabel(uiJobId, "Placing on canvas…");
               const inserted = await withAiCommit(() =>
                 withHistorySquash(editor as any, "ai:variation", async () => {
                   const created = await insertImageToCanvas(editor as any, {
                     src: canvasUrl,
-                    point,
+                    point: placement.point,
                     name: `pigcasso_variation_${Date.now()}.png`,
-                    size: {
-                      w: Number(asset?.props?.w) || 1024,
-                      h: Number(asset?.props?.h) || 1024,
-                    },
+                    size: resolvedSize,
+                    maxShapeDimension,
                   });
 
-                  try {
-                    const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-                    if (createdAsset) {
-                      editor.updateAssets?.([
-                        {
-                          ...createdAsset,
-                          meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                        },
-                      ]);
-                    }
-                  } catch {
-                    // ignore
-                  }
+                  updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
 
                   return created;
                 }),
@@ -355,47 +338,24 @@ export const useCanvasSendMessage = ({
             const uploadedUrl = await uploadImageDataUrl(res.data, `pigcasso_edit_${Date.now()}.png`);
             const canvasUrl = toCanvasImageUrl(uploadedUrl);
 
-            const point = (() => {
-              try {
-                const bounds = editor.getShapePageBounds?.(selectedShapeId as any) as any;
-                if (bounds && typeof bounds === "object") {
-                  return {
-                    x: bounds.x + bounds.w + Math.max(80, bounds.w * 0.2),
-                    y: bounds.y + bounds.h * 0.5,
-                  };
-                }
-              } catch {
-                // ignore
-              }
-              return options?.point ?? getAiInsertPoint(editor as any);
-            })();
+            const placement = getSelectedImagePlacement(editor as any, selectedShape, {
+              fallbackPoint: options?.point,
+            });
+            const resolvedSize = resolveImageSize(selectedShape, asset);
+            const maxShapeDimension = getMaxShapeDimension(resolvedSize);
 
             updateAiUiJobLabel(uiJobId, "Placing on canvas…");
             const inserted = await withAiCommit(() =>
               withHistorySquash(editor as any, "ai:edit-image", async () => {
                 const created = await insertImageToCanvas(editor as any, {
                   src: canvasUrl,
-                  point,
+                  point: placement.point,
                   name: `pigcasso_edit_${Date.now()}.png`,
-                  size: {
-                    w: Number(asset?.props?.w) || 1024,
-                    h: Number(asset?.props?.h) || 1024,
-                  },
+                  size: resolvedSize,
+                  maxShapeDimension,
                 });
 
-                try {
-                  const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-                  if (createdAsset) {
-                    editor.updateAssets?.([
-                      {
-                        ...createdAsset,
-                        meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                      },
-                    ]);
-                  }
-                } catch {
-                  // ignore
-                }
+                updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
 
                 return created;
               }),
@@ -441,30 +401,18 @@ export const useCanvasSendMessage = ({
 
           const point = options?.point ?? getAiInsertPoint(editor as any);
           updateAiUiJobLabel(uiJobId, "Placing on canvas…");
-          const inserted = await withAiCommit(() =>
-            withHistorySquash(editor as any, "ai:insert-image", async () => {
-              const created = await insertImageToCanvas(editor as any, {
-                src: canvasUrl,
-                point,
-                name: `pigcasso_${Date.now()}.png`,
-                size: { w: 1024, h: 1024 },
-              });
-              try {
-                const createdAsset = editor.getAsset?.(created.assetId as any) as any;
-                if (createdAsset) {
-                  editor.updateAssets?.([
-                    {
-                      ...createdAsset,
-                      meta: { ...(createdAsset.meta ?? {}), originalSrc: uploadedUrl },
-                    },
-                  ]);
-                }
-              } catch {
-                // ignore
-              }
-              return created;
-            }),
-          );
+            const inserted = await withAiCommit(() =>
+              withHistorySquash(editor as any, "ai:insert-image", async () => {
+                const created = await insertImageToCanvas(editor as any, {
+                  src: canvasUrl,
+                  point,
+                  name: `pigcasso_${Date.now()}.png`,
+                  size: { w: 1024, h: 1024 },
+                });
+                updateAssetOriginalSrc(editor as any, created.assetId, uploadedUrl);
+                return created;
+              }),
+            );
 
           try {
             editor.zoomToSelectionIfOffscreen?.(120, { animation: { duration: 220 } } as any);

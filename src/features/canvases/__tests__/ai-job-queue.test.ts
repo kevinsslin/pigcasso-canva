@@ -49,6 +49,34 @@ describe("createAiJobQueue", () => {
     const values = await Promise.all(results);
     expect(values.sort()).toEqual([0, 1, 2]);
   });
+
+  test("clears queued jobs without running them", async () => {
+    const queue = createAiJobQueue({ concurrency: 1 });
+
+    let ran = 0;
+    const first = deferred<void>();
+
+    const firstPromise = queue.enqueue(async () => {
+      ran += 1;
+      await first.promise;
+    });
+
+    const secondPromise = queue.enqueue(async () => {
+      ran += 1;
+    });
+
+    await Promise.resolve();
+
+    expect(queue.getCounts()).toEqual({ active: 1, queued: 1 });
+    expect(queue.clearQueued()).toBe(1);
+    expect(queue.getCounts()).toEqual({ active: 1, queued: 0 });
+
+    first.resolve();
+    await firstPromise;
+    await secondPromise;
+
+    expect(ran).toBe(1);
+  });
 });
 
 describe("createAiJobMutex", () => {
@@ -96,4 +124,3 @@ describe("createAiJobMutex", () => {
     expect(order).toEqual(["start1", "end1", "start2", "end2"]);
   });
 });
-
